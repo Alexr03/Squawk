@@ -8,13 +8,16 @@ import { execSync } from 'node:child_process';
 const VERSION = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version as string;
 const git = (cmd: string) => { try { return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } };
 const COMMIT = (process.env.CF_PAGES_COMMIT_SHA ?? process.env.GITHUB_SHA ?? git('git rev-parse HEAD')).slice(0, 7) || 'dev';
-// Build number: the commit count, so every commit bumps it automatically (SemVer build metadata: 0.9.0+123).
-const BUILD = git('git rev-list --count HEAD') || '0';
+// Version: MAJOR.MINOR from package.json; PATCH = commits since that version was set (counts up by itself), then +commit.
+const SINCE = git('git log -n 1 --format=%H -G"\"version\"" -- :/package.json'); // root-relative, whatever directory the build runs from
+const BUILD = (SINCE ? git(`git rev-list --count ${SINCE}..HEAD`) : git('git rev-list --count HEAD')) || '0';
+const [MAJOR, MINOR] = VERSION.split('.');
+const FULL = `${MAJOR}.${MINOR}.${BUILD}`;
 const DIRTY = !process.env.CF_PAGES_COMMIT_SHA && !process.env.GITHUB_SHA && git('git status --porcelain') !== '';
 
 export default defineConfig({
   define: {
-    __APP_VERSION__: JSON.stringify(VERSION),
+    __APP_VERSION__: JSON.stringify(FULL),
     __APP_COMMIT__: JSON.stringify(COMMIT + (DIRTY ? '+' : '')),
     __APP_BUILD__: JSON.stringify(BUILD),
     __APP_BUILT__: JSON.stringify(new Date().toISOString().slice(0, 10)),

@@ -1,6 +1,6 @@
 # Changelog
 
-Squawk follows [Semantic Versioning](https://semver.org): **MAJOR** for changes that break saved progress or shared replays, **MINOR** for new features and content, **PATCH** for fixes. Cut a release with `node tools/release.mjs <major|minor|patch>`.
+Squawk follows [Semantic Versioning](https://semver.org): **MAJOR** for changes that break saved progress or shared replays, **MINOR** for new features and content, the **PATCH** number counts commits since the version was set, automatically. Start a new version with `node tools/release.mjs <major|minor>`.
 
 ## Unreleased
 

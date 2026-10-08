@@ -126,13 +126,13 @@ node tools/careercheck.ts                     # every career shift and a week of
 
 ## Versioning
 
-Squawk follows [Semantic Versioning](https://semver.org). The version lives in the root `package.json`; the build number after the `+` (as in `0.9.0+123`) is the commit count, so it goes up automatically with every commit. Both are shown on the home screen, in **Settings → About** (with the commit it was built from) and in the pause menu.
+Squawk follows [Semantic Versioning](https://semver.org) with an automatic patch number. `package.json` holds the major and minor version; the patch number is the count of commits since that version was set, and the build commit follows a `+`, as in `0.9.16+84e6d83`. It is shown on the home screen, in **Settings → About** and in the pause menu.
 
 - **MAJOR** — changes that break saved progress or shared replays
 - **MINOR** — new features, airports, positions or content
-- **PATCH** — fixes and tuning
+- **PATCH** — automatic: every commit since the last minor or major
 
-Cut a release with `pnpm release patch` (or `minor` / `major`): it bumps the version, opens a section in [CHANGELOG.md](CHANGELOG.md), commits and tags `vX.Y.Z`. Push with `git push --follow-tags`.
+Start a new version with `pnpm release minor` (or `major`): it sets `package.json`, opens a section in [CHANGELOG.md](CHANGELOG.md), commits and tags `vX.Y.0`. Push with `git push --follow-tags`. Patch numbers then count up by themselves.
 
 ## Deploying
 

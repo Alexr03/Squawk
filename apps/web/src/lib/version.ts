@@ -4,5 +4,5 @@ export const COMMIT = typeof __APP_COMMIT__ === 'string' ? __APP_COMMIT__ : 'dev
 export const BUILD = typeof __APP_BUILD__ === 'string' ? __APP_BUILD__ : '0';
 export const BUILT = typeof __APP_BUILT__ === 'string' ? __APP_BUILT__ : '';
 export const REPO = 'https://github.com/Alexr03/Squawk';
-/** "v0.9.0+123 · a1b2c3d" */
-export const versionLabel = `v${VERSION}+${BUILD} · ${COMMIT}`;
+/** "v0.9.12+a1b2c3d": the patch number counts commits since the version was last set. */
+export const versionLabel = `v${VERSION}+${COMMIT}`;

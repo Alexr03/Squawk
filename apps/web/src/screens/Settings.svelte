@@ -1,7 +1,7 @@
 <script lang="ts">
   import { settings, saveSettings } from '../lib/settings.svelte.ts';
   import { createRadioAudio } from '../audio/radio.ts';
-  import { BUILD, BUILT, COMMIT, REPO, VERSION } from '../lib/version.ts';
+  import { BUILT, COMMIT, REPO, VERSION } from '../lib/version.ts';
   interface Props { onBack: () => void }
   let { onBack }: Props = $props();
 
@@ -154,8 +154,8 @@
       {:else if tab === 'about'}
         <section>
           <h2>Squawk</h2>
-          <div class="row"><div class="lab"><b>Version</b><span>Semantic versioning: major.minor.patch</span></div><div class="ctl"><output class="wide">{VERSION}+{BUILD}</output></div></div>
-          <div class="row"><div class="lab"><b>Build {BUILD}</b><span>{BUILT ? `Built ${BUILT}, ` : ''}counts up with every commit</span></div>
+          <div class="row"><div class="lab"><b>Version</b><span>Major.minor; the last number counts commits since that version</span></div><div class="ctl"><output class="wide">{VERSION}</output></div></div>
+          <div class="row"><div class="lab"><b>Build</b><span>{BUILT ? `Built ${BUILT}` : 'Development build'}</span></div>
             <div class="ctl">{#if /^[0-9a-f]{7}$/.test(COMMIT)}<a class="act" href="{REPO}/commit/{COMMIT}" target="_blank" rel="noopener">{COMMIT}</a>{:else}<output class="wide">{COMMIT}</output>{/if}</div></div>
           <div class="row"><div class="lab"><b>Source and release notes</b><span>github.com/Alexr03/Squawk</span></div><div class="ctl"><a class="act" href={REPO} target="_blank" rel="noopener">Open on GitHub</a></div></div>
         </section>
