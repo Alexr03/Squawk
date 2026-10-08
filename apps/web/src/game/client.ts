@@ -103,7 +103,8 @@ export class GameClient extends ShiftClient {
     super(packs, cfg);
     this.worker = new Worker(new URL('../worker.ts', import.meta.url), { type: 'module' });
     this.worker.onmessage = (e: MessageEvent<FromWorker>) => this.receive(e.data);
-    this.send(from ? { t: 'resume', packs, cfg: this.cfg, st: from } : { t: 'init', packs, cfg: this.cfg });
+    const simPacks = packs.map(({ scenery: _, ...p }) => p); // the sim has no use for scenery
+    this.send(from ? { t: 'resume', packs: simPacks, cfg: this.cfg, st: from } : { t: 'init', packs: simPacks, cfg: this.cfg });
   }
 
   private send(m: ToWorker) { this.worker.postMessage(m); }

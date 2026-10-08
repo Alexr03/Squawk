@@ -69,3 +69,11 @@ Choices made where PLAN.md is silent, or where milestone 1 deliberately cuts a c
 - **Precached:** `./`, the manifest, the icons, and every JS, CSS and woff2 file in the build. **Not precached:** the data packs, which are cached on first use, cache-first, since their names are hashed. Also left out are the audio/render test pages and the transformers chunk and its ONNX/wasm files. The service worker never touches those, and transformers.js caches its models itself. Navigations are network-first, so a new release shows up on the next load and the cached shell is the offline fallback.
 - **One version-free `squawk-assets` cache** keeps the data packs across releases, and it is never pruned (a few MB per release). Shell caches are versioned and the old ones are deleted on activate.
 - **Icons** are a 32×32 pixel-art radar scope, drawn by `tools/icons.mjs` using only Node built-ins (zlib deflate and crc32). The maskable icon keeps the art inside the safe zone. They're committed under `apps/web/public/icons`.
+- **Scenery is stored in its own file, `data/airports/<ICAO>/scenery.json`.** It comes from `tools/pipeline/scenery.ts`, which `airport.ts` runs after writing the pack. It holds OSM landuse, roads, rail and buildings in a box around the airfield, sized by the airfield's extent (about ±7 × ±4 km at Heathrow). Coordinates are rounded to 1 m and delta-encoded, so every pack stays under 2.5 MB. The format is decoded by `decodeScenery` from `@squawk/render`. `lib/data.ts` attaches the result as the optional `AirportPack.scenery`, and the game client strips it before posting packs to the sim worker. `airport.json` is unchanged.
+- **Airside pavement uses heuristics, because OSM maps Heathrow's aprons as strips by the piers.** Every stand gets a paved box sized by wake, apron lanes are 64 m wide, and taxiways get 10 m concrete shoulders and filleted junctions. Together these give the continuous concrete seen in aerial photos.
+- **Scenery rendering:**
+  - Landuse is one mesh, largest polygons first, with per-kind patterns in the shader.
+  - Roads are one mesh with lane markings.
+  - Traffic is GPU-animated points: cars by day, white and red light streams at night.
+  - Street lights are additive points.
+  - Buildings are merged per 1 km tile and share the terminal material, so they get lit windows. Houses and sheds drop out above 4 m/px.
