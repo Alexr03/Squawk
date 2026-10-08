@@ -5,7 +5,7 @@ import { aptOf, aptState, enterHold, flowPenalty, lineupPath } from './physics.t
 import { DT, rand, seatApt, seatId, seatRole, ticks, type Aircraft, type SeatId, type State } from './state.ts';
 import { newSquawk, sidFor } from './traffic.ts';
 import type { Command, Msg, PilotCall, Seat, Verb } from './types.ts';
-import { route, runwayAt, viaNames, type World } from './world.ts';
+import { along, route, runwayAt, viaNames, type World } from './world.ts';
 
 const ROLE_VERBS: Record<Seat, Verb[]> = {
   DEL: ['clearance', 'contact', 'negative', 'sayagain', 'unable'],
@@ -104,11 +104,15 @@ export function validate(world: World, st: State, seat: SeatId, ac: Aircraft | u
 }
 
 /** Is a runway clear of landing/departing traffic for the next `secs` seconds? */
-export function runwayFree(world: World, st: State, icao: string, pair: string, secs: number): boolean {
+export function runwayFree(world: World, st: State, icao: string, pair: string, secs: number, at?: { x: number; y: number }): boolean {
   const apt = world.byIcao[icao];
   for (const o of st.aircraft) {
     if (o.apt !== icao || !o.runway || apt.ends[o.runway]?.runway !== pair) continue;
-    if (o.phase === 'takeoff' || o.phase === 'landing' || o.phase === 'lined' || o.phase === 'lineup') return false;
+    const end = apt.ends[o.runway];
+    // A take-off or landing roll that has already passed the crossing point is no obstacle.
+    const passed = at && (o.phase === 'takeoff' || o.phase === 'landing') && o.s > along(end, at) + 80;
+    if ((o.phase === 'takeoff' || o.phase === 'landing') && !passed) return false;
+    if ((o.phase === 'lined' || o.phase === 'lineup') && (o.cleared.cto || !at)) return false;
     if ((o.phase === 'final' || o.nav.established) && !o.onGround) {
       const end = apt.ends[o.runway];
       const toThr = dist(o, end.thr) / NM;

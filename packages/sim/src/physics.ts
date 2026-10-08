@@ -81,7 +81,7 @@ function following(apt: Apt, ac: Aircraft, o: Aircraft, j: number): boolean {
 }
 
 /** How far this aircraft may move along its path before it must stop, and who (if anyone) it's waiting for. Updates its locks. */
-function clearance(st: State, apt: Apt, ac: Aircraft): { d: number; by: string | null } {
+function clearance(st: State, apt: Apt, ac: Aircraft): { d: number; by: string | null; at: number } {
   const t = TYPES[ac.type];
   const m = locks(st, ac.apt);
   const tail = t.lengthM / 2 + 15;
@@ -98,31 +98,42 @@ function clearance(st: State, apt: Apt, ac: Aircraft): { d: number; by: string |
   for (let j = ac.pi; j < ac.path.length; j++) {
     const n = ac.path[j];
     if (j > ac.pi) d += dist(apt.nodes[ac.path[j - 1]], apt.nodes[n]);
-    if (d > lookahead) return { d: Infinity, by: null };
-    if (ac.holdAt === n) return { d, by: null };
-    const owner = m.get(n);
-    if (owner && owner !== ac.cs && owner !== ac.ghost) {
+    if (d > lookahead) return { d: Infinity, by: null, at: -1 };
+    if (ac.holdAt === n) return { d, by: null, at: j };
+    // The node itself, and nodes physically close to it, must be free of other aircraft's locks.
+    for (const k of [n, ...apt.near[n]]) {
+      const owner = m.get(k);
+      if (!owner || owner === ac.cs || owner === ac.ghost) continue;
       const o = st.aircraft.find(x => x.cs === owner);
-      if (o && o.ghost !== ac.cs && !following(apt, ac, o, j)) return { d: d - (t.spanM / 2 + 14), by: owner };
+      if (!o || o.ghost === ac.cs) continue;
+      if (k === n ? following(apt, ac, o, j) : (o.path.includes(n) && following(apt, ac, o, j))) continue;
+      if (k !== n && ac.path.slice(Math.max(0, ac.pi - 1), j).includes(k)) continue;
+      return { d: d - (t.spanM / 2 + 14), by: owner, at: j };
     }
     if (!ac.claims.includes(n)) { ac.claims.push(n); if (!m.has(n)) m.set(n, ac.cs); }
     const next = ac.path[j + 1];
-    if (next === undefined) return { d, by: null };
+    if (next === undefined) return { d, by: null, at: -1 };
     const rw = apt.onRunway.get(next);
     if (rw && !apt.onRunway.has(n) && ac.phase !== 'vacating') {
       // Entering a runway: needs a clearance, and (unless lining up) the far side free to vacate onto.
-      if (!ac.cleared.cross.includes(rw)) return { d, by: null };
+      if (!ac.cleared.cross.includes(rw)) return { d, by: null, at: j };
       if (ac.phase !== 'lineup') {
+        // Room beyond the runway for the whole aircraft plus a margin, free of locks and traffic.
         let k = j + 1;
         while (k < ac.path.length && apt.onRunway.has(ac.path[k])) k++;
-        for (let q = k; q < Math.min(ac.path.length, k + 3); q++) {
+        let room = 0;
+        for (let q = k; q < ac.path.length && room < t.lengthM + 90; q++) {
+          if (q > k) room += dist(apt.nodes[ac.path[q - 1]], apt.nodes[ac.path[q]]);
+          const node = apt.nodes[ac.path[q]];
           const l = m.get(ac.path[q]);
-          if (l && l !== ac.cs) return { d, by: l };
+          if (l && l !== ac.cs) return { d, by: l, at: j };
+          const near = st.aircraft.find(o => o !== ac && o.onGround && o.apt === ac.apt && o.phase !== 'parked' && o.phase !== 'stand' && dist(o, node) < 45);
+          if (near) return { d, by: near.cs, at: j };
         }
       }
     }
   }
-  return { d, by: null };
+  return { d, by: null, at: -1 };
 }
 
 /** Nearest aircraft physically on our path ahead (queueing distance), within 250 m. */
@@ -218,7 +229,8 @@ export function moveGround(world: World, st: State, ac: Aircraft) {
         step = stepToward(ac, n, step, ac.towing);
         if (dist(ac, n) < 1) {
           ac.x = n.x; ac.y = n.y;
-          if (ac.holdAt === n.id) { ac.gs = 0; break; }
+          // Stop points (hold short, runway entry without clearance, a lock beyond): wait here, don't pass the node.
+          if (ac.holdAt === n.id || c.at === ac.pi) { ac.gs = 0; break; }
           ac.pi++;
         }
       }

@@ -118,6 +118,7 @@ export interface ScoreEvent {
   text: string;
   cs: string[];
   x?: number; y?: number;
+  ai?: boolean;                // caused entirely by AI controllers (not scored)
 }
 
 export interface Weather {

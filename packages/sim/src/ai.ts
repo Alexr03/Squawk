@@ -133,7 +133,7 @@ function handTo2(world: World, st: State, ac: Aircraft, seat: 'TWR') {
   // Crossing: Ground passes the aircraft to Tower, who hands it back once across.
   if (human(st, seatId(ac.apt, 'TWR'))) { issue(world, st, ac.owner, [{ cs: ac.cs, verb: 'contact', seat }], { auto: true }); return; }
   const rw = entryRunway(world, ac);
-  if (rw && runwayFree(world, st, ac.apt, rw, 60)) say(world, st, ac, [{ cs: ac.cs, verb: 'cross', runway: rw }]);
+  if (rw && runwayFree(world, st, ac.apt, rw, 60, ac)) say(world, st, ac, [{ cs: ac.cs, verb: 'cross', runway: rw }]);
 }
 
 export const isDark = (st: State) => {
@@ -187,6 +187,9 @@ function atRunwayEntry(world: World, ac: Aircraft) {
 /** Two aircraft nose to nose: re-route one of them away from the other. */
 function unjam(world: World, st: State, ac: Aircraft) {
   if (ac.stoppedS < 25 || !ac.blockedBy) return;
+  // Long stall behind anyone (AI only): pass through.
+  const blk = find(st, ac.blockedBy);
+  if (ac.stoppedS > 150 && blk && !human(st, blk.owner) && !ac.ghost) { ac.ghost = blk.cs; ac.stoppedS = 0; return; }
   // Follow the chain of who-is-waiting-for-whom; act only if it loops back (a real deadlock).
   const chain: Aircraft[] = [ac];
   let cur: Aircraft | undefined = ac;
@@ -256,7 +259,7 @@ function tower(world: World, st: State, ac: Aircraft) {
   if (ac.phase === 'holding' && ac.checkedIn && !ac.cleared.luw && !ac.cleared.cto) { departures(world, st, ac); return; }
   if (ac.phase === 'lined' && ac.cleared.luw && !ac.cleared.cto) {
     const end = apt.ends[ac.runway!];
-    const busy = st.aircraft.some(o => o !== ac && o.runway && apt.ends[o.runway]?.runway === end.runway && (o.phase === 'takeoff' || o.phase === 'landing'));
+    const busy = st.aircraft.some(o => o !== ac && ((o.runway && apt.ends[o.runway]?.runway === end.runway && (o.phase === 'takeoff' || o.phase === 'landing')) || (o.onGround && o.phase !== 'holding' && runwayAt(apt, o) === end.runway)));
     const landingSoon = st.aircraft.some(o => o.kind === 'arr' && o.runway && apt.ends[o.runway]?.runway === end.runway && o.nav.established && dist(o, apt.ends[o.runway].thr) < 3 * NM);
     if (!busy && !landingSoon && depGap(world, st, ac) === 0) say(world, st, ac, [{ cs: ac.cs, verb: 'cto', runway: ac.runway! }]);
     return;
@@ -275,7 +278,7 @@ function entryRunwayPending(world: World, ac: Aircraft) { return !!entryRunway(w
 
 function crossings(world: World, st: State, ac: Aircraft) {
   const rw = entryRunway(world, ac);
-  if (rw && !ac.cleared.cross.includes(rw) && ac.gs < 3 && runwayFree(world, st, ac.apt, rw, 75))
+  if (rw && !ac.cleared.cross.includes(rw) && ac.gs < 3 && runwayFree(world, st, ac.apt, rw, 75, ac))
     say(world, st, ac, [{ cs: ac.cs, verb: 'cross', runway: rw }]);
   // Once across, back to Ground.
   if (!rw && ac.cleared.cross.length && !runwayAt(aptOf(world, ac), ac) && ac.kind === 'dep' && ac.phase === 'taxi') {
@@ -287,6 +290,9 @@ function crossings(world: World, st: State, ac: Aircraft) {
 function departures(world: World, st: State, ac: Aircraft) {
   const apt = aptOf(world, ac);
   const end = apt.ends[ac.runway!];
+  // Crossing traffic that has been waiting gets the next gap.
+  const crossers = st.aircraft.some(o => o.apt === ac.apt && o.onGround && o.stoppedS > 30 && !o.blockedBy && (o.phase === 'taxi' || o.phase === 'taxiin') && entryRunway(world, o) === end.runway);
+  if (crossers) return;
   const onRunway = st.aircraft.some(o => o !== ac && o.runway && apt.ends[o.runway]?.runway === end.runway && (o.phase === 'lineup' || o.phase === 'lined' || (o.phase === 'holding' && (o.cleared.luw || o.cleared.cto))))
     || st.pending.some(p => p.cs !== ac.cs && p.apply?.some(c => c.verb === 'luw' || c.verb === 'cto'));
   if (onRunway) return;

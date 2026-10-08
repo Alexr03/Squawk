@@ -25,6 +25,8 @@ export interface Apt {
   standByRef: Record<string, Stand & { x: number; y: number }>;
   /** Node indices that sit on a runway (within the runway strip), keyed by runway pair. */
   onRunway: Map<number, string>;
+  /** Nodes within 35 m of each node (occupancy locks cover these too). */
+  near: number[][];
   fixes: Record<string, Fix>;
   freq: Record<Seat, { callsign: string; freq: string }>;
   terminalFor(operator: string): string;
@@ -87,9 +89,18 @@ function buildApt(pack: AirportPack, off: XY): Apt {
   const freq = {} as Apt['freq'];
   for (const f of pack.frequencies) if (!freq[f.seat]) freq[f.seat] = { callsign: f.callsign, freq: f.freq };
   const stands = pack.stands.map(s => ({ ...s, ...o(s) }));
+  // Spatial neighbours via a coarse grid.
+  const cell = (v: number) => Math.floor(v / 40);
+  const grid = new Map<string, number[]>();
+  for (const n of nodes) { const k = cell(n.x) + ',' + cell(n.y); if (!grid.has(k)) grid.set(k, []); grid.get(k)!.push(n.id); }
+  const near = nodes.map(n => {
+    const out: number[] = [];
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (const m of grid.get((cell(n.x) + dx) + ',' + (cell(n.y) + dy)) ?? []) if (m !== n.id && dist(nodes[m], n) < 35) out.push(m);
+    return out;
+  });
   return {
     icao: pack.icao, pack, offset: off, nodes, adj, edges, ends, runways, stands,
-    standByRef: Object.fromEntries(stands.map(s => [s.ref, s])), onRunway, fixes, freq,
+    standByRef: Object.fromEntries(stands.map(s => [s.ref, s])), onRunway, near, fixes, freq,
     terminalFor: op => pack.airlineTerminals[op] ?? '',
     fire: pack.fireStation ? o(pack.fireStation) : o({ x: 0, y: 0 }),
   };
@@ -144,7 +155,15 @@ function astar(apt: Apt, from: number, goal: (n: number) => boolean, target: XY,
       if (closed.has(to) || (edgeOk && !edgeOk(edge))) continue;
       const e = apt.edges[edge];
       let cost = e.len;
-      if (e.runway) cost += opts.allowRunway?.(e.runway) ? e.len * 2 : e.len * 40 + 4000;
+      if (e.runway) {
+        if (opts.allowRunway?.(e.runway)) cost += e.len * 2;
+        else {
+          // Crossing a runway is allowed; taxiing along one is not.
+          const rw = apt.runways.find(r => r.name === e.runway);
+          if (rw && Math.abs(Math.sin((bearing(apt.nodes[cur], apt.nodes[to]) - bearing(rw.a, rw.b)) * Math.PI / 180)) < 0.5) continue;
+          cost += e.len * 40 + 4000;
+        }
+      }
       // Discourage sharp turns (aircraft can't pivot on the spot).
       if (prev !== undefined) {
         const turn = Math.abs(angleDiff(bearing(apt.nodes[prev], apt.nodes[cur]), bearing(apt.nodes[cur], apt.nodes[to])));

@@ -8,8 +8,15 @@ import { DT, rand, seatId, seatRole, ticks, type Aircraft, type ScoreEvent, type
 import type { Seat } from './types.ts';
 import { runwayAt, type World } from './world.ts';
 
+/** Is the player responsible for any of these aircraft (working them on one of their seats)? */
+export function blame(st: State, cs: string[]): boolean {
+  return cs.some(c => { const a = st.aircraft.find(x => x.cs === c); return !!a && st.coverage.includes(a.owner); });
+}
+/** Count a penalty statistic only when the player is responsible. */
+export function penal(st: State, cs: string[], key: keyof State['stats']) { if (blame(st, cs)) (st.stats[key] as number)++; }
+
 export function event(st: State, e: Omit<ScoreEvent, 'tick'>) {
-  st.events.push({ tick: st.tick, ...e });
+  st.events.push({ tick: st.tick, ...e, ...(blame(st, e.cs) ? {} : { ai: true }) } as ScoreEvent);
   st.alerts.push({ tick: st.tick, level: e.severity >= 3 ? 'conflict' : 'caution', text: e.text, cs: e.cs[0] });
 }
 
@@ -19,14 +26,14 @@ export function startRolls(world: World, st: State) {
     if (ac.phase !== 'lined' || !ac.cleared.cto || st.tick < ac.actAt) continue;
     const apt = aptOf(world, ac), as = aptState(st, ac.apt);
     const pair = apt.ends[ac.runway!].runway;
-    const blocker = st.aircraft.find(o => o !== ac && o.runway && apt.ends[o.runway]?.runway === pair && (o.phase === 'takeoff' || o.phase === 'landing'));
+    const blocker = st.aircraft.find(o => o !== ac && ((o.runway && apt.ends[o.runway]?.runway === pair && (o.phase === 'takeoff' || o.phase === 'landing')) || (o.onGround && o.phase !== 'holding' && o.phase !== 'lineup' && runwayAt(apt, o) === pair)));
     if (blocker) {
-      st.stats.runwayLoss++;
+      penal(st, [ac.cs, blocker.cs], 'runwayLoss');
       event(st, { kind: 'runway', severity: 4, text: `Runway ${pair}: ${ac.cs} rolling with ${blocker.cs} on the runway`, cs: [ac.cs, blocker.cs], x: ac.x, y: ac.y });
     } else {
       const gap = depGap(world, st, ac);
       if (gap > 0 && gap !== Infinity) {
-        st.stats.wakeInf++;
+        penal(st, [ac.cs], 'wakeInf');
         event(st, { kind: 'wake', severity: 2, text: `${ac.cs} departed ${Math.ceil(gap)} s inside the required gap behind ${as.lastDep[ac.runway!]?.cs}`, cs: [ac.cs], x: ac.x, y: ac.y });
       }
     }
@@ -48,7 +55,7 @@ export function thresholdCheck(world: World, st: State, ac: Aircraft) {
     if (!ac.cleared.land) return 'no-clearance';
     const busy = st.aircraft.find(o => o !== ac && o.onGround && runwayAt(apt, o) === end.runway && o.phase !== 'holding');
     if (busy) {
-      st.stats.runwayLoss++;
+      penal(st, [ac.cs, busy.cs], 'runwayLoss');
       event(st, { kind: 'runway', severity: 4, text: `Runway ${end.runway}: ${ac.cs} landed with ${busy.cs} on the runway`, cs: [ac.cs, busy.cs], x: ac.x, y: ac.y });
     }
     // Touchdown.
@@ -90,7 +97,7 @@ export function separation(world: World, st: State) {
       if (d < need) {
         const key = `${lead.cs}|${follow.cs}|w`;
         live.add(key);
-        if (!(key in st.sepActive)) { st.sepActive[key] = st.tick; st.stats.wakeInf++; event(st, { kind: 'wake', severity: 2, text: `Wake spacing: ${follow.cs} ${(d / NM).toFixed(1)} nm behind ${lead.cs} (needs ${(need / NM + 0.25).toFixed(0)} nm)`, cs: [follow.cs, lead.cs], x: follow.x, y: follow.y }); }
+        if (!(key in st.sepActive)) { st.sepActive[key] = st.tick; penal(st, [follow.cs, lead.cs], 'wakeInf'); event(st, { kind: 'wake', severity: 2, text: `Wake spacing: ${follow.cs} ${(d / NM).toFixed(1)} nm behind ${lead.cs} (needs ${(need / NM + 0.25).toFixed(0)} nm)`, cs: [follow.cs, lead.cs], x: follow.x, y: follow.y }); }
         stca[key] = 'caution'; mark(follow, 'caution');
       }
       req = Math.min(req, 2.5 * NM);
@@ -102,11 +109,11 @@ export function separation(world: World, st: State) {
       stca[key] = 'conflict'; mark(a, 'conflict'); mark(b, 'conflict');
       if (!(key in st.sepActive)) {
         st.sepActive[key] = st.tick;
-        st.stats.sepLoss++;
+        penal(st, [a.cs, b.cs], 'sepLoss');
         event(st, { kind: 'seploss', severity: 4, text: `Separation lost: ${a.cs} and ${b.cs}, ${(d / NM).toFixed(1)} nm / ${Math.round(dv / 100) * 100} ft`, cs: [a.cs, b.cs], x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
       }
       if (d < 0.15 * NM && dv < 250) {
-        st.stats.collisions++;
+        penal(st, [a.cs, b.cs], 'collisions');
         event(st, { kind: 'collision', severity: 5, text: `MID-AIR COLLISION: ${a.cs} and ${b.cs}`, cs: [a.cs, b.cs], x: a.x, y: a.y });
         st.ended = 'incident';
       }
@@ -145,8 +152,10 @@ export function groundRules(world: World, st: State) {
     const ta = TYPES[a.type], tb = TYPES[b.type];
     const fast = a.gs > 30 || b.gs > 30;
     if (a.ghost === b.cs || b.ghost === a.cs) { if (d > 160) { if (a.ghost === b.cs) a.ghost = null; if (b.ghost === a.cs) b.ghost = null; } continue; }
-    if (d < Math.min(ta.lengthM, tb.lengthM) * 0.45 && (a.gs > 3 || b.gs > 3)) {
-      st.stats.collisions++;
+    // AI-only contact on the ground is a background glitch, not the player's incident.
+    const playerInvolved = st.coverage.includes(a.owner) || st.coverage.includes(b.owner);
+    if (playerInvolved && d < Math.min(ta.lengthM, tb.lengthM) * 0.45 && (a.gs > 3 || b.gs > 3)) {
+      penal(st, [a.cs, b.cs], 'collisions');
       event(st, { kind: 'collision', severity: 5, text: `COLLISION on the ground: ${a.cs} and ${b.cs}`, cs: [a.cs, b.cs], x: a.x, y: a.y });
       st.ended = 'incident';
       return;
@@ -157,7 +166,7 @@ export function groundRules(world: World, st: State) {
       const key = `${a.cs}|${b.cs}|g`;
       if (!(key in st.sepActive)) {
         st.sepActive[key] = st.tick;
-        st.stats.taxiConflicts++;
+        penal(st, [a.cs, b.cs], 'taxiConflicts');
         event(st, { kind: 'taxi-conflict', severity: 1, text: `Taxi conflict: ${a.cs} and ${b.cs} nose to nose`, cs: [a.cs, b.cs], x: a.x, y: a.y });
       } else if (st.tick - st.sepActive[key] === ticks(120)) {
         event(st, { kind: 'gridlock', severity: 2, text: `Gridlock: ${a.cs} and ${b.cs} stuck for two minutes`, cs: [a.cs, b.cs], x: a.x, y: a.y });

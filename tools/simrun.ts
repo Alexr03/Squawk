@@ -33,3 +33,6 @@ const evs: Record<string, number> = {};
 for (const e of st.events) evs[e.kind] = (evs[e.kind] ?? 0) + 1;
 console.log('events', JSON.stringify(evs));
 for (const e of st.events.filter(e => e.severity >= 2).slice(0, 25)) console.log(`  ${(e.tick / 240).toFixed(1)}min ${e.kind}: ${e.text}`);
+const heads = new Set<string>();
+for (const a of stuck) { let c = a; for (let i = 0; i < 12 && c.blockedBy; i++) { const n = st.aircraft.find(x => x.cs === c.blockedBy); if (!n || n === a) break; c = n; } heads.add(c.cs); }
+for (const h of heads) { const a = st.aircraft.find(x => x.cs === h)!; console.log('HEAD', a.cs, a.phase, a.owner, 'chk', a.checkedIn, 'blk', a.blockedBy, 'stop', Math.round(a.stoppedS), 'holdAt', a.holdAt, 'cross', a.cleared.cross, 'luw', a.cleared.luw, 'cto', a.cleared.cto, 'pi', a.pi, a.path.length, 'act', a.actAt > 1e12 ? 'INF' : a.actAt - st.tick, 'rw', a.runway, 'ghost', a.ghost); }
