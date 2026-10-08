@@ -72,6 +72,10 @@
       const as = snap.apts[0];
       scene.setRunwaysInUse(as.arr, as.dep);
       scene.setSelected(selected);
+      // The selected aircraft's route lines are drawn inside the scene, beneath aircraft and data tags.
+      const sel = selected && !(drag?.vector && drag.moved) ? find(snap, selected) : undefined;
+      scene.setUnderlay(sel ? (c) => { if (!sel.onGround) drawPlan(c, sel, flightPlan(world, sel), '#eef3f8', true); else if (!taxiEdit) drawGround(c, sel); } : null);
+      scene.setAttention(Object.fromEntries(queue.map(n => [n.cs, n.level as 'routine' | 'urgent' | 'emergency'])));
       scene.setOverlays({ ...overlays, ctr: true, rings: true });
       scene.setGreens(greens());
       scene.setStopBars(stopBars());
@@ -180,6 +184,20 @@
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(p.x, p.y, 12 + k * 16, 0, Math.PI * 2); ctx.stroke();
     }
+    // Conflicts: a line between the pair with the actual distance and height difference, so the alarm explains itself.
+    for (const [key, lvl] of Object.entries(client.snap!.stca ?? {})) {
+      const [ca, cb] = key.split('|'); const A = views.get(ca), B = views.get(cb);
+      if (!A || !B || key.endsWith('|w')) continue;
+      const p = S(A), q = S(B), col = lvl === 'conflict' ? '#ff5a5a' : '#ffb547';
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke(); ctx.setLineDash([]);
+      const nm = Math.hypot(A.x - B.x, A.y - B.y) / 1852, ft = Math.round(Math.abs(A.alt - B.alt) / 100) * 100;
+      const text = lvl === 'conflict' ? `${nm.toFixed(1)} nm · ${ft} ft, too close` : `converging · ${nm.toFixed(1)} nm · ${ft} ft`;
+      ctx.font = "600 12px 'IBM Plex Mono', ui-monospace, monospace";
+      const w = ctx.measureText(text).width, mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+      ctx.fillStyle = 'rgba(7,14,28,0.9)'; ctx.fillRect(mx - w / 2 - 6, my - 10, w + 12, 20);
+      ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, mx, my); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    }
     // Score pops float up and fade.
     ctx.font = "600 13px 'IBM Plex Sans', system-ui, sans-serif"; ctx.textAlign = 'center';
     for (const pop of feedback.pops) {
@@ -201,8 +219,7 @@
     }
     // The selected aircraft's filed route (dashed) and where it is really going (solid, a tick a minute).
     const selAc = selected && !(drag?.vector && drag.moved) ? find(client.snap!, selected) : undefined;
-    if (selAc && !selAc.onGround) drawPlan(ctx, selAc, flightPlan(world, selAc), '#eef3f8', true);
-    if (selAc?.onGround && !taxiEdit) drawGround(ctx, selAc);
+    void selAc; // drawn under the tags by the scene (see setUnderlay in the frame loop)
     // Drag-to-target: preview exactly what letting go will do (the new path in the air, the taxi route on the ground).
     if (drag?.vector && drag.cur && drag.moved) {
       const ac = find(client.snap!, drag.vector);

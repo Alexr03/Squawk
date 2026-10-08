@@ -29,6 +29,9 @@ export interface RadarFrame {
   selected: string | null;
   overlays: { sids?: boolean; stars?: boolean; weather?: boolean; ctr?: boolean; rings?: boolean };
   arr: string[]; dep: string[];
+  /** Aircraft waiting on the player, and how badly. */
+  underlay?: (ctx: CanvasRenderingContext2D) => void;
+  attention: Record<string, 'routine' | 'urgent' | 'emergency'>;
   cells: { x: number; y: number; r: number; intensity: number }[];
 }
 
@@ -270,6 +273,8 @@ export class Radar {
 
     // ---- traffic
     screen();
+    // The game's route lines go here: over the map, under the aircraft and their tags.
+    if (F.underlay) { ctx.save(); F.underlay(ctx); ctx.restore(); screen(); }
     const boxes: { x: number; y: number; w: number; h: number }[] = [];
     const colOf = (ac: AircraftView) => {
       if (ac.alert === 'emergency') return flash ? P.red : P.sel;
@@ -366,10 +371,20 @@ export class Radar {
         const ll = Math.hypot(lx - x, ly - y) || 1;
         ctx.beginPath(); ctx.moveTo(x + 0.5 + ((lx - x) / ll) * 6, y + 0.5 + ((ly - y) / ll) * 6); ctx.lineTo(lx + 0.5, ly + 0.5); ctx.stroke();
         ctx.globalAlpha = fade;
-        if (ac.alert !== 'none' || ac.cs === F.selected) { ctx.fillStyle = 'rgba(5,10,22,0.75)'; ctx.fillRect(r.x, r.y, r.w, r.h); }
+        // Waiting on you: a boxed tag (green routine, amber urgent, red emergency) so the scope shows at a glance what to work.
+        const need = F.attention[ac.cs];
+        if (need) {
+          const nc = need === 'emergency' ? P.red : need === 'urgent' ? P.amber : P.own;
+          ctx.fillStyle = 'rgba(5,10,22,0.85)'; ctx.fillRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
+          ctx.strokeStyle = nc; ctx.lineWidth = need === 'routine' ? 1 : 2; ctx.strokeRect(r.x - 1.5, r.y - 1.5, r.w + 3, r.h + 3);
+          ctx.fillStyle = nc; ctx.fillRect(r.x - 2, r.y - 2, 3, r.h + 4);
+        } else if (ac.alert !== 'none' || ac.cs === F.selected) { ctx.fillStyle = 'rgba(5,10,22,0.75)'; ctx.fillRect(r.x, r.y, r.w, r.h); }
+        // Other people's traffic recedes.
+        if (!ac.mine && !need && ac.cs !== F.selected && ac.alert === 'none') ctx.globalAlpha = fade * 0.55;
         if (ac.alert === 'emergency' || ac.alert === 'conflict') { ctx.strokeStyle = col; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1); }
         ctx.fillStyle = col;
         lines.forEach((l, i) => ctx.fillText(l, r.x + 2, r.y + 1 + i * LH));
+        ctx.globalAlpha = fade;
       }
       ctx.globalAlpha = 1;
     }

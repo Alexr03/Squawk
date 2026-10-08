@@ -27,6 +27,10 @@ export interface Scene {
   setGreens(paths: XY[][]): void;
   setStopBars(lit: number[]): void;
   setSelected(cs: string | null): void;
+  /** Aircraft waiting on the player (boxed tags on the scope). */
+  /** Draw extra lines (in screen px) above the map but beneath aircraft and data tags. */
+  setUnderlay(fn: ((ctx: CanvasRenderingContext2D) => void) | null): void;
+  setAttention(a: Record<string, 'routine' | 'urgent' | 'emergency'>): void;
   setOverlays(o: Overlays): void;
   setRunwaysInUse(arr: string[], dep: string[]): void;
   setNight?(palette: boolean): void;
@@ -60,7 +64,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
   canvas.style.imageRendering = 'pixelated';
 
   const overlay = document.createElement('canvas');
-  overlay.style.cssText = 'position:absolute;pointer-events:none;z-index:3;'; // above the game's UI layer: tags sit on top of route lines
+  overlay.style.cssText = 'position:absolute;pointer-events:none;';
   canvas.insertAdjacentElement('afterend', overlay);
   const radar = new Radar(overlay, packs.map(p => ({ pack: p, off: project(primary.arp, p.arp) })));
 
@@ -137,6 +141,8 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
   let aircraft: AircraftView[] = [];
   let vehicles: VehicleView[] = [];
   let selected: string | null = null;
+  let underlay: ((ctx: CanvasRenderingContext2D) => void) | null = null;
+  let attention: Record<string, 'routine' | 'urgent' | 'emergency'> = {};
   let overlays: Overlays = { rings: true, ctr: true };
   let weather: Weather = { rain: 0, visM: 10000, cloud: 0 };
   let arr: string[] = primary.configs[0]?.arrivals ?? [];
@@ -381,6 +387,8 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
       stopBars = sb; scene.add(sb);
     },
     setSelected(cs) { selected = cs; },
+    setAttention(a) { attention = a; },
+    setUnderlay(fn) { underlay = fn; },
     setOverlays(o) { overlays = { ...overlays, ...o }; },
     setRunwaysInUse(a, d) { arr = a; dep = d; applyLighting(); },
     setNight(p) { nightOverride = p; },
@@ -438,7 +446,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
       }
       radar.draw({
         w: W, h: H, dpr, M: affine(), mpp: view.mpp, fade, night: nightOverride ?? sunEl < -4, now,
-        aircraft, screenOf, groundOf: p => worldToScreen(p), sizeOf, selected, overlays, arr, dep, cells: weather.cells ?? [],
+        aircraft, screenOf, groundOf: p => worldToScreen(p), sizeOf, selected, attention, underlay: underlay ?? undefined, overlays, arr, dep, cells: weather.cells ?? [],
       });
     },
     dispose() {
