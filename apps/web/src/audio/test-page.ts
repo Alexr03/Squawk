@@ -42,6 +42,9 @@ $<HTMLInputElement>('#voiceOn').onchange = (e) => radio.setVoiceEnabled((e.targe
 $('#chimes').addEventListener('click', (e) => {
   const kind = (e.target as HTMLElement).dataset.chime as ChimeKind | undefined;
   if (kind) radio.chime(kind);
+  const fx = (e.target as HTMLElement).dataset.fx;
+  if (fx === 'crash') radio.crash();
+  if (fx === 'siren') { const t = setInterval(() => radio.siren(), 250); setTimeout(() => clearInterval(t), 5000); }
 });
 $('#stopAlarm').onclick = () => radio.stopAlarm();
 $<HTMLInputElement>('#ambient').onchange = (e) => radio.ambient((e.target as HTMLInputElement).checked);

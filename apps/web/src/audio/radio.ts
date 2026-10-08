@@ -30,6 +30,11 @@ export interface RadioAudio {
   clear(): void;
   chime(kind: ChimeKind): void;
   stopAlarm(): void;
+  /** Impact boom and the crackle of fire: a crash. */
+  crash(): void;
+  /** Fire-engine siren while crews are driving. Call every update while it should sound; it fades out by itself
+   *  about a second after the last call (paused, shift over, crews arrived). */
+  siren(): void;
   ambient(on: boolean): void;
   setVolumes(v: Partial<Volumes>): void;
   setVoiceEnabled(on: boolean): void;
@@ -97,6 +102,8 @@ export function createRadioAudio(): RadioAudio {
   let busy = false;
   let abortCurrent: (() => void) | null = null;
   let alarmTimer: ReturnType<typeof setInterval> | null = null;
+  let sirenNodes: { stop: (t: number) => void; out: GainNode } | null = null;
+  let sirenTimer: ReturnType<typeof setTimeout> | null = null;
   let ambientNodes: AudioScheduledSourceNode[] | null = null;
 
   function audio(): AudioContext {
@@ -379,8 +386,10 @@ export function createRadioAudio(): RadioAudio {
     conflict: () => {
       for (let i = 0; i < 3; i++) tone(1000, i * 0.14, 0.08, 'square', 0.06);
     },
+    // Mayday / Pan: unlike any routine chime and louder than all of them. Two rising whoops, then three hard beeps.
     emergency: () => {
-      for (let i = 0; i < 3; i++) tone(1400, i * 0.45, 0.4, 'triangle', 0.12, 500);
+      for (let i = 0; i < 2; i++) tone(500, i * 0.42, 0.38, 'sawtooth', 0.32, 1500);
+      for (let i = 0; i < 3; i++) tone(1500, 0.9 + i * 0.16, 0.1, 'square', 0.3);
     },
     handoff: () => tone(523, 0, 0.22, 'sine', 0.25, 784),
     click: () => tone(2200, 0, 0.015, 'square', 0.08),
@@ -401,7 +410,9 @@ export function createRadioAudio(): RadioAudio {
 
     say(text, opts) {
       return new Promise<void>((done) => {
-        queue.push({ text, opts, done });
+        // A Mayday or Pan goes ahead of routine calls already waiting.
+        const at = opts.urgent ? queue.findIndex((q) => !q.opts.urgent) : -1;
+        queue.splice(at < 0 ? queue.length : at, 0, { text, opts, done });
         while (queue.length > MAX_QUEUE) {
           const i = queue.findIndex((q) => !q.opts.urgent);
           if (i < 0) break;
@@ -427,6 +438,89 @@ export function createRadioAudio(): RadioAudio {
       };
       cycle();
       alarmTimer = setInterval(cycle, 800);
+    },
+
+    crash() {
+      const c = audio();
+      const t = c.currentTime;
+      // Boom: low sine drop plus low-passed brown noise, long decay.
+      const thud = c.createOscillator();
+      thud.frequency.setValueAtTime(70, t);
+      thud.frequency.exponentialRampToValueAtTime(28, t + 1.5);
+      const tg = c.createGain();
+      tg.gain.setValueAtTime(0.9, t);
+      tg.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
+      thud.connect(tg).connect(fxBus);
+      thud.start(t); thud.stop(t + 1.9);
+      const rumble = noiseSource(brown);
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(900, t);
+      lp.frequency.exponentialRampToValueAtTime(80, t + 2.5);
+      const rg = c.createGain();
+      rg.gain.setValueAtTime(1.2, t);
+      rg.gain.exponentialRampToValueAtTime(0.001, t + 3);
+      rumble.connect(lp).connect(rg).connect(fxBus);
+      rumble.start(t); rumble.stop(t + 3.1);
+      // Fire: a roar that swells after the boom, with random crackles on top, dying away over ~7 s.
+      const roar = noiseSource(brown);
+      const rl = c.createBiquadFilter();
+      rl.type = 'lowpass';
+      rl.frequency.value = 400;
+      const fg = c.createGain();
+      fg.gain.setValueAtTime(0.001, t);
+      fg.gain.exponentialRampToValueAtTime(0.35, t + 1.2);
+      fg.gain.exponentialRampToValueAtTime(0.001, t + 7);
+      roar.connect(rl).connect(fg).connect(fxBus);
+      roar.start(t); roar.stop(t + 7.1);
+      const crackle = noiseSource();
+      const bp = c.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 2500;
+      bp.Q.value = 0.8;
+      const cg = c.createGain();
+      cg.gain.setValueAtTime(0, t);
+      for (let k = t + 0.4; k < t + 6.5; k += 0.03 + Math.random() * 0.12) {
+        const g = 0.25 * Math.random() * (1 - (k - t) / 7);
+        cg.gain.setValueAtTime(g, k);
+        cg.gain.exponentialRampToValueAtTime(0.0001, k + 0.02);
+      }
+      crackle.connect(bp).connect(cg).connect(fxBus);
+      crackle.start(t); crackle.stop(t + 6.6);
+    },
+
+    siren() {
+      const c = audio();
+      if (sirenTimer) clearTimeout(sirenTimer);
+      sirenTimer = setTimeout(() => {
+        sirenTimer = null;
+        if (!sirenNodes) return;
+        const t = c.currentTime;
+        sirenNodes.out.gain.setTargetAtTime(0, t, 0.25);
+        sirenNodes.stop(t + 1.5);
+        sirenNodes = null;
+      }, 1200);
+      if (sirenNodes) return;
+      // Two-tone (hi-lo) siren, distant and soft: a square LFO swings the pitch between ~960 and ~770 Hz.
+      const t = c.currentTime;
+      const o = c.createOscillator();
+      o.type = 'triangle';
+      o.frequency.value = 865;
+      const lfo = c.createOscillator();
+      lfo.type = 'square';
+      lfo.frequency.value = 0.9;
+      const depth = c.createGain();
+      depth.gain.value = 95;
+      lfo.connect(depth).connect(o.frequency);
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 1800;
+      const out = c.createGain();
+      out.gain.setValueAtTime(0, t);
+      out.gain.setTargetAtTime(0.05, t, 0.3);
+      o.connect(lp).connect(out).connect(fxBus);
+      o.start(t); lfo.start(t);
+      sirenNodes = { out, stop: (at) => { o.stop(at); lfo.stop(at); } };
     },
 
     stopAlarm() {

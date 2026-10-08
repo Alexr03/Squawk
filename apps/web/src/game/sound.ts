@@ -13,6 +13,8 @@ export class Sound {
   private lastAlert = 0;
   private alarm = false;
   private known = new Set<string>();
+  private heard = new Set<string>();
+  private vehPos = new Map<string, { x: number; y: number }>();
   private unlocked = false;
 
   unlock() {
@@ -45,9 +47,11 @@ export class Sound {
       // Quiet radio: only what really needs you is spoken; everything else is a short tone (a call) or a squelch click (a readback).
       // A readback that came back wrong is spoken too: catching it is the point.
       const wrong = r.msg.t === 'readback' && !!snap.aircraft.find(a => a.cs === r.cs)?.rbErr;
+      // The emergency tone plays whatever the radio mode, before the words.
+      if (urgent && r.from === 'pilot') this.radio.chime('emergency');
       const big = urgent || wrong || (r.msg.t === 'call' && ['goingaround', 'unable', 'sayagain'].includes(r.msg.call.k));
       if (settings.radioVoices === 'off' || (settings.radioVoices === 'important' && !big)) {
-        if (r.from === 'pilot') this.radio.chime(r.msg.t === 'call' ? 'call' : 'click');
+        if (r.from === 'pilot' && !urgent) this.radio.chime(r.msg.t === 'call' ? 'call' : 'click');
         continue;
       }
       // Now and then two stations transmit at once.
@@ -55,11 +59,20 @@ export class Sound {
       this.radio.say(line, { voiceKey: r.from === 'atc' ? `atc-${r.seat}` : r.cs, atc: r.from === 'atc', urgent, stepOn });
       if (r.from === 'pilot' && r.msg.t === 'call') {
         const k = r.msg.call.k;
-        if (k === 'mayday' || k === 'panpan') this.radio.chime('emergency');
-        else if (k === 'request') this.radio.chime('request');
+        if (k === 'request') this.radio.chime('request');
         else if (!this.known.has(r.cs)) { this.known.add(r.cs); this.radio.chime('strip'); }
       }
     }
+    // A crash: the boom and the fire, once per incident.
+    for (const i of snap.incidents) {
+      if (i.kind !== 'crash' || this.heard.has(i.id)) continue;
+      this.heard.add(i.id);
+      if (snap.tick - i.since < 60) this.radio.crash(); // not for crashes already on the map when the shift (or a replay) loads
+    }
+    // Siren while any fire engine is on the move.
+    const moving = snap.vehicles.some(v => { const p = this.vehPos.get(v.id); return v.kind === 'fire' && !!p && Math.hypot(v.x - p.x, v.y - p.y) > 0.5; });
+    this.vehPos = new Map(snap.vehicles.map(v => [v.id, { x: v.x, y: v.y }]));
+    if (moving) this.radio.siren();
     for (const a of snap.alerts) {
       if (a.tick <= this.lastAlert) continue;
       this.lastAlert = a.tick;
