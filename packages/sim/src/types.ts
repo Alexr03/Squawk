@@ -74,7 +74,7 @@ export interface Stand {
   maxWake: Wake;
 }
 
-export interface Fix extends LatLon, XY { name: string }
+export interface Fix extends LatLon, XY { name: string; spoken?: string }
 export interface Airspace {
   fixes: Record<string, Fix>;
   stacks: { name: string; fix: string; inboundTrack: number; turn: 'L' | 'R'; minAltFt: number; sector: string }[];
