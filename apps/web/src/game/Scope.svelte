@@ -441,16 +441,19 @@
   <canvas bind:this={canvas} onpointerdown={down} onpointermove={move} onpointerup={up} oncontextmenu={context} onwheel={wheel} ondblclick={dbl}></canvas>
   <canvas class="ui" bind:this={ui}></canvas>
   {#if groundBubble}
-    <button class="bubble info" style="left:{groundBubble.x + 16}px; top:{groundBubble.y - 34}px" onclick={() => { const v = viewFor(apt, 'GND'); zoomTo(v.cx, v.cy, v.mpp); }} title="Zoom in to the ground traffic">
+    <button class="bubble info" style="left:{groundBubble.x + 16}px; top:{groundBubble.y - 34}px" onpointerdown={(e) => { e.stopPropagation(); const v = viewFor(apt, 'GND'); zoomTo(v.cx, v.cy, v.mpp); }} title="Zoom in to the ground traffic">
       <span class="cs">{apt.icao}</span>{groundBubble.n} on the ground waiting
     </button>
   {/if}
   {#each bubbles as b (b.cs)}
     {#if b.a}
       {@const a = b.a}
-      <button class="bubble {a.tone} {b.level}" style="left:{b.x + 16}px; top:{b.y - 34 + b.oy}px" onclick={() => onAction(b.cs, a)} title="{b.cs}: {a.label}">
-        <span class="cs">{b.cs}</span>{a.label}
-      </button>
+      <!-- Two targets: the callsign selects the aircraft, the action does it straight away. Both fire on press, so a bubble
+           that moves with its aircraft can't lose the click. -->
+      <div class="bubble split {a.tone} {b.level}" style="left:{b.x + 16}px; top:{b.y - 34 + b.oy}px">
+        <button class="sel" onpointerdown={(e) => { if (e.button === 0) { e.stopPropagation(); onSelect(b.cs); } }} onkeydown={(e) => { if (e.key === 'Enter') onSelect(b.cs); }} title="Select {b.cs}">{b.cs}</button>
+        <button class="act" onpointerdown={(e) => { if (e.button === 0) { e.stopPropagation(); onAction(b.cs, a); } }} onkeydown={(e) => { if (e.key === 'Enter') onAction(b.cs, a); }} title="{b.cs}: {a.label}">{a.label}</button>
+      </div>
     {:else}
       <div class="bubble wait" style="left:{b.x + 16}px; top:{b.y - 34 + b.oy}px" title="{b.cs} is reading back">
         <span class="cs">{b.cs}</span><span class="dots"><i></i><i></i><i></i></span>
@@ -467,6 +470,15 @@
   .bubble { position: absolute; z-index: 4; display: flex; gap: 6px; align-items: baseline; padding: 4px 10px; border-radius: 14px; border: 1px solid var(--line-strong);
     background: rgba(13, 22, 40, 0.92); color: var(--ink-strong); font: 600 12.5px var(--ui); cursor: pointer; white-space: nowrap; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35); }
   .bubble .cs { font: 500 11px var(--mono); color: var(--muted); }
+  .bubble.split { padding: 0; gap: 0; align-items: stretch; overflow: hidden; cursor: default; }
+  .bubble.split button { border: none; background: transparent; color: inherit; cursor: pointer; font: inherit; }
+  .bubble.split .sel { padding: 4px 8px 4px 10px; font: 500 11px var(--mono); color: var(--muted); border-right: 1px solid var(--line-strong); }
+  .bubble.split .sel:hover { color: var(--ink-strong); background: rgba(255, 255, 255, 0.08); }
+  .bubble.split .act { padding: 4px 10px 4px 8px; }
+  .bubble.split.go:hover { background: rgba(13, 22, 40, 0.92); color: var(--ink-strong); }
+  .bubble.split.go .act:hover { background: var(--green); color: var(--bg); }
+  .bubble.split.warn .act:hover { background: var(--amber); color: var(--bg); }
+  .bubble.split.info .act:hover { color: var(--accent); }
   .bubble.go { border-color: var(--green); }
   .bubble.go:hover { background: var(--green); color: var(--bg); }
   .bubble.warn { border-color: var(--amber); color: var(--amber); }

@@ -122,7 +122,9 @@ export class GameClient extends ShiftClient {
     const seats = opts.seats ?? this.seats;
     if (ac && !seats.includes(ac.freq)) return Promise.resolve(`${ac.cs} is on ${seatRole(ac.freq)}, not your frequency`);
     const id = this.nextId++;
-    return new Promise(res => { this.waiting.set(id, res); this.send({ t: 'cmd', id, cmds, voice: opts.voice, seat: opts.seats && ac?.freq }); });
+    // Commands often come out of Svelte state (bubbles, menus) as proxies, which can't cross to the worker: send a plain copy.
+    const plain = JSON.parse(JSON.stringify(cmds)) as Command[];
+    return new Promise(res => { this.waiting.set(id, res); this.send({ t: 'cmd', id, cmds: plain, voice: opts.voice, seat: opts.seats && ac?.freq }); });
   }
   /** The whole sim state (with schedule and command log), for handing the shift to another host. */
   full(): Promise<State> { return new Promise(res => { this.fulls.push(res); this.send({ t: 'full' }); }); }

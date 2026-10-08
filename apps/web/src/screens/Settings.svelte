@@ -118,6 +118,10 @@
         <section>
           <h2>Who speaks</h2>
           {@render toggle('Pilot voices', 'Read pilot transmissions aloud', 'pilotVoices')}
+          <div class="row">
+            <div class="lab"><b>What is spoken</b><span>Important: only emergencies, go-arounds and problems are read out; routine calls play a tone</span></div>
+            <div class="ctl seg">{#each [['all', 'Everything'], ['important', 'Important'], ['off', 'Tones only']] as [k, n]}<button class:on={settings.radioVoices === k} onclick={() => { settings.radioVoices = k as 'all' | 'important' | 'off'; saveSettings(); }}>{n}</button>{/each}</div>
+          </div>
           {@render toggle('Your transmissions', 'Also read out what you say to pilots', 'atcVoice')}
           {@render toggle('Interface sounds', 'Soft clicks on buttons, switches and menus', 'uiSounds')}
           <div class="row">

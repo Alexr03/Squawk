@@ -42,6 +42,14 @@ export class Sound {
       const urgent = r.msg.t === 'call' && (r.msg.call.k === 'mayday' || r.msg.call.k === 'panpan');
       const line = speech(r, ctx);
       if (!line) continue;
+      // Quiet radio: only what really needs you is spoken; everything else is a short tone (a call) or a squelch click (a readback).
+      // A readback that came back wrong is spoken too: catching it is the point.
+      const wrong = r.msg.t === 'readback' && !!snap.aircraft.find(a => a.cs === r.cs)?.rbErr;
+      const big = urgent || wrong || (r.msg.t === 'call' && ['goingaround', 'unable', 'sayagain'].includes(r.msg.call.k));
+      if (settings.radioVoices === 'off' || (settings.radioVoices === 'important' && !big)) {
+        if (r.from === 'pilot') this.radio.chime(r.msg.t === 'call' ? 'call' : 'click');
+        continue;
+      }
       // Now and then two stations transmit at once.
       const stepOn = r.from === 'pilot' && !urgent && snap.radio.some(o => o.id !== r.id && o.tick === r.tick && mine(o)) && Math.random() < 0.25;
       this.radio.say(line, { voiceKey: r.from === 'atc' ? `atc-${r.seat}` : r.cs, atc: r.from === 'atc', urgent, stepOn });

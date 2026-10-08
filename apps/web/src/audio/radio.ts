@@ -3,7 +3,7 @@ import { settings } from '../lib/settings.svelte.ts';
 // Web Audio, so the "radio" is faked: a soft squelch click + a faint hiss under the
 // speech for its duration, then a squelch tail. Everything else is synthesised.
 
-export type ChimeKind = 'strip' | 'request' | 'conflict' | 'alarm' | 'emergency' | 'handoff' | 'click';
+export type ChimeKind = 'strip' | 'request' | 'conflict' | 'alarm' | 'emergency' | 'handoff' | 'click' | 'call';
 
 export interface SayOptions {
   /** Speaker identity (callsign, or ATC position). Picks a stable voice/pitch/rate. */
@@ -384,6 +384,8 @@ export function createRadioAudio(): RadioAudio {
     },
     handoff: () => tone(523, 0, 0.22, 'sine', 0.25, 784),
     click: () => tone(2200, 0, 0.015, 'square', 0.08),
+    // A pilot calling you, with the voices off: a squelch blip and a soft two-note 'ding-dong' like a cockpit chime.
+    call: () => { squelch('open'); tone(880, 0.03, 0.12, 'sine', 0.16); tone(660, 0.16, 0.18, 'sine', 0.14); },
   };
 
   return {
