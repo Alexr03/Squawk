@@ -64,7 +64,7 @@ export function coach(world: World, snap: Snap, selected: string | null): string
   const sel = selected === ac.cs;
   const pick = sel ? '' : `Select ${ac.cs} (click its strip or press N), then `;
   if (ac.emergency) return `${ac.cs} has declared an emergency. Give it priority: ${role === 'TWR' ? 'keep the runway clear and clear it to land' : 'vector it straight onto the ILS'}.`;
-  if (top.text.startsWith('Check the readback')) return `${ac.cs} read back something different from what you said. Check the radio log and press N (Negative, say again) to correct it.`;
+  if (top.text.startsWith('Check the readback')) return `${ac.cs} read back something different from what you said. Check the radio log and press Z (Negative, say again) to correct it.`;
   switch (ac.phase) {
     case 'stand': return ac.cleared.dl ? `${pick}press P to approve pushback.` : `${pick}press C to give the departure clearance (SID and squawk).`;
     case 'pushed': return `${pick}press X to taxi to the holding point. The suggested route is drawn: click taxiway points to change it, Enter to send.`;

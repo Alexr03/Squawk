@@ -52,7 +52,7 @@
   </div>
   {#if voice.on}<div class="mic" class:live={voice.listening} title="Push-to-talk: {voice.state}">● {voice.listening ? 'TX' : 'PTT'}</div>{/if}
   <div class="speed">
-    {#if canPause}<button class:on={speed === 0} onclick={() => onSpeed(speed === 0 ? 1 : 0)} title="Pause (P)">❚❚</button>{/if}
+    {#if canPause}<button class:on={speed === 0} onclick={() => onSpeed(speed === 0 ? 1 : 0)} title="Pause (Space)">❚❚</button>{/if}
     {#each [1, 2, 4] as v}<button class:on={speed === v} onclick={() => onSpeed(v)}>{v}×</button>{/each}
   </div>
 </header>

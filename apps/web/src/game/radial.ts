@@ -65,7 +65,7 @@ export function radialFor(world: World, snap: Snap, cs: string): RadialItem[] {
   if (v.has('contact') && next.length) items.push({ label: `Contact ${UNIT[next[0]]}`, hint: 'K', cmd: C({ cs, verb: 'contact', seat: next[0] }),
     sub: next.length > 1 ? () => next.map(s => ({ label: UNIT[s], cmd: C({ cs, verb: 'contact', seat: s }) })) : undefined });
   if (v.has('unable')) items.push({ label: 'Unable', cmd: C({ cs, verb: 'unable' }) });
-  if (v.has('negative')) items.push({ label: 'Negative, say again', hint: 'N', cmd: C({ cs, verb: 'negative' }) });
+  if (v.has('negative')) items.push({ label: 'Negative, say again', hint: 'Z', cmd: C({ cs, verb: 'negative' }) });
   items.push({ label: 'Say again', cmd: C({ cs, verb: 'sayagain' }) });
   void seatRole; void fl;
   return items;

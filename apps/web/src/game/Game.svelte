@@ -25,7 +25,7 @@
   let snap = $state.raw<Snap | null>(null);
   let selected = $state<string | null>(null);
   let filter = $state<string | null>(null);
-  let radial = $state<{ cs: string; x: number; y: number } | null>(null);
+  let radial = $state<{ cs: string; x: number; y: number; items?: RadialItem[]; title?: string } | null>(null);
   let taxiEdit = $state<{ cs: string; to: string; greens?: boolean; via: number[] } | null>(null);
   let overlays = $state({ sids: false, stars: false, weather: true });
   let speed = $state(1);
@@ -101,7 +101,7 @@
     const icao = seat === 'LON' ? world.primary.icao : seat.split(':')[0];
     const apt = world.byIcao[icao];
     const c = apt.offset;
-    const v = { DEL: { mpp: 1.1, dx: -900, dy: -700 }, GND: { mpp: 1.4, dx: -400, dy: -700 }, TWR: { mpp: 2.6, dx: 400, dy: -700 }, DIR: { mpp: 70, dx: 0, dy: 0 }, LON: { mpp: 260, dx: 0, dy: 0 } }[role];
+    const v = { DEL: { mpp: 1.1, dx: -900, dy: -700 }, GND: { mpp: 1.4, dx: -400, dy: -700 }, TWR: { mpp: 2.6, dx: 400, dy: -700 }, DIR: { mpp: 105, dx: 0, dy: 0 }, LON: { mpp: 260, dx: 0, dy: 0 } }[role];
     viewRequest = { cx: c.x + v.dx, cy: c.y + v.dy, mpp: v.mpp, t: performance.now() };
   }
 
@@ -115,7 +115,7 @@
     if (e.key === 'Escape') { if (taxiEdit) taxiDone(false); else if (selected) selected = null; else menuOpen = !menuOpen; return; }
     if (e.key === 'Enter' && taxiEdit) { taxiDone(true); return; }
     if (e.key === 'Enter' || e.key === '/') { e.preventDefault(); cmdInput?.focus(); return; }
-    if (k === 'p' && canPause) { setSpeed(speed === 0 ? 1 : 0); return; }
+    if (e.code === 'Space' && canPause) { e.preventDefault(); setSpeed(speed === 0 ? 1 : 0); return; }
     if (e.key === 'Tab') {
       e.preventDefault();
       const mine = snap ? snap.aircraft.filter(a => snap!.coverage.includes(a.owner)).map(a => a.cs) : [];
@@ -125,7 +125,7 @@
       selected = order[(i + (e.shiftKey ? -1 : 1) + order.length) % order.length];
       return;
     }
-    if (k === 'n' && !selected?.length && queue[0]) { selected = queue[0].cs; return; }
+    if (k === 'n' && queue.length) { selected = queue.find(q => q.cs !== selected)?.cs ?? queue[0].cs; return; }
     if (e.code.startsWith('Digit') && !selected) {
       const role = ['DEL', 'GND', 'TWR', 'DIR', 'LON'][+e.key - 1];
       const seat = snap?.coverage.find(s => seatRole(s) === role) ?? (role ? (role === 'LON' ? 'LON' : `${world.primary.icao}:${role}`) : null);
@@ -140,8 +140,8 @@
     if (hit) {
       e.preventDefault();
       if (hit.cmd || hit.taxi) pick(hit);
-      else if (hit.sub) radial = { cs: selected, x: innerWidth / 2, y: innerHeight / 2 };
-    } else if (k === 'n' && queue[0]) selected = queue.find(q => q.cs !== selected)?.cs ?? selected;
+      else if (hit.sub) radial = { cs: selected, x: innerWidth / 2, y: innerHeight / 2, items: hit.sub(), title: hit.label };
+    }
   }
   function keyup(e: KeyboardEvent) {
     if (settings.voiceInput && e.code === settings.pttKey) { e.preventDefault(); pttUp(); }
@@ -209,10 +209,10 @@
           </div>
         {/if}
         <div class="toasts">{#each toasts as t (t.id)}<div class="toast {t.level}">{t.text}</div>{/each}</div>
-        {#if paused}<div class="pausebadge">PAUSED — P to resume</div>{/if}
+        {#if paused}<div class="pausebadge">PAUSED — Space to resume</div>{/if}
       </div>
       {#if selAc}
-        <AircraftCard {world} {snap} ac={selAc} {actions} onPick={(it) => (it.sub && !it.cmd && !it.taxi ? (radial = { cs: selAc!.cs, x: innerWidth - 300, y: innerHeight / 2 }) : pick(it))} onClose={() => (selected = null)} />
+        <AircraftCard {world} {snap} ac={selAc} {actions} onPick={(it) => (it.sub && !it.cmd && !it.taxi ? (radial = { cs: selAc!.cs, x: innerWidth - 300, y: innerHeight / 2, items: it.sub(), title: it.label }) : pick(it))} onClose={() => (selected = null)} />
       {/if}
     </div>
     <div class="bottom">
@@ -220,7 +220,7 @@
     </div>
   </div>
   {#if radial && snap}
-    <RadialMenu x={radial.x} y={radial.y} cs={radial.cs} items={radialFor(world, snap, radial.cs)} onPick={pick} onClose={() => (radial = null)} />
+    <RadialMenu x={radial.x} y={radial.y} cs={radial.title ? `${radial.cs} · ${radial.title}` : radial.cs} items={radial.items ?? radialFor(world, snap, radial.cs)} onPick={pick} onClose={() => (radial = null)} />
   {/if}
   {#if menuOpen}
     <div class="modal" role="dialog" aria-label="Pause menu">
@@ -231,7 +231,7 @@
         <label>Volume <input type="range" min="0" max="1" step="0.05" bind:value={settings.master} oninput={() => { saveSettings(); sound.apply(); }} /></label>
         <label>Auto-slow when busy <input type="checkbox" bind:checked={settings.autoSlow} onchange={saveSettings} /></label>
         <label>Push-to-talk voice <input type="checkbox" bind:checked={settings.voiceInput} onchange={saveSettings} /></label>
-        <div class="keys">Keys: Tab next aircraft · N most urgent · L/T/G/C/X/K/H/A/S/D/I instructions · Enter command line · right-click radial menu · drag a radar blip to vector · 1–5 views · O routes · W weather · P pause</div>
+        <div class="keys">Keys: Tab next aircraft · N most urgent · L/T/G/C/X/K/H/A/S/D/I instructions · Enter command line · right-click radial menu · drag a radar blip to vector · 1–5 views · O routes · W weather · Space pause · ` push-to-talk</div>
         <button class="quit" onclick={onQuit}>End shift</button>
       </div>
     </div>
