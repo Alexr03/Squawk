@@ -31,7 +31,7 @@ async function main() {
     ...pack, icao: 'EGKK', name: 'London Gatwick', arp: { lat: 51.1481, lon: -0.1903 }, surfaces: [], buildings: [], stands: [],
     taxi: { nodes: [], edges: [] }, runways: [{ name: '08R/26L', widthM: 45, lengthM: 3316, ends: [lgwEnd('08R', -1620, 77.6), lgwEnd('26L', 1620, 257.6)] }],
   } as unknown as AirportPack;
-  const scene = createScene(canvas, [pack, lgw], { quality: q.get('q') === 'low' ? 'low' : 'high', pixelSize: num('px', 3) });
+  const scene = createScene(canvas, [pack, lgw], { quality: q.get('q') === 'low' ? 'low' : 'high', pixelSize: num('px', 3), smooth: q.get('smooth') !== '0' });
   (window as unknown as { scene: unknown }).scene = scene;
 
   const nodes = new Map(pack.taxi.nodes.map(n => [n.id, n]));

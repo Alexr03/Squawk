@@ -43,7 +43,7 @@
   const apt = world.primary;
 
   onMount(() => {
-    scene = createScene(canvas, client.packs, { pixelSize: settings.pixelSize, quality: settings.quality, depth: settings.depth });
+    scene = createScene(canvas, client.packs, { pixelSize: settings.pixelSize, quality: settings.quality, depth: settings.depth, smooth: settings.smoothEdges });
     const cov = client.seats;
     const roles = cov.map(s => s.split(':').pop());
     const v = viewFor(apt, roles.includes('GND') || roles.includes('DEL') ? 'GND' : roles.includes('TWR') ? 'TWR' : roles.includes('DIR') ? 'DIR' : 'LON');
@@ -93,6 +93,7 @@
     return () => { cancelAnimationFrame(raf); ro.disconnect(); scene?.dispose(); };
   });
 
+  $effect(() => { const on = settings.smoothEdges; scene?.setSmooth(on); }); // applies live, from the in-game settings too
   $effect(() => {
     if (viewRequest && scene) anim = { from: scene.getView(), to: viewRequest, t0: performance.now() };
   });

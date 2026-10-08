@@ -227,16 +227,16 @@ export function buildScenery(
   cg.setAttribute('aCol', new THREE.Float32BufferAttribute(carCol, 3));
   cg.setAttribute('aLit', new THREE.Float32BufferAttribute(carLit, 3));
   const carMat = new THREE.ShaderMaterial({
-    uniforms: { uTime: uniforms.uTime, uNight: uniforms.uNight, uDay: uniforms.uDay, uPxPerM: lightUniforms.uPxPerM },
+    uniforms: { uTime: uniforms.uTime, uNight: uniforms.uNight, uDay: uniforms.uDay, uPxPerM: lightUniforms.uPxPerM, uPxScale: lightUniforms.uPxScale },
     vertexShader: /* glsl */ `
       attribute vec4 aDir; attribute float aSpeed; attribute vec3 aCol; attribute vec3 aLit;
-      uniform float uTime, uNight, uDay, uPxPerM;
+      uniform float uTime, uNight, uDay, uPxPerM, uPxScale;
       varying vec3 vC;
       void main() {
         vec3 p = position + aDir.xyz * fract(aDir.w + uTime * aSpeed);
         vC = mix(aCol * (0.35 + 0.75 * uDay), aLit, uNight);
         gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-        gl_PointSize = clamp(4.5 * uPxPerM, 1.0, 4.0);
+        gl_PointSize = clamp(4.5 * uPxPerM, uPxScale, 4.0 * uPxScale);
       }`,
     fragmentShader: /* glsl */ `varying vec3 vC; void main() { gl_FragColor = vec4(vC, 1.0); }`,
     depthWrite: false,

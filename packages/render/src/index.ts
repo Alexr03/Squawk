@@ -5,6 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import type { AircraftView, AirportPack, VehicleView, XY } from '@squawk/sim/types';
 import { FT, project } from '@squawk/sim/geo';
 import { buildAirport, LC, LightSet, Y } from './world.ts';
@@ -14,7 +15,10 @@ import { Radar, type Affine } from './radar.ts';
 import { sunPosition } from './sun.ts';
 export { decodeScenery, type SceneryFile } from './sceneryData.ts';
 
-export interface SceneOptions { pixelSize?: number; quality?: 'low' | 'high'; /** tilt-shift depth of field, haze and vignette */ depth?: boolean }
+export interface SceneOptions {
+  pixelSize?: number; quality?: 'low' | 'high'; /** tilt-shift depth of field, haze and vignette */ depth?: boolean;
+  /** SMAA, soft (PCF) shadows and softer light falloff; off is the crisp pixel-art look */ smooth?: boolean;
+}
 export interface Weather { rain: number; visM: number; cloud: number; windKt?: number; cells?: { x: number; y: number; r: number; intensity: number }[] }
 export interface IncidentView { id: string; x: number; y: number; fire: number; kind: 'crash' | 'emergency'; resolved: boolean }
 export interface Overlays { sids?: boolean; stars?: boolean; weather?: boolean; ctr?: boolean; rings?: boolean }
@@ -37,6 +41,8 @@ export interface Scene {
   setOverlays(o: Overlays): void;
   setRunwaysInUse(arr: string[], dep: string[]): void;
   setNight?(palette: boolean): void;
+  /** Switch smoothing (see SceneOptions.smooth) live. */
+  setSmooth(on: boolean): void;
   pick(sx: number, sy: number): { cs: string } | { x: number; y: number };
   worldToScreen(p: XY): XY;
   screenToWorld(sx: number, sy: number): XY;
@@ -59,11 +65,11 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
   const high = opts.quality !== 'low';
   const primary = packs[0];
 
-  // ---- renderer: the canvas itself is the low-res target; CSS upscales it with nearest-neighbour
+  // ---- renderer: the canvas itself is the low-res target; CSS upscales it with nearest-neighbour. Smoothing (SMAA, PCF)
+  // happens at that resolution, so pixel sizes above 1 stay pixel art with clean edges; size 1 is fully smooth.
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
   renderer.setPixelRatio(1 / pixelSize);
   renderer.shadowMap.enabled = high;
-  renderer.shadowMap.type = THREE.BasicShadowMap; // crisp pixel shadows (PCF also misbehaves here)
   canvas.style.imageRendering = 'pixelated';
 
   const overlay = document.createElement('canvas');
@@ -81,6 +87,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
   sun.castShadow = high;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.bias = -0.00003;
+  sun.shadow.radius = 1.5; // PCF kernel, in shadow-map texels
   scene.add(sun, sun.target);
   const hemi = new THREE.HemisphereLight('#c4d8f0', '#8a8466', 1);
   scene.add(hemi);
@@ -148,6 +155,17 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
   bloom.compositeMaterial.uniforms.bloomFactors.value = [1.0, 0.35, 0.06, 0.0, 0.0];
   if (high) composer.addPass(bloom);
   composer.addPass(new OutputPass());
+  const aa = new SMAAPass(); // after the output pass: SMAA works on the final sRGB image
+  composer.addPass(aa);
+  function setSmooth(on: boolean) {
+    renderer.shadowMap.type = on ? THREE.PCFShadowMap : THREE.BasicShadowMap; // three recompiles materials on a type change
+    aa.enabled = on;
+    // Tight halos for the pixel look (wide low-res mips smear the frame); a longer, gentler tail when smoothing.
+    bloom.compositeMaterial.uniforms.bloomFactors.value = on ? [1.0, 0.45, 0.18, 0.06, 0.02] : [1.0, 0.35, 0.06, 0.0, 0.0];
+    bloom.radius = on ? 0.4 : 0;
+    lightUniforms.uSoft.value = on ? 1 : 0;
+  }
+  setSmooth(opts.smooth ?? true);
 
   // ---- state
   let view = { cx: 0, cy: -700, mpp: 3 };
@@ -458,6 +476,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
     worldToScreen: p => ('alt' in p && radarFade() <= 0.5 ? screenOf(p as AircraftView) : worldToScreen(p)),
     screenToWorld,
     resize,
+    setSmooth,
     render() {
       const now = performance.now();
       const fade = radarFade();
@@ -475,6 +494,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
         world.buildingUniforms.uDetail.value = 1 - lsmooth(1, 2.5, view.mpp);
         world.centrelines.material.opacity = (0.9 - 0.55 * lsmooth(0.8, 3, view.mpp)) * (1 - lsmooth(2.5, 6, view.mpp));
         lightUniforms.uPxPerM.value = 1 / (view.mpp * pixelSize);
+        lightUniforms.uPxScale.value = 3 / pixelSize; // light sizes are tuned in 3x render pixels
         placeShadowCamera();
         const o = screenToWorld(0, H), u = screenToWorld(W, H), v = screenToWorld(0, 0);
         grade.uniforms.uO.value.set(o.x, o.y); grade.uniforms.uU.value.set(u.x - o.x, u.y - o.y); grade.uniforms.uV.value.set(v.x - o.x, v.y - o.y);

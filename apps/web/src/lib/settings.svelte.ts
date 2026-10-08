@@ -14,6 +14,7 @@ export interface Settings {
   audioV: number;              // bumped when the mix changes, to reset saved volumes once
   fastDay: boolean;            // the clock and daylight run 30x (1 h = 2 min); traffic stays real time
   depth: boolean;              // depth of field, horizon haze and vignette on the 3D view
+  smoothEdges: boolean;        // anti-aliasing, soft shadows and soft light falloff on the 3D view (off: crisp pixel art)
   accents: 'off' | 'light' | 'strong'; // how strongly pilots sound like their airline's country
   blockedVoices: string[];     // speech voices the player switched off
   uiSounds: boolean;
@@ -24,7 +25,7 @@ const DEFAULTS: Settings = {
   master: 0.5, voice: 0.8, fx: 0.5, ambient: 0.2, music: 0.4, pilotVoices: true, atcVoice: false,
   voiceInput: false, voiceBackend: 'webspeech', pttKey: 'Backquote',
   pixelSize: 3, quality: 'high', uiScale: 1, highContrast: false, reducedMotion: false, colorblind: false,
-  autoSlow: false, tutorialHints: true, callsign: '', audioV: 2, fastDay: true, depth: true, accents: 'light', blockedVoices: [], uiSounds: true, radioVoices: 'important',
+  autoSlow: false, tutorialHints: true, callsign: '', audioV: 2, fastDay: true, depth: true, smoothEdges: true, accents: 'light', blockedVoices: [], uiSounds: true, radioVoices: 'important',
 };
 
 function read(): Settings {

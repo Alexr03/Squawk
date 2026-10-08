@@ -172,16 +172,20 @@
             </div>
           </div>
           <div class="row">
-            <div class="lab"><b>Pixel size</b><span>Bigger pixels look chunkier and run faster</span></div>
+            <div class="lab"><b>Pixel size</b><span>Bigger pixels look chunkier and run faster; 1× is fully smooth</span></div>
             <div class="ctl seg">
-              {#each [2, 3, 4] as v}<button class:on={settings.pixelSize === v} onclick={() => { settings.pixelSize = v; saveSettings(); }}>{v}×</button>{/each}
+              {#each [1, 2, 3, 4] as v}<button class:on={settings.pixelSize === v} onclick={() => { settings.pixelSize = v; saveSettings(); }}>{v}×</button>{/each}
             </div>
           </div>
           <label class="row">
             <div class="lab"><b>Depth of field</b><span>Miniature-style blur toward the edges, haze on the horizon</span></div>
             <div class="ctl"><input class="switch" type="checkbox" bind:checked={settings.depth} /></div>
           </label>
-          <p class="note">Graphics changes apply from the next shift.</p>
+          <label class="row">
+            <div class="lab"><b>Smooth edges</b><span>Anti-aliasing, soft shadows and softer lights. Off is crisp pixel art</span></div>
+            <div class="ctl"><input class="switch" type="checkbox" bind:checked={settings.smoothEdges} /></div>
+          </label>
+          <p class="note">Smooth edges applies at once; the other graphics changes apply from the next shift.</p>
         </section>
         <section>
           <h2>Interface</h2>

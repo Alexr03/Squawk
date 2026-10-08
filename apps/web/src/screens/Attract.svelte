@@ -10,6 +10,7 @@ export interface AttractInfo { time: number; atis: string; wind: { dir: number; 
   import { DIFFICULTY } from '@squawk/sim';
   import { GameClient } from '../game/client.ts';
   import { loadAirport, loadDay } from '../lib/data.ts';
+  import { settings } from '../lib/settings.svelte.ts';
   import { text } from '@squawk/phraseology';
   import type { Snap } from '../game/client.ts';
 
@@ -38,7 +39,7 @@ export interface AttractInfo { time: number; atis: string; wind: { dir: number; 
       const start = Date.parse('2026-08-28T17:20:00Z') / 1000;
       client = new GameClient([pack], { seed: 11, airports: ['EGLL'], days: [day], start, durationS: 3 * 3600, traffic: 0.9, coverage: [], difficulty: { ...DIFFICULTY.standard, emergencies: 0 }, mode: 'free' });
       client.setSpeed(1);
-      scene = createScene(canvas, [pack], { pixelSize: 3, quality: 'high' });
+      scene = createScene(canvas, [pack], { pixelSize: 3, quality: 'high', smooth: settings.smoothEdges });
       const ro = new ResizeObserver(() => scene?.resize());
       ro.observe(wrap);
       const t0 = performance.now();

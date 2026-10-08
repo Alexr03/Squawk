@@ -4,7 +4,9 @@ import * as THREE from 'three';
 /** Shared per-frame uniforms for every light material. */
 export const lightUniforms = {
   uPxPerM: { value: 1 },
+  uPxScale: { value: 1 },       // 3 / pixel size: keeps lights the same on-screen size at every pixel size
   uWet: { value: 0 },
+  uSoft: { value: 0 },          // 1 = round lights with a soft falloff, 0 = hard pixel lights
 };
 
 /** Additive HDR points sized in metres, clamped to 1..6 render pixels. Per-material gain. */
@@ -13,23 +15,24 @@ export function lightMaterial(gain = 1): THREE.ShaderMaterial {
     uniforms: { ...lightUniforms, uGain: { value: gain } },
     vertexShader: /* glsl */ `
       attribute vec3 aColor; attribute float aSize;
-      uniform float uPxPerM, uGain, uWet;
+      uniform float uPxPerM, uPxScale, uGain, uWet, uSoft;
       varying vec3 vColor; varying float vSize;
       void main() {
         vColor = aColor * uGain;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        float s = clamp(aSize * uPxPerM, 1.0, 5.0);
+        float s = clamp(aSize * uPxPerM, uPxScale, 5.0 * uPxScale);
         vSize = s;
-        gl_PointSize = s * (1.0 + uWet * 2.0);
+        gl_PointSize = s * (1.0 + uWet * 2.0) * (1.0 + uSoft); // soft lights get room for their falloff
       }`,
     fragmentShader: /* glsl */ `
-      uniform float uWet;
+      uniform float uWet, uSoft;
       varying vec3 vColor; varying float vSize;
       void main() {
         vec2 c = gl_PointCoord - 0.5;
-        float r = vSize / (vSize * (1.0 + uWet * 2.0)) * 0.5; // core radius in point space
+        float r = vSize / (vSize * (1.0 + uWet * 2.0)) * 0.5 / (1.0 + uSoft); // core radius in point space
         float k = 0.0;
-        if (max(abs(c.x), abs(c.y)) <= r + 0.001 || vSize < 2.5 && uWet < 0.01) k = 1.0;
+        if (uSoft > 0.5) { float d = length(c) / r; k = d < 1.0 ? 1.0 : exp(-4.0 * (d - 1.0) * (d - 1.0)) * 0.45; if (d > 2.0) k = 0.0; }
+        else if (max(abs(c.x), abs(c.y)) <= r + 0.001 || vSize < 2.5 && uWet < 0.01) k = 1.0;
         else if (vSize >= 2.5 && length(c) < r) k = 1.0;
         // wet tarmac: a short reflection streak below the light (screen-down)
         if (uWet > 0.0 && abs(c.x) < r * 0.6 && c.y > 0.0) k = max(k, uWet * 0.35 * (1.0 - c.y * 2.0));
