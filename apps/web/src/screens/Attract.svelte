@@ -1,3 +1,8 @@
+<script lang="ts" module>
+/** What the home screen shows about the live backdrop: its clock, weather and the last few radio calls. */
+export interface AttractInfo { time: number; atis: string; wind: { dir: number; kt: number; gust?: number }; arr: string[]; dep: string[]; lines: { who: string; text: string; atc: boolean }[]; moving: number }
+</script>
+
 <script lang="ts">
   // Live backdrop: the real sim running AI-only at Heathrow, with the camera drifting through the zoom from a stand to the radar.
   import { onMount } from 'svelte';
@@ -5,6 +10,19 @@
   import { DIFFICULTY } from '@squawk/sim';
   import { GameClient } from '../game/client.ts';
   import { loadAirport, loadDay } from '../lib/data.ts';
+  import { text } from '@squawk/phraseology';
+  import type { Snap } from '../game/client.ts';
+
+  interface Props { onInfo?: (i: AttractInfo) => void }
+  let { onInfo }: Props = $props();
+  const info = (snap: Snap, time: number, pack: Parameters<typeof createScene>[1][0]): AttractInfo => {
+    const ctx = { airport: { rtName: pack.rtName, transitionAltFt: pack.transitionAltFt, frequencies: pack.frequencies } };
+    return {
+      time, atis: snap.weather.atis, wind: snap.weather.wind, arr: snap.apts[0].arr, dep: snap.apts[0].dep,
+      lines: snap.radio.slice(-4).map(r => ({ who: r.from === 'atc' ? `${pack.rtName} ${({ DEL: 'Delivery', GND: 'Ground', TWR: 'Tower', DIR: 'Director', LON: 'London' } as Record<string, string>)[r.seat] ?? ''}` : r.cs, text: text(r, ctx), atc: r.from === 'atc' })),
+      moving: snap.aircraft.filter(a => !a.onGround || a.gs > 1).length,
+    };
+  };
 
   let wrap: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -24,6 +42,7 @@
       const ro = new ResizeObserver(() => scene?.resize());
       ro.observe(wrap);
       const t0 = performance.now();
+      let lastInfo = 0;
       // Camera beats: stand close-up -> apron -> whole airport -> terminal radar -> back.
       const beats = [
         { cx: -1150, cy: -560, mpp: 0.35 }, { cx: -900, cy: -650, mpp: 1.2 }, { cx: 0, cy: -700, mpp: 4.2 },
@@ -45,6 +64,7 @@
         scene.setRunwaysInUse(client.snap.apts[0].arr, client.snap.apts[0].dep);
         scene.setOverlays({ rings: true, ctr: true });
         scene.render();
+        if (onInfo && now - lastInfo > 1000) { lastInfo = now; onInfo(info(client.snap, client.time(now), pack)); }
       };
       frame();
       (wrap as HTMLDivElement & { ro?: ResizeObserver }).ro = ro;

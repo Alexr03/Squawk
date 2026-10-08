@@ -10,6 +10,7 @@
   import AircraftCard from './AircraftCard.svelte';
   import RadialMenu from './RadialMenu.svelte';
   import Console from './Console.svelte';
+  import Loading, { type Brief } from '../screens/Loading.svelte';
   import { radialFor, type RadialItem } from './radial.ts';
   import { needs, workload } from './needs.ts';
   import { Sound } from './sound.ts';
@@ -19,12 +20,14 @@
 
   interface Props {
     client: ShiftClient; title: string; canPause: boolean;
+    /** Shown while the first frame of the shift arrives. */
+    brief?: Brief;
     /** Extra controls in the pause menu (co-op seats). */
     menuExtra?: Snippet;
     coach?: (snap: Snap, selected: string | null) => string | null;
     onEnd: (st: State) => void; onQuit: () => void;
   }
-  let { client, title, canPause, coach, onEnd, onQuit, menuExtra }: Props = $props();
+  let { client, title, canPause, coach, onEnd, onQuit, menuExtra, brief }: Props = $props();
 
   let snap = $state.raw<Snap | null>(null);
   let selected = $state<string | null>(null);
@@ -273,7 +276,7 @@
   {/if}
 {#if helpOpen}<Help onClose={() => (helpOpen = false)} />{/if}
 {:else}
-  <div class="loading">Opening the frequency…</div>
+  {#if brief}<Loading {brief} step={2} />{:else}<div class="loading">Opening the frequency…</div>{/if}
 {/if}
 
 <style>

@@ -15,6 +15,8 @@
   import Daily from './screens/Daily.svelte';
   import Coop from './screens/Coop.svelte';
   import { prepare, type Launch } from './lib/launch.ts';
+  import Loading, { type Brief } from './screens/Loading.svelte';
+  import { DAYS } from './lib/data.ts';
 
   type Screen = 'menu' | 'setup' | 'loading' | 'game' | 'debrief' | 'settings' | 'career' | 'daily' | 'coop';
   let screen = $state<Screen>('menu');
@@ -25,10 +27,15 @@
   let error = $state('');
   let setupMode = $state<'free' | 'endless'>('free');
 
+  const brief = $derived<Brief | null>(launch ? {
+    title: launch.title, airports: launch.airports, coverage: launch.coverage, start: launch.start, minutes: launch.mode === 'endless' ? 0 : launch.minutes,
+    traffic: launch.traffic, dayLabel: DAYS.find(d => d.id === launch!.days[0])?.label, weather: launch.weather,
+  } : null);
   async function start(l: Launch) {
     screen = 'loading'; error = ''; launch = l; replaying = false;
     try {
-      const { packs, cfg } = await prepare(l);
+      // The briefing stays up long enough to read, even when everything is cached.
+      const [{ packs, cfg }] = await Promise.all([prepare(l), new Promise(r => setTimeout(r, 1400))]);
       client?.dispose();
       client = new GameClient(packs, cfg);
       screen = 'game';
@@ -86,10 +93,10 @@
   {:else if screen === 'settings'}
     <Settings onBack={() => (screen = 'menu')} />
   {:else if screen === 'loading'}
-    <div class="loading"><div class="spin"></div>Loading {launch?.title}…</div>
+    {#if brief}<Loading {brief} step={0} />{/if}
   {:else if screen === 'game' && client && launch}
     {#key client}
-      <Game {client} title={replaying ? `REPLAY — ${launch.title}` : launch.title} canPause={launch.difficulty.pause && launch.mode !== 'daily' || replaying}
+      <Game {client} brief={brief ?? undefined} title={replaying ? `REPLAY — ${launch.title}` : launch.title} canPause={launch.difficulty.pause && launch.mode !== 'daily' || replaying}
         coach={launch.hints && settings.tutorialHints ? (s: Snap, sel: string | null) => careerCoach(client!.world, s, sel) : undefined}
         onEnd={(st) => (replaying ? (screen = 'debrief') : ended(st))} onQuit={async () => { if (replaying) { screen = 'debrief'; return; } if (!client) return; ended(client.final ?? (client instanceof GameClient ? await client.full() : client.snap as State)); }}
         menuExtra={coop.session ? coopPanel : undefined} />
