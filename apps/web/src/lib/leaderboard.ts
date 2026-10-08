@@ -2,7 +2,7 @@
 // otherwise keeps a local board so the feature still works offline.
 export interface Entry { name: string; score: number; grade: string; at: number }
 
-const BASE = (import.meta.env.VITE_LEADERBOARD_URL as string | undefined)?.replace(/\/$/, '');
+export const BASE = (import.meta.env.VITE_LEADERBOARD_URL as string | undefined)?.replace(/\/$/, '');
 const LOCAL = 'squawk.board';
 
 function localBoard(key: string): Entry[] {
