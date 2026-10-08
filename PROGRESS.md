@@ -16,12 +16,12 @@ Working tracker for the autonomous build of all five milestones. Decisions live 
 - [x] M1 prototype (Tower only)
 - [x] M2 vertical slice: taxi graph + routing, radar + vectoring + ILS, radial menu, typed shortcuts, strips, handoffs, scoring + debrief, 7700/7600, pixel art
 - [x] M3 content: Delivery, London Control, career (5 ratings, checkrides), second airport (+3 more), weather + runway changes (15:00 swap, easterlies, LVP), night, audio
-- [~] M4 launch: voice commands (Web Speech + Whisper), daily challenge, leaderboard worker (in progress by agent), settings + accessibility, onboarding coach. Deploy to squawk.x3.dev needs the owner's Cloudflare login.
-- [~] M5 post-launch: London airports built; top-down multi-airport coverage selectable in Free shift; co-op + PWA in progress by agent.
+- [~] M4 launch: voice commands (Web Speech + Whisper), daily challenge, leaderboard worker, settings + accessibility, onboarding coach. Deploy to squawk.x3.dev needs the owner's Cloudflare login.
+- [~] M5 post-launch: London airports built; top-down multi-airport coverage selectable in Free shift; co-op (WebRTC) + PWA done.
 
 ## Open work
 
-- Scenery pass (dense pavement + surroundings) — agent working.
-- Co-op/WebRTC, leaderboard worker, PWA — agent working.
+- Deploy (Pages + leaderboard Worker) needs the owner; see README.
+- Game-style HUD done (floating glass panels, radio console); keep polishing from play-tests.
 - AI Director throughput (~20 arrivals/h at Heathrow vs ~42 real); AI-only ground glitches use a pass-through backstop.
 - Gatwick/Stansted/Luton/City: mixed-mode runway logic is basic.
