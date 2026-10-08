@@ -5,7 +5,7 @@
   import { loadProgress } from '../lib/progress.ts';
   import { dailyShift, RATINGS } from '../lib/career.ts';
   import { AIRPORTS, DAYS } from '../lib/data.ts';
-  import { COMMIT, REPO, VERSION } from '../lib/version.ts';
+  import { REPO, versionLabel } from '../lib/version.ts';
 
   interface Props { onNav: (s: string) => void; error?: string }
   let { onNav, error = '' }: Props = $props();
@@ -91,7 +91,7 @@
   {/if}
 
   <footer>
-    <a href={REPO} target="_blank" rel="noopener">v{VERSION} {COMMIT}</a>
+    <a href={REPO} target="_blank" rel="noopener">{versionLabel}</a>
     <span>Airport data © OpenStreetMap contributors, UK AIP, OpenSky Network, Iowa Environmental Mesonet. Not for real-world navigation.</span>
   </footer>
 </div>

@@ -10,7 +10,7 @@
   import AircraftCard from './AircraftCard.svelte';
   import RadialMenu from './RadialMenu.svelte';
   import Console from './Console.svelte';
-  import { COMMIT, VERSION } from '../lib/version.ts';
+  import { versionLabel } from '../lib/version.ts';
   import Loading, { type Brief } from '../screens/Loading.svelte';
   import { radialFor, type RadialItem } from './radial.ts';
   import { needs, workload } from './needs.ts';
@@ -315,7 +315,7 @@
         {@render menuExtra?.()}
         <button onclick={() => (helpOpen = true)}>How to play</button>
         <button class="quit" onclick={onQuit}>End shift</button>
-        <div class="ver">Squawk v{VERSION} · {COMMIT}</div>
+        <div class="ver">Squawk {versionLabel}</div>
       </div>
     </div>
   {/if}
