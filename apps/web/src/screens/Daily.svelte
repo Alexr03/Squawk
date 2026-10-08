@@ -44,15 +44,15 @@
 </div>
 
 <style>
-  .daily { height: 100vh; overflow-y: auto; background: var(--bg); padding: 18px clamp(16px, 4vw, 48px); font: 18px VT323, var(--mono); color: var(--ink); }
+  .daily { height: 100vh; overflow-y: auto; background: var(--bg); padding: 18px clamp(16px, 4vw, 48px); font: 14px var(--ui); color: var(--ink); }
   header { display: flex; align-items: center; gap: 18px; }
-  h1 { margin: 0; font: 400 20px Silkscreen, var(--mono); color: var(--green); }
-  h2 { margin: 20px 0 8px; font: 400 12px Silkscreen, var(--mono); color: var(--muted); }
-  .back { background: var(--btn); border: 1px solid var(--line); color: var(--ink-strong); font: 17px VT323, var(--mono); padding: 3px 10px; cursor: pointer; }
+  h1 { margin: 0; font: 600 21px var(--ui); color: var(--green); }
+  h2 { margin: 20px 0 8px; font: 600 13px var(--ui); color: var(--muted); }
+  .back { background: var(--btn); border: 1px solid var(--line); color: var(--ink-strong); font: 13px var(--ui); padding: 3px 10px; cursor: pointer; }
   .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 34px; max-width: 1000px; }
-  .big { font-size: 30px; color: var(--ink-strong); margin: 0; }
+  .big { font-size: 24px; color: var(--ink-strong); margin: 0; }
   .note { color: var(--muted); }
-  .go { margin-top: 14px; padding: 10px 28px; background: var(--green); color: var(--bg); border: none; font: 400 14px Silkscreen, var(--mono); cursor: pointer; }
+  .go { margin-top: 14px; padding: 10px 28px; background: var(--green); color: var(--bg); border: none; font: 600 15px var(--ui); cursor: pointer; }
   ol { list-style: none; padding: 0; }
   li { display: grid; grid-template-columns: 34px 1fr 30px 90px; gap: 8px; padding: 2px 0; border-bottom: 1px solid var(--line); }
   li b { font-weight: 400; color: var(--ink-strong); }

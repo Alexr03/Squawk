@@ -60,14 +60,14 @@
 </div>
 
 <style>
-  .set { height: 100vh; overflow-y: auto; background: var(--bg); padding: 18px clamp(16px, 4vw, 48px); font: 18px VT323, var(--mono); color: var(--ink); }
+  .set { height: 100vh; overflow-y: auto; background: var(--bg); padding: 18px clamp(16px, 4vw, 48px); font: 14px var(--ui); color: var(--ink); }
   header { display: flex; align-items: center; gap: 18px; }
-  h1 { margin: 0; font: 400 20px Silkscreen, var(--mono); color: var(--green); }
-  h2 { margin: 20px 0 8px; font: 400 12px Silkscreen, var(--mono); color: var(--muted); letter-spacing: 1px; }
-  .back, button { background: var(--btn); border: 1px solid var(--line); color: var(--ink-strong); font: 17px VT323, var(--mono); padding: 3px 10px; cursor: pointer; }
+  h1 { margin: 0; font: 600 21px var(--ui); color: var(--green); }
+  h2 { margin: 20px 0 8px; font: 600 13px var(--ui); color: var(--muted); letter-spacing: 1px; }
+  .back, button { background: var(--btn); border: 1px solid var(--line); color: var(--ink-strong); font: 13px var(--ui); padding: 3px 10px; cursor: pointer; }
   .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 34px; max-width: 1100px; }
   label { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
   input[type=range] { flex: 1; accent-color: var(--green); }
-  select, .txt { background: var(--btn); color: var(--ink-strong); border: 1px solid var(--line); font: 17px VT323, var(--mono); padding: 2px 6px; }
-  .note { color: var(--muted); font-size: 16px; }
+  select, .txt { background: var(--btn); color: var(--ink-strong); border: 1px solid var(--line); font: 13px var(--ui); padding: 2px 6px; }
+  .note { color: var(--muted); font-size: 13px; }
 </style>

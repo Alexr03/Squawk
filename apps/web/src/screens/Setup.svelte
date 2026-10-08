@@ -104,29 +104,29 @@
 </div>
 
 <style>
-  .setup { height: 100vh; overflow-y: auto; background: var(--bg); padding: 18px clamp(16px, 4vw, 48px); font: 18px VT323, var(--mono); color: var(--ink); }
+  .setup { height: 100vh; overflow-y: auto; background: var(--bg); padding: 18px clamp(16px, 4vw, 48px); font: 14px var(--ui); color: var(--ink); }
   header { display: flex; align-items: center; gap: 18px; }
-  h1 { margin: 0; font: 400 20px Silkscreen, var(--mono); color: var(--green); }
-  h2 { margin: 18px 0 8px; font: 400 12px Silkscreen, var(--mono); color: var(--muted); letter-spacing: 1px; }
-  h3 { margin: 10px 0 6px; font: 400 16px VT323, var(--mono); color: var(--muted); }
-  .back { background: none; border: 1px solid var(--line); color: var(--ink); font: 17px VT323, var(--mono); padding: 3px 10px; cursor: pointer; }
+  h1 { margin: 0; font: 600 21px var(--ui); color: var(--green); }
+  h2 { margin: 18px 0 8px; font: 600 13px var(--ui); color: var(--muted); letter-spacing: 1px; }
+  h3 { margin: 10px 0 6px; font: 400 12px var(--ui); color: var(--muted); }
+  .back { background: none; border: 1px solid var(--line); color: var(--ink); font: 13px var(--ui); padding: 3px 10px; cursor: pointer; }
   .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 34px; max-width: 1200px; }
   .chips { display: flex; flex-wrap: wrap; gap: 5px; }
-  .chips button, .list button { background: var(--btn); border: 1px solid var(--line); color: var(--ink); font: 17px VT323, var(--mono); padding: 3px 10px; cursor: pointer; text-transform: capitalize; }
+  .chips button, .list button { background: var(--btn); border: 1px solid var(--line); color: var(--ink); font: 13px var(--ui); padding: 3px 10px; cursor: pointer; text-transform: capitalize; }
   .chips button.on, .list button.on { border-color: var(--green); color: var(--green); }
   .list { display: flex; flex-direction: column; gap: 4px; }
   .list button { text-align: left; display: flex; flex-direction: column; text-transform: none; padding: 5px 10px; }
-  .list button span { color: var(--muted); font-size: 16px; }
+  .list button span { color: var(--muted); font-size: 13px; }
   .row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
   .row b { font-weight: 400; color: var(--ink-strong); }
   input[type=range] { flex: 1; accent-color: var(--green); }
-  select, .seed { background: var(--btn); color: var(--ink-strong); border: 1px solid var(--line); font: 17px VT323, var(--mono); padding: 2px 6px; }
+  select, .seed { background: var(--btn); color: var(--ink-strong); border: 1px solid var(--line); font: 13px var(--ui); padding: 2px 6px; }
   .seats { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
   .seat { display: grid; grid-template-columns: 22px 150px 1fr; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; }
   .seat.on { border-color: var(--green); }
   .seat span { color: var(--muted); }
-  .note { color: var(--muted); font-size: 16px; }
+  .note { color: var(--muted); font-size: 13px; }
   .dials { border: 1px solid var(--line); padding: 4px 10px 10px; margin-top: 6px; }
-  .start { margin-top: 22px; width: 100%; padding: 10px; background: var(--green); color: var(--bg); border: none; font: 400 14px Silkscreen, var(--mono); letter-spacing: 1px; cursor: pointer; }
+  .start { margin-top: 22px; width: 100%; padding: 10px; background: var(--green); color: var(--bg); border: none; font: 600 15px var(--ui); letter-spacing: 1px; cursor: pointer; }
   .start:disabled { opacity: 0.4; cursor: default; }
 </style>

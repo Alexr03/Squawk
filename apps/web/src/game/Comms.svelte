@@ -111,7 +111,7 @@
 
 <style>
   .comms { display: flex; flex-direction: column; height: 100%; background: var(--panel); border-top: 1px solid var(--line); }
-  .log { flex: 1; overflow-y: auto; padding: 4px 10px; font: 17px/1.15 VT323, var(--mono); }
+  .log { flex: 1; overflow-y: auto; padding: 4px 10px; font: 13px/1.15 var(--mono); }
   .ln { display: flex; gap: 10px; color: var(--ink); cursor: default; }
   .ln.sel { background: var(--sel-bg); }
   .t { color: var(--dim); min-width: 62px; }
@@ -125,10 +125,10 @@
   .conflict .txt, .conflict .who { color: var(--red); }
   .info .txt { color: var(--accent); }
   .cmd { position: relative; display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-top: 1px solid var(--line); background: var(--panel-2); }
-  .prompt { font: 18px VT323, var(--mono); color: var(--green); min-width: 70px; }
-  input { flex: 1; background: transparent; border: none; outline: none; color: var(--ink-strong); font: 19px VT323, var(--mono); }
+  .prompt { font: 14px var(--mono); color: var(--green); min-width: 70px; }
+  input { flex: 1; background: transparent; border: none; outline: none; color: var(--ink-strong); font: 15px var(--mono); }
   input::placeholder { color: var(--dim); }
-  .err { color: var(--red); font: 16px VT323, var(--mono); }
+  .err { color: var(--red); font: 12px var(--mono); }
   .sugg { position: absolute; bottom: 100%; left: 88px; display: flex; gap: 4px; padding: 4px; background: var(--panel-2); border: 1px solid var(--line); }
-  .sugg button { background: var(--btn); color: var(--ink); border: 1px solid var(--line); font: 16px VT323, var(--mono); padding: 1px 6px; cursor: pointer; }
+  .sugg button { background: var(--btn); color: var(--ink); border: 1px solid var(--line); font: 12px var(--mono); padding: 1px 6px; cursor: pointer; }
 </style>

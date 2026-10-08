@@ -2,8 +2,8 @@
 import type { AircraftView, AirportPack, XY } from '@squawk/sim/types';
 import { NM } from '@squawk/sim/geo';
 
-export const TAG_FONT = '16px VT323, ui-monospace, Consolas, monospace';
-export const SMALL_FONT = '8px Silkscreen, ui-monospace, monospace';
+export const TAG_FONT = "500 11.5px 'IBM Plex Mono', ui-monospace, Consolas, monospace";
+export const SMALL_FONT = "500 10px 'IBM Plex Mono', ui-monospace, Consolas, monospace";
 
 const DAY = {
   bg: '#0a1426', apron: '#14223a', rwy: '#33456a', bldg: '#1a2a46', coast: '#2a5466', river: '#1e3d63', motorway: '#2a3552',
@@ -261,7 +261,7 @@ export class Radar {
     if (fade > 0) {
       ctx.globalAlpha = fade;
       ctx.font = TAG_FONT; ctx.textBaseline = 'top';
-      const LH = 13;
+      const LH = 14;
       // reserve blip areas first
       for (const ac of list) { const q = S(ac); boxes.push({ x: q.x - 5, y: q.y - 5, w: 10, h: 10 }); }
       for (const ac of list) {

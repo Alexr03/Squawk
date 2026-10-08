@@ -222,7 +222,8 @@ function buildingsGeometry(pack: AirportPack): THREE.BufferGeometry {
     const [w, r] = BUILDING_COLOURS[b.kind] ?? GENERIC[Math.floor(hash(bi + 11) * GENERIC.length)];
     wall.set(w); roof.set(r);
     const h = Math.max(4, b.heightM);
-    const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: h, bevelEnabled: false }).rotateX(-Math.PI / 2).toNonIndexed();
+    const g0 = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: h, bevelEnabled: false }).rotateX(-Math.PI / 2);
+    const g = g0.index ? g0.toNonIndexed() : g0;
     const p = g.getAttribute('position');
     for (let i = 0; i < p.count; i += 3) {
       const top = p.getY(i) > h - 0.01 && p.getY(i + 1) > h - 0.01 && p.getY(i + 2) > h - 0.01;

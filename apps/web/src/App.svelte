@@ -99,10 +99,11 @@
     --ink: #b9c8de; --ink-strong: #e8f0fb; --muted: #7d90ae; --dim: #4f6080;
     --green: #4ff0b4; --green-dim: #2f8f72; --accent: #8fc7ff; --amber: #ffb547; --red: #ff5a5a; --sel: #ffffff; --sel-bg: rgba(143, 199, 255, 0.09);
     --strip-bg: #e9e2cc; --strip-hover: #f3ecd7; --strip-emg: #f6d5cf; --strip-dep: #4a8be0; --strip-arr: #d9a441;
-    --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    --ui: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
     color-scheme: dark;
   }
-  :global(body) { margin: 0; background: var(--bg); color: var(--ink); font-family: VT323, var(--mono); overflow: hidden; }
+  :global(body) { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--ui); overflow: hidden; }
   :global(button) { font-family: inherit; }
   :global(.app.hc) { --ink: #ffffff; --muted: #c7d3e6; --dim: #9fb0cb; --line: #4a6290; --green: #7dffcf; }
   :global(.app.cb) { --green: #5cc8ff; --green-dim: #3a7fa6; --amber: #ffd23f; --red: #ff6ad5; }
@@ -116,7 +117,7 @@
   :global(.strip .need.routine) { color: #5c6577 !important; }
   :global(.strip .need.urgent) { color: #a8650a !important; }
   :global(.strip .need.emergency) { color: #c0262d !important; }
-  .loading { height: 100vh; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center; font: 14px Silkscreen, var(--mono); color: var(--green); }
+  .loading { height: 100vh; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center; font: 600 15px var(--ui); color: var(--green); }
   .spin { width: 18px; height: 18px; border: 2px solid var(--green); border-right-color: transparent; border-radius: 50%; animation: s 0.8s linear infinite; }
   @keyframes s { to { transform: rotate(360deg); } }
 </style>

@@ -246,27 +246,27 @@
   .scopewrap { position: relative; min-width: 0; min-height: 0; }
   .bottom { min-height: 0; }
   .queue { position: absolute; top: 8px; right: 8px; z-index: 5; width: 250px; background: rgba(13, 22, 40, 0.88); border: 1px solid var(--line); padding: 6px; }
-  .queue h4 { margin: 0 0 4px; font: 11px Silkscreen, var(--mono); color: var(--muted); display: flex; justify-content: space-between; }
+  .queue h4 { margin: 0 0 4px; font: 600 12px var(--ui); color: var(--muted); display: flex; justify-content: space-between; }
   .queue h4 span { color: var(--dim); }
-  .queue button { display: block; width: 100%; text-align: left; background: none; border: none; border-left: 3px solid var(--dim); color: var(--ink); font: 16px VT323, var(--mono); padding: 1px 6px; cursor: pointer; }
+  .queue button { display: block; width: 100%; text-align: left; background: none; border: none; border-left: 3px solid var(--dim); color: var(--ink); font: 12px var(--mono); padding: 1px 6px; cursor: pointer; }
   .queue button b { font-weight: 400; color: var(--ink-strong); margin-right: 4px; }
   .queue button.urgent { border-left-color: var(--amber); }
   .queue button.emergency { border-left-color: var(--red); color: var(--red); }
   .queue button.sel { background: var(--sel-bg); }
-  .coach { position: absolute; left: 12px; top: 12px; z-index: 6; max-width: 420px; background: rgba(13, 22, 40, 0.94); border: 1px solid var(--green); color: var(--ink-strong); padding: 10px 12px; font: 18px/1.2 VT323, var(--mono); }
-  .confirm { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 7; background: var(--panel-2); border: 1px solid var(--amber); padding: 8px 12px; font: 17px VT323, var(--mono); }
+  .coach { position: absolute; left: 12px; top: 12px; z-index: 6; max-width: 420px; background: rgba(13, 22, 40, 0.94); border: 1px solid var(--green); color: var(--ink-strong); padding: 10px 12px; font: 14px/1.2 var(--mono); }
+  .confirm { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 7; background: var(--panel-2); border: 1px solid var(--amber); padding: 8px 12px; font: 13px var(--mono); }
   .confirm .row { display: flex; gap: 6px; margin-top: 6px; }
-  .confirm button, .box button { background: var(--btn); border: 1px solid var(--line-strong); color: var(--ink-strong); font: 17px VT323, var(--mono); padding: 4px 12px; cursor: pointer; }
+  .confirm button, .box button { background: var(--btn); border: 1px solid var(--line-strong); color: var(--ink-strong); font: 13px var(--mono); padding: 4px 12px; cursor: pointer; }
   .toasts { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 8; display: flex; flex-direction: column; gap: 4px; align-items: center; pointer-events: none; }
-  .toast { background: rgba(13, 22, 40, 0.94); border: 1px solid var(--line-strong); padding: 4px 12px; font: 17px VT323, var(--mono); color: var(--ink-strong); }
+  .toast { background: rgba(13, 22, 40, 0.94); border: 1px solid var(--line-strong); padding: 4px 12px; font: 13px var(--mono); color: var(--ink-strong); }
   .toast.caution { border-color: var(--amber); color: var(--amber); }
   .toast.conflict { border-color: var(--red); color: var(--red); }
-  .pausebadge { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 6; font: 14px Silkscreen, var(--mono); color: var(--amber); background: rgba(13, 22, 40, 0.9); padding: 6px 12px; border: 1px solid var(--amber); }
+  .pausebadge { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 6; font: 600 15px var(--ui); color: var(--amber); background: rgba(13, 22, 40, 0.9); padding: 6px 12px; border: 1px solid var(--amber); }
   .modal { position: fixed; inset: 0; z-index: 60; background: rgba(5, 10, 20, 0.7); display: flex; align-items: center; justify-content: center; }
-  .box { width: min(480px, 92vw); background: var(--panel-2); border: 1px solid var(--line-strong); padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; font: 18px VT323, var(--mono); }
-  .box h2 { margin: 0 0 6px; font: 14px Silkscreen, var(--mono); color: var(--green); }
+  .box { width: min(480px, 92vw); background: var(--panel-2); border: 1px solid var(--line-strong); padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; font: 14px var(--mono); }
+  .box h2 { margin: 0 0 6px; font: 600 15px var(--ui); color: var(--green); }
   .box label { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-  .box .keys { color: var(--muted); font-size: 16px; }
+  .box .keys { color: var(--muted); font-size: 13px; }
   .box .quit { border-color: var(--red); color: var(--red); }
-  .loading { height: 100vh; display: flex; align-items: center; justify-content: center; font: 16px Silkscreen, var(--mono); color: var(--green); background: var(--bg); }
+  .loading { height: 100vh; display: flex; align-items: center; justify-content: center; font: 600 17px var(--ui); color: var(--green); background: var(--bg); }
 </style>

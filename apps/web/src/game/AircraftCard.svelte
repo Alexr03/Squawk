@@ -51,11 +51,11 @@
 </aside>
 
 <style>
-  .card { width: 268px; background: var(--panel); border-left: 1px solid var(--line); padding: 10px 12px; overflow-y: auto; font: 17px/1.1 VT323, var(--mono); color: var(--ink); }
+  .card { width: 268px; background: var(--panel); border-left: 1px solid var(--line); padding: 10px 12px; overflow-y: auto; font: 13px/1.1 var(--mono); color: var(--ink); }
   header { display: flex; justify-content: space-between; align-items: flex-start; }
-  h2 { margin: 0; font: 400 30px VT323, var(--mono); color: var(--ink-strong); }
+  h2 { margin: 0; font: 400 23px var(--mono); color: var(--ink-strong); }
   .tel { color: var(--muted); }
-  .x { background: none; border: none; color: var(--muted); font-size: 26px; cursor: pointer; line-height: 1; }
+  .x { background: none; border: none; color: var(--muted); font-size: 21px; cursor: pointer; line-height: 1; }
   .livery { height: 10px; margin: 8px 0; background: var(--body); border-bottom: 3px solid var(--accent); position: relative; }
   .livery span { position: absolute; right: 0; top: -6px; width: 22px; height: 16px; background: var(--tail); clip-path: polygon(30% 0, 100% 0, 100% 100%, 0 100%); }
   dl { display: grid; grid-template-columns: 84px 1fr; gap: 2px 8px; margin: 6px 0 10px; }
@@ -64,9 +64,9 @@
   .emg { color: var(--red); }
   .req { color: var(--amber); }
   .acts { display: flex; flex-wrap: wrap; gap: 5px; }
-  .acts button { background: var(--btn); color: var(--ink-strong); border: 1px solid var(--line-strong); font: 17px VT323, var(--mono); padding: 3px 8px; cursor: pointer; border-radius: 2px; display: flex; gap: 6px; align-items: center; }
+  .acts button { background: var(--btn); color: var(--ink-strong); border: 1px solid var(--line-strong); font: 13px var(--mono); padding: 3px 8px; cursor: pointer; border-radius: 2px; display: flex; gap: 6px; align-items: center; }
   .acts button:hover { border-color: var(--green); color: var(--green); }
   .acts button.danger { color: var(--red); border-color: var(--red); }
-  kbd { font: 13px Silkscreen, var(--mono); color: var(--dim); }
+  kbd { font: 600 14px var(--ui); color: var(--dim); }
   .foot { margin-top: 10px; color: var(--dim); }
 </style>

@@ -134,7 +134,7 @@
       ctx.beginPath(); path.forEach((n, i) => { const p = S(apt.nodes[n]); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke(); ctx.setLineDash([]);
       for (const v of taxiEdit!.via) { const p = S(apt.nodes[v]); ctx.fillStyle = '#ffd84a'; ctx.fillRect(p.x - 4, p.y - 4, 8, 8); }
       const end = S(apt.nodes[path[path.length - 1]]);
-      ctx.font = '14px VT323, monospace'; ctx.fillStyle = '#ffd84a';
+      ctx.font = "12px 'IBM Plex Mono', ui-monospace, monospace"; ctx.fillStyle = '#ffd84a';
       ctx.fillText(`${taxiEdit!.to} via ${viaNames(apt, path).join(' ') || 'direct'} — click to add a point, Enter/double-click to send, Esc to cancel`, Math.min(end.x + 10, w - 520), end.y - 10);
     }
     // Heading vector being dragged out of a blip.
@@ -145,7 +145,7 @@
         const hdg = Math.round(geo.bearing(ac, drag.cur) / 5) * 5 || 360;
         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
-        ctx.font = '16px VT323, monospace'; ctx.fillStyle = '#fff'; ctx.fillText(`H${String(hdg).padStart(3, '0')}`, b.x + 8, b.y - 8);
+        ctx.font = "600 13px 'IBM Plex Mono', ui-monospace, monospace"; ctx.fillStyle = '#fff'; ctx.fillText(`H${String(hdg).padStart(3, '0')}`, b.x + 8, b.y - 8);
       }
     }
   }
@@ -230,5 +230,5 @@
   .scope { position: relative; width: 100%; height: 100%; overflow: hidden; background: #0a1324; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   canvas.ui { pointer-events: none; z-index: 2; }
-  .scale { position: absolute; right: 10px; bottom: 8px; z-index: 3; font: 14px VT323, ui-monospace, monospace; color: #6f86a8; pointer-events: none; }
+  .scale { position: absolute; right: 10px; bottom: 8px; z-index: 3; font: 11px var(--mono); color: #6f86a8; pointer-events: none; }
 </style>

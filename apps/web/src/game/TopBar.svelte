@@ -58,18 +58,18 @@
 </header>
 
 <style>
-  .top { display: flex; align-items: center; gap: 10px; padding: 0 8px; height: 44px; background: var(--panel-2); border-bottom: 1px solid var(--line); font: 17px VT323, var(--mono); color: var(--ink); white-space: nowrap; overflow: hidden; }
-  .menu { background: none; border: 1px solid var(--line); color: var(--ink); font-size: 18px; width: 32px; height: 30px; cursor: pointer; }
-  .title { font: 12px Silkscreen, var(--mono); color: var(--green); letter-spacing: 1px; }
+  .top { display: flex; align-items: center; gap: 10px; padding: 0 8px; height: 44px; background: var(--panel-2); border-bottom: 1px solid var(--line); font: 13px var(--mono); color: var(--ink); white-space: nowrap; overflow: hidden; }
+  .menu { background: none; border: 1px solid var(--line); color: var(--ink); font-size: 14px; width: 32px; height: 30px; cursor: pointer; }
+  .title { font: 600 13px var(--ui); color: var(--green); letter-spacing: 1px; }
   .tabs { display: flex; gap: 3px; }
-  .tabs button { position: relative; background: var(--btn); border: 1px solid var(--line); color: var(--muted); font: 16px VT323, var(--mono); padding: 2px 8px; cursor: pointer; display: flex; gap: 6px; align-items: baseline; }
+  .tabs button { position: relative; background: var(--btn); border: 1px solid var(--line); color: var(--muted); font: 12px var(--mono); padding: 2px 8px; cursor: pointer; display: flex; gap: 6px; align-items: baseline; }
   .tabs button b { font-weight: 400; color: var(--ink-strong); }
   .tabs button.on { border-color: var(--green); color: var(--green); }
-  .tabs .f { font-size: 14px; }
-  .badge { position: absolute; top: -5px; right: -5px; background: var(--amber); color: var(--bg); border-radius: 8px; padding: 0 5px; font-size: 13px; line-height: 15px; }
+  .tabs .f { font-size: 11px; }
+  .badge { position: absolute; top: -5px; right: -5px; background: var(--amber); color: var(--bg); border-radius: 8px; padding: 0 5px; font-size: 11px; line-height: 15px; }
   .wx { display: flex; gap: 12px; margin-left: auto; color: var(--muted); }
   .wx b { color: var(--ink-strong); font-weight: 400; }
-  .clock { color: var(--ink-strong); font-size: 20px; }
+  .clock { color: var(--ink-strong); font-size: 16px; }
   .rwy { color: var(--accent); }
   .left { color: var(--ink-strong); }
   .load { width: 90px; }
@@ -77,10 +77,10 @@
   .bar div { height: 100%; background: var(--green); transition: width 0.4s; }
   .bar div.warm { background: var(--amber); }
   .bar div.hot { background: var(--red); }
-  .mic { color: var(--dim); font-size: 15px; }
+  .mic { color: var(--dim); font-size: 12px; }
   .mic.live { color: var(--red); }
   .speed { display: flex; gap: 3px; }
-  .speed button { background: var(--btn); border: 1px solid var(--line); color: var(--ink); font: 15px VT323, var(--mono); padding: 2px 7px; cursor: pointer; }
+  .speed button { background: var(--btn); border: 1px solid var(--line); color: var(--ink); font: 12px var(--mono); padding: 2px 7px; cursor: pointer; }
   .speed button.on { background: var(--green); color: var(--bg); border-color: var(--green); }
   @media (max-width: 1100px) { .title, .tabs .f, .load { display: none; } }
 </style>

@@ -45,14 +45,14 @@
   .backdrop { position: fixed; inset: 0; z-index: 40; }
   .ring { position: fixed; z-index: 41; width: 0; height: 0; }
   .hub { position: absolute; transform: translate(-50%, -50%); width: 96px; height: 96px; border-radius: 50%; background: var(--panel-2); border: 2px solid var(--green);
-    color: var(--ink-strong); display: flex; flex-direction: column; align-items: center; justify-content: center; font: 18px VT323, var(--mono); cursor: pointer; box-shadow: 0 0 0 6px rgba(10, 19, 36, 0.6); }
-  .hub small { color: var(--muted); font-size: 14px; }
+    color: var(--ink-strong); display: flex; flex-direction: column; align-items: center; justify-content: center; font: 14px var(--mono); cursor: pointer; box-shadow: 0 0 0 6px rgba(10, 19, 36, 0.6); }
+  .hub small { color: var(--muted); font-size: 11px; }
   .item { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; padding: 4px 10px 4px 6px; background: var(--panel-2); color: var(--ink-strong);
-    border: 1px solid var(--line-strong); font: 18px VT323, var(--mono); cursor: pointer; border-radius: 3px; display: flex; gap: 6px; align-items: center; }
+    border: 1px solid var(--line-strong); font: 14px var(--mono); cursor: pointer; border-radius: 3px; display: flex; gap: 6px; align-items: center; }
   .item:hover, .item:focus-visible { background: var(--green); color: var(--bg); border-color: var(--green); }
   .item.danger { border-color: var(--red); color: var(--red); }
   .item.danger:hover { background: var(--red); color: var(--bg); }
-  .n { color: var(--dim); font-size: 14px; }
+  .n { color: var(--dim); font-size: 11px; }
   .item:hover .n { color: var(--bg); }
   .more { color: var(--accent); }
   @media (prefers-reduced-motion: no-preference) { .item { animation: pop 0.12s ease-out both; } }
