@@ -2,13 +2,13 @@
 import { speech, type PhraseCtx } from '@squawk/phraseology';
 import type { Radio, World } from '@squawk/sim';
 import { createRadioAudio, type RadioAudio } from '../audio/radio.ts';
-import { Music } from '../audio/music.ts';
+import { music as sharedMusic } from '../audio/music.ts';
 import { settings } from '../lib/settings.svelte.ts';
 import type { Snap } from './client.ts';
 
 export class Sound {
   radio: RadioAudio = createRadioAudio();
-  music = new Music();
+  music = sharedMusic;
   private lastRadio = 0;
   private lastAlert = 0;
   private alarm = false;

@@ -6,6 +6,8 @@
   import { dailyShift, RATINGS } from '../lib/career.ts';
   import { AIRPORTS, DAYS } from '../lib/data.ts';
   import { REPO, versionLabel } from '../lib/version.ts';
+  import { music } from '../audio/music.ts';
+  import { settings } from '../lib/settings.svelte.ts';
 
   interface Props { onNav: (s: string) => void; error?: string }
   let { onNav, error = '' }: Props = $props();
@@ -33,6 +35,8 @@
 
   // The live backdrop: its clock, weather and radio.
   let live = $state<AttractInfo | null>(null);
+  // Browsers only allow sound after a click or key press: the music starts on the first one.
+  function startMusic() { music.setVolume(settings.master * settings.music); music.setIntensity(0.15); music.start(); }
   const hhmm = (t: number) => { const h = localHour(t), hh = Math.floor(h), mm = Math.floor((h - hh) * 60); return `${String(hh).padStart(2, '0')}${String(mm).padStart(2, '0')}`; };
 
   // Each mode is a flight progress strip, boxed like a real UK strip: name, two short fields, the detail, two more.
@@ -46,6 +50,7 @@
   ]);
 </script>
 
+<svelte:window onpointerdown={startMusic} onkeydown={startMusic} />
 <div class="menu">
   <Attract onInfo={(i) => (live = i)} />
   <div class="shade"></div>

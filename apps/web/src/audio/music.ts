@@ -114,3 +114,6 @@ export class Music {
     o.stop(t + 1.7);
   }
 }
+
+/** One player for the whole app, so the music carries on from the menus into a shift. */
+export const music = new Music();

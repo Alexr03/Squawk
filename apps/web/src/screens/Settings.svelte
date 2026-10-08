@@ -1,6 +1,7 @@
 <script lang="ts">
   import { settings, saveSettings } from '../lib/settings.svelte.ts';
   import { createRadioAudio } from '../audio/radio.ts';
+  import { music } from '../audio/music.ts';
   import { BUILT, COMMIT, REPO, VERSION } from '../lib/version.ts';
   interface Props { onBack: () => void }
   let { onBack }: Props = $props();
@@ -84,7 +85,7 @@
       {/each}
     </nav>
 
-    <div class="panel" onchange={saveSettings} oninput={saveSettings}>
+    <div class="panel" onchange={saveSettings} oninput={() => { saveSettings(); music.setVolume(settings.master * settings.music); }}>
       {#if tab === 'audio'}
         <section>
           <h2>Volume</h2>
