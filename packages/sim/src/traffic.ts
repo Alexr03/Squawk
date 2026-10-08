@@ -3,7 +3,7 @@ import { TYPES } from './aircraft.ts';
 import { AIRLINES } from './airlines.ts';
 import { angleDiff, bearing, dist, fromBearing, NM } from './geo.ts';
 import { DT, pick, rand, seatId, ticks, type Aircraft, type ShiftConfig, type Spawn, type State } from './state.ts';
-import type { DayPack, XY } from './types.ts';
+import type { DayPack, Flight, XY } from './types.ts';
 import { finalPoint, transition, type Apt, type World } from './world.ts';
 
 // Rough bearing from London to a destination region, by ICAO prefix (longest match wins).
@@ -54,11 +54,11 @@ export function chooseStar(apt: Apt, origin: string, st: State) {
 // ------------------------------------------------------------------ schedule
 
 const DEP_LEAD_S = 22 * 60;     // departures call for clearance this long before take-off
-export function buildSchedule(world: World, cfg: ShiftConfig, st: State) {
+export function buildSchedule(world: World, cfg: ShiftConfig, st: State, mixes?: Flight[][]) {
   const end = cfg.start + (cfg.durationS || 3 * 3600);
   cfg.airports.forEach((icao, i) => {
     const apt = world.byIcao[icao];
-    const day = cfg.days[i] ?? synthDay(apt, cfg.start, end, st);
+    const day = cfg.days[i] ?? synthDay(apt, cfg.start, end, st, 36, mixes?.[i]);
     const seen = new Set<string>();
     // A day pack from another date is replayed on the shift's date (multi-airport shifts mix days).
     const shift = day.date ? Math.floor(cfg.start / 86400) * 86400 - Date.parse(day.date + 'T00:00:00Z') / 1000 : 0;
@@ -88,15 +88,30 @@ export function buildSchedule(world: World, cfg: ShiftConfig, st: State) {
 export const arrivalLead = (apt: Apt) => apt.icao === 'EGLL' ? 26 * 60 : 22 * 60;
 
 /** Synthetic day for airports without a baked pack, or endless mode. */
-export function synthDay(apt: Apt, from: number, to: number, st: State, perHour = 36): DayPack {
-  const ops = Object.keys(apt.pack.airlineTerminals).filter(o => AIRLINES[o]);
-  const pool = ops.length ? ops : Object.keys(AIRLINES);
-  const types = ['A319', 'A320', 'A20N', 'A321', 'A21N', 'B738', 'E190', 'B789', 'B77W', 'A359', 'A333', 'A388'];
+/** Believable airline + aircraft + destination combinations: the real flights of a day (never a Ryanair A380). */
+export function realMix(day: DayPack | null | undefined): Flight[] {
+  const mix = day?.flights.filter(f => f.operator && TYPES[f.type] && AIRLINES[f.operator]) ?? [];
+  return mix.length ? mix : FALLBACK_MIX;
+}
+// Only used when no real day is loaded for an airport.
+const FALLBACK_MIX: Flight[] = ([
+  ['BAW', 'A320', 'EGPH'], ['BAW', 'A321', 'LFPG'], ['BAW', 'B77W', 'KJFK'], ['BAW', 'A388', 'KLAX'], ['BAW', 'B789', 'KBOS'], ['EZY', 'A320', 'LEMG'],
+  ['EZY', 'A20N', 'LIRF'], ['RYR', 'B738', 'EIDW'], ['RYR', 'B38M', 'LEMD'], ['DLH', 'A321', 'EDDF'], ['AFR', 'A320', 'LFPG'], ['KLM', 'B738', 'EHAM'],
+  ['UAE', 'A388', 'OMDB'], ['QTR', 'A359', 'OTHH'], ['VIR', 'B789', 'KJFK'], ['EIN', 'A320', 'EIDW'],
+] as const).flatMap(([operator, type, other]) => (['arr', 'dep'] as const).map(kind => ({ cs: operator + '1', type, operator, kind, time: 0, other })));
+
+export function synthDay(apt: Apt, from: number, to: number, st: State, perHour = 36, mix: Flight[] = FALLBACK_MIX): DayPack {
   const flights: DayPack['flights'] = [];
   for (const kind of ['arr', 'dep'] as const) {
+    const pool = mix.filter(f => f.kind === kind);
     for (let t = from; t < to; t += (3600 / perHour) * (0.5 + rand(st))) {
-      const op = pick(st, pool);
-      flights.push({ cs: op + (10 + Math.floor(rand(st) * 980)), type: pick(st, types), operator: op, kind, time: Math.round(t), other: pick(st, ['LFPG', 'EDDF', 'EHAM', 'KJFK', 'OMDB', 'EGPH', 'LEMD', 'LIRF', 'EIDW', 'KBOS', 'VHHH', 'OTHH']) });
+      // A real flight's airline, aircraft and destination together; a fresh flight number in that airline's style.
+      const f = pick(st, pool.length ? pool : mix);
+      const m = /^[A-Z]{3}(d+)([A-Z]*)$/.exec(f.cs);
+      const digits = Math.max(1, Math.min(4, m ? m[1].length : 3));
+      let n = String(1 + Math.floor(rand(st) * 9)); for (let i = 1; i < digits; i++) n += Math.floor(rand(st) * 10);
+      const sfx = m?.[2] ? String.fromCharCode(65 + Math.floor(rand(st) * 26)).repeat(Math.min(2, m[2].length)) : '';
+      flights.push({ cs: f.operator + n + sfx, type: f.type, operator: f.operator, kind, time: Math.round(t), other: f.other });
     }
   }
   return { id: `synthetic-${apt.icao}`, airport: apt.icao, date: '', label: 'Synthetic traffic', tags: [], sources: [], metars: [], flights, substitutions: [] };

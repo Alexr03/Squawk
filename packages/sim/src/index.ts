@@ -7,7 +7,7 @@ import { moveAir, moveGround } from './physics.ts';
 import { deliverPending, find, goAround, initialCall, issue as rawIssue, settleOwnership } from './pilot.ts';
 import { arrivalCalls, earlyHandoff, event, groundRules, handoffs, radioRules, separation, startRolls, thresholdCheck } from './rules.ts';
 import { DT, newStats, pick, rand, seatRole, ticks, type AptState, type ShiftConfig, type State } from './state.ts';
-import { buildSchedule, spawn, synthDay } from './traffic.ts';
+import { buildSchedule, realMix, spawn, synthDay } from './traffic.ts';
 import type { Command } from './types.ts';
 import { chooseConfig, initialWeather, updateWeather } from './weather.ts';
 import type { World } from './world.ts';
@@ -40,16 +40,20 @@ export function createShift(world: World, cfg: ShiftConfig): State {
     const c = apt.pack.configs[config];
     const as: AptState = { icao, config, arr: [...c.arrivals], dep: [...c.departures], pendingConfig: null, closed: {}, lastDep: {}, standOcc: {}, stack: {}, seq: [], fillers: {}, lastRelease: {} };
     // A living apron: parked aircraft on about half the stands (they give way when a stand is needed).
-    const ops = Object.keys(apt.pack.airlineTerminals);
+    // Each parked aircraft is a real airline + type pairing from the day, sized for the stand, its airline's terminal preferred.
+    const mix = realMix(cfg.days[i]);
+    const fits = (s: (typeof apt.stands)[number], type: string) => { const w = TYPES[type]?.wake; return s.maxWake === 'J' || (s.maxWake === 'H' ? w !== 'J' : w === 'L' || w === 'M'); };
     for (const s of apt.stands) if (rand(st) < 0.45) {
-      const op = ops.find(o => apt.pack.airlineTerminals[o] === s.terminal && rand(st) < 0.4) ?? pick(st, ops.length ? ops : ['BAW']);
-      const types = s.maxWake === 'M' ? ['A320', 'A319', 'A20N', 'A321'] : s.maxWake === 'J' ? ['A388', 'B77W', 'A35K'] : ['B789', 'B77W', 'A359', 'A333', 'A320'];
-      as.fillers[s.ref] = { type: pick(st, types), operator: op };
+      const sized = mix.filter(f => fits(s, f.type));
+      const local = sized.filter(f => apt.pack.airlineTerminals[f.operator] === s.terminal);
+      const pool = local.length && rand(st) < 0.7 ? local : sized;
+      const f = pool[Math.floor(rand(st) * pool.length)];
+      if (f) as.fillers[s.ref] = { type: f.type, operator: f.operator };
     }
     st.apts.push(as);
   }
-  if (cfg.mode === 'endless') cfg = { ...cfg, days: cfg.days.map(() => null) };
-  buildSchedule(world, cfg, st);
+  // Endless invents its traffic, but from each airport's real airline/aircraft/destination mix.
+  buildSchedule(world, cfg.mode === 'endless' ? { ...cfg, days: cfg.days.map(() => null) } : cfg, st, cfg.mode === 'endless' ? cfg.days.map(realMix) : undefined);
   scheduleNextEmergency(st);
   return st;
 }
@@ -122,19 +126,19 @@ export function step(world: World, cfg: Pick<ShiftConfig, 'days' | 'weather'>, s
   if (st.alerts.length > 200) st.alerts.splice(0, st.alerts.length - 200);
   if (st.events.length > 500) st.events.splice(0, st.events.length - 500);
 
-  if (st.mode === 'endless') endless(world, st);
+  if (st.mode === 'endless') endless(world, st, cfg);
   else if (st.durationS && st.tick >= ticks(st.durationS)) st.ended = 'time';
 }
 
 /** Endless: traffic keeps ramping until something breaks. */
-function endless(world: World, st: State) {
+function endless(world: World, st: State, cfg: Pick<ShiftConfig, 'days'>) {
   if (st.tick % ticks(300) === 1) {
     const from = st.start + st.tick * DT + 1500, to = from + 300;
     const perHour = 16 + st.endlessLevel * 6;
     st.endlessLevel++;
-    for (const as of st.apts) {
+    for (const [i, as] of st.apts.entries()) {
       const apt = world.byIcao[as.icao];
-      const day = synthDay(apt, from, to, st, perHour);
+      const day = synthDay(apt, from, to, st, perHour, realMix(cfg.days[i]));
       for (const f of day.flights) st.schedule.push({ at: ticks(f.time - (f.kind === 'dep' ? 22 * 60 : 26 * 60) - st.start), kind: f.kind, apt: as.icao, cs: f.cs + (st.endlessLevel % 10), type: f.type, operator: f.operator, other: f.other, sched: f.time });
     }
     st.schedule.sort((a, b) => a.at - b.at);
