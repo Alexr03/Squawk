@@ -1,0 +1,13 @@
+[
+{"id":"EGGW-2026-08-28","airport":"EGGW","date":"2026-08-28","label":"Fri 28 Aug 2026 — summer Friday peak","tags":["summer","peak"],"flights":381},
+{"id":"EGKK-2025-12-09","airport":"EGKK","date":"2025-12-09","label":"Tue 9 Dec 2025 — quiet winter night","tags":["winter","night"],"flights":556},
+{"id":"EGKK-2026-03-09","airport":"EGKK","date":"2026-03-09","label":"Mon 9 Mar 2026 — morning fog","tags":["fog","lvp"],"flights":639},
+{"id":"EGKK-2026-07-15","airport":"EGKK","date":"2026-07-15","label":"Wed 15 Jul 2026 — easterly day","tags":["summer","easterly"],"flights":820},
+{"id":"EGKK-2026-08-28","airport":"EGKK","date":"2026-08-28","label":"Fri 28 Aug 2026 — summer Friday peak","tags":["summer","peak","westerly"],"flights":844},
+{"id":"EGLC-2026-09-17","airport":"EGLC","date":"2026-09-17","label":"Thu 17 Sep 2026 — weekday business peak","tags":["autumn","peak"],"flights":172},
+{"id":"EGLL-2025-12-17","airport":"EGLL","date":"2025-12-17","label":"Wed 17 Dec 2025 — morning fog","tags":["winter","fog","lvp"],"flights":1270},
+{"id":"EGLL-2026-01-13","airport":"EGLL","date":"2026-01-13","label":"Tue 13 Jan 2026 — quiet winter night","tags":["winter","night"],"flights":1205},
+{"id":"EGLL-2026-07-15","airport":"EGLL","date":"2026-07-15","label":"Wed 15 Jul 2026 — easterly day","tags":["summer","easterly"],"flights":1302},
+{"id":"EGLL-2026-08-28","airport":"EGLL","date":"2026-08-28","label":"Fri 28 Aug 2026 — summer Friday peak","tags":["summer","peak","westerly"],"flights":1282},
+{"id":"EGSS-2026-08-28","airport":"EGSS","date":"2026-08-28","label":"Fri 28 Aug 2026 — summer Friday peak","tags":["summer","peak"],"flights":642}
+]
