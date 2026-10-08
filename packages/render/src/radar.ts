@@ -327,7 +327,7 @@ export class Radar {
         // position symbol
         if (ac.mine || ac.cs === F.selected) ctx.fillRect(x - 3, y - 3, 6, 6);
         else { ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(x - 3.5, y - 3.5, 7, 7); }
-        if (ac.cs === F.selected) { ctx.strokeStyle = col; ctx.strokeRect(x - 6.5, y - 6.5, 13, 13); }
+        if (ac.cs === F.selected) { ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(x - 6.5, y - 6.5, 13, 13); }
         // heading/speed vector: 1 minute ahead
         if (!ac.onGround) {
           const b = (ac.hdg * Math.PI) / 180, d = (ac.gs * NM) / 60;

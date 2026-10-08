@@ -91,7 +91,7 @@
     {#key client}
       <Game {client} title={replaying ? `REPLAY — ${launch.title}` : launch.title} canPause={launch.difficulty.pause && launch.mode !== 'daily' || replaying}
         coach={launch.hints && settings.tutorialHints ? (s: Snap, sel: string | null) => careerCoach(client!.world, s, sel) : undefined}
-        onEnd={(st) => (replaying ? (screen = 'debrief') : ended(st))} onQuit={() => (replaying ? (screen = 'debrief') : client && ended((client.final ?? client.snap) as State))}
+        onEnd={(st) => (replaying ? (screen = 'debrief') : ended(st))} onQuit={async () => { if (replaying) { screen = 'debrief'; return; } if (!client) return; ended(client.final ?? (client instanceof GameClient ? await client.full() : client.snap as State)); }}
         menuExtra={coop.session ? coopPanel : undefined} />
     {/key}
     {#snippet coopPanel()}<CoopSeats />{/snippet}

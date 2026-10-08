@@ -7,7 +7,8 @@
   let { d, st, title, outcome, dailyKey, onReplay, onAgain, onMenu }: Props = $props();
   const s = $derived(d.stats);
   const clock = (tick: number) => { const h = localHour(st.start + tick / 4); const hh = Math.floor(h), mm = Math.floor((h - hh) * 60); return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`; };
-  const canReplay = $derived(!!st.ended && st.tick > 0);
+  // Needs the full state (with the command log): a finished shift, or one ended early from the pause menu.
+  const canReplay = $derived(st.tick > 0 && !('upcoming' in st)); // snapshots (co-op guests) carry 'upcoming' and no command log
   let submitted = $state<string | null>(null);
   async function submit() {
     if (!dailyKey) return;

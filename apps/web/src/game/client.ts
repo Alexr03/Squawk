@@ -127,6 +127,7 @@ export class GameClient extends ShiftClient {
   /** The whole sim state (with schedule and command log), for handing the shift to another host. */
   full(): Promise<State> { return new Promise(res => { this.fulls.push(res); this.send({ t: 'full' }); }); }
   setSpeed(v: number) { this.speed = v; this.send({ t: 'speed', v }); }
-  replay(log: State['cmdLog'], from: number, to: number) { this.final = null; this.send({ t: 'replay', cfg: this.cfg, log, from, to }); }
+  // The log usually comes from Svelte state (a proxy the worker can't clone), so send plain copies.
+  replay(log: State['cmdLog'], from: number, to: number) { this.final = null; this.send({ t: 'replay', cfg: JSON.parse(JSON.stringify(this.cfg)), log: JSON.parse(JSON.stringify(log)), from, to }); }
   dispose() { this.send({ t: 'stop' }); this.worker.terminate(); }
 }
