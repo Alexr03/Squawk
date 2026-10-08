@@ -69,7 +69,7 @@ export function buildSchedule(world: World, cfg: ShiftConfig, st: State) {
       if (rand(st) > cfg.traffic) continue;
       let cs = f.cs; for (let k = 2; seen.has(cs); k++) cs = f.cs.slice(0, 6) + String.fromCharCode(64 + k);
       if (f.kind === 'dep') {
-        if (f.time < cfg.start + 90 || f.time > end + 5 * 60) continue;
+        if (f.time < cfg.start + 90 || f.time > end + DEP_LEAD_S) continue; // anything that would call during the shift, even if it takes off after it
         seen.add(cs);
         // Departures due in the first minutes are already waiting at the holding point when the shift starts.
         const early = f.time < cfg.start + 13 * 60;
