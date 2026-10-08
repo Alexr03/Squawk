@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { stackLevel } from './ai.ts';
+import { lineupBlocked, stackLevel } from './ai.ts';
 import { project } from './predict.ts';
 import { separation } from './rules.ts';
 import { pointOnEnd } from './world.ts';
@@ -182,4 +182,15 @@ describe('separation alerts', () => {
     expect(stackLevel(world, st, a)).toBe(7000);
     expect(stackLevel(world, st, b)).toBe(9000); // its rank says 8000, but the one holding hasn't left 8000
   });
+});
+
+test('two departures on top of each other at one holding point: one of them can still line up', () => {
+  const c = cfg({ coverage: ['EGLL:TWR'] }); // nobody lines them up
+  const st = createShift(world, c);
+  for (let i = 0; i < 4 * 1800 && st.aircraft.filter(a => a.kind === 'dep' && a.phase === 'holding').length < 2; i++) step(world, c, st);
+  const [a, b] = st.aircraft.filter(a => a.kind === 'dep' && a.phase === 'holding');
+  const n = world.primary.nodes.find(n => n.hold === 'NB2E')!; // where it happened: its line-up path starts right next to it
+  for (const ac of [a, b]) Object.assign(ac, { x: n.x, y: n.y, path: [n.id], pi: 1, runway: '27L' });
+  st.aircraft = [a, b];
+  expect([lineupBlocked(world, st, a), lineupBlocked(world, st, b)].sort()).toEqual([false, true]);
 });

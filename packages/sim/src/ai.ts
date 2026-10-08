@@ -281,8 +281,11 @@ function tower(world: World, st: State, ac: Aircraft) {
 export function lineupBlocked(world: World, st: State, ac: Aircraft): boolean {
   const apt = aptOf(world, ac);
   const path = lineupPath(apt, ac);
+  // Someone queued behind us at the same holding point is no obstacle (counting them deadlocks the pair).
+  // (Two ghosted through each other can sit on the very same spot: then the callsign decides.)
+  const hold = apt.nodes[path[0]], behind = (o: Aircraft) => o.path[o.path.length - 1] === path[0] && (dist(o, hold) - dist(ac, hold) || (o.cs > ac.cs ? 1 : -1)) > 0;
   return path.slice(1).some(n => { const l = lockedBy(st, ac.apt, n); return l && l !== ac.cs; })
-    || st.aircraft.some(o => o !== ac && o.onGround && o.apt === ac.apt && (o.phase === 'holding' || o.phase === 'taxi') && path.slice(1).some(n => dist(apt.nodes[n], o) < 35));
+    || st.aircraft.some(o => o !== ac && o.onGround && o.apt === ac.apt && (o.phase === 'holding' || o.phase === 'taxi') && !behind(o) && path.slice(1).some(n => dist(apt.nodes[n], o) < 35));
 }
 function entryRunwayPending(world: World, ac: Aircraft) { return !!entryRunway(world, ac); }
 
