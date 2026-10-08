@@ -6,7 +6,7 @@ export default async (page, shot) => {
   await page.waitForTimeout(400);
   await page.getByRole('button', { name: 'Start shift' }).click();
   await page.waitForTimeout(5000);
-  await page.getByRole('button', { name: '4×' }).click();
+  await page.getByRole('button', { name: '4 times speed' }).click();
   await page.waitForTimeout(70000);
   await shot('10-tower-busy');
   await page.keyboard.press('Tab');
@@ -18,7 +18,7 @@ export default async (page, shot) => {
   await page.waitForTimeout(500);
   await shot('12-radial');
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: '1×' }).click();
+  await page.getByRole('button', { name: '1 times speed' }).click();
   await page.waitForTimeout(8000);
   await shot('13-after');
 };

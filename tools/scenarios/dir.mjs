@@ -6,7 +6,7 @@ export default async (page, shot) => {
   await page.getByRole('button', { name: 'Director', exact: true }).click();
   await page.getByRole('button', { name: 'Start shift' }).click();
   await page.waitForTimeout(5000);
-  await page.getByRole('button', { name: '4×' }).click();
+  await page.getByRole('button', { name: '4 times speed' }).click();
   await page.waitForTimeout(40000);
   await shot('20-dir');
   await page.keyboard.press('Tab');

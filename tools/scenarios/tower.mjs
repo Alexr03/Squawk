@@ -9,7 +9,7 @@ export default async (page, shot) => {
   await page.waitForTimeout(6000);
   await shot('03-game');
   // Speed up and look again.
-  await page.getByRole('button', { name: '4×' }).click();
+  await page.getByRole('button', { name: '4 times speed' }).click();
   await page.waitForTimeout(15000);
   await shot('04-game-later');
   // Select the most urgent aircraft and open its radial menu.

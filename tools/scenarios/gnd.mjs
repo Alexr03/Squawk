@@ -7,9 +7,9 @@ export default async (page, shot) => {
   await page.locator('label.seat').filter({ hasText: 'Ground' }).click();
   await page.getByRole('button', { name: 'Start shift' }).click();
   await page.waitForTimeout(5000);
-  await page.getByRole('button', { name: '4×' }).click();
+  await page.getByRole('button', { name: '4 times speed' }).click();
   await page.waitForTimeout(30000);
-  await page.getByRole('button', { name: '1×' }).click();
+  await page.getByRole('button', { name: '1 times speed' }).click();
   await shot('30-gnd');
   // Work the queue a few times with the keyboard: N selects, then the default instruction.
   for (let i = 0; i < 6; i++) {
