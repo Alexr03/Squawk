@@ -120,7 +120,8 @@ export class GameClient extends ShiftClient {
   issue(cmds: Command[], opts: { voice?: boolean; seats?: string[] } = {}): Promise<string | null> {
     const ac = this.snap && cmds[0] ? find(this.snap, cmds[0].cs) : undefined;
     const seats = opts.seats ?? this.seats;
-    if (ac && !seats.includes(ac.freq)) return Promise.resolve(`${ac.cs} is on ${seatRole(ac.freq)}, not your frequency`);
+    const towerAction = ['rescue', 'closerwy', 'openrwy'].includes(cmds[0]?.verb ?? '');
+    if (ac && !towerAction && !seats.includes(ac.freq)) return Promise.resolve(`${ac.cs} is on ${seatRole(ac.freq)}, not your frequency`);
     const id = this.nextId++;
     // Commands often come out of Svelte state (bubbles, menus) as proxies, which can't cross to the worker: send a plain copy.
     const plain = JSON.parse(JSON.stringify(cmds)) as Command[];
@@ -129,6 +130,8 @@ export class GameClient extends ShiftClient {
   /** The whole sim state (with schedule and command log), for handing the shift to another host. */
   full(): Promise<State> { return new Promise(res => { this.fulls.push(res); this.send({ t: 'full' }); }); }
   setSpeed(v: number) { this.speed = v; this.send({ t: 'speed', v }); }
+  /** Development only: stage a crash or an emergency (window.squawkDebug in the console). */
+  debug(what: 'crash' | 'emergency') { if (import.meta.env.DEV) this.send({ t: 'debug', what }); }
   // The log usually comes from Svelte state (a proxy the worker can't clone), so send plain copies.
   replay(log: State['cmdLog'], from: number, to: number) { this.final = null; this.send({ t: 'replay', cfg: JSON.parse(JSON.stringify(this.cfg)), log: JSON.parse(JSON.stringify(log)), from, to }); }
   dispose() { this.send({ t: 'stop' }); this.worker.terminate(); }

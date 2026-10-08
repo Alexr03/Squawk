@@ -201,6 +201,8 @@ export function validVerbs(world: World, st: State, cs: string): Command['verb']
       add('holdshort', ['taxi', 'taxiin'].includes(ac.phase));
       add('continue', ['taxi', 'taxiin'].includes(ac.phase) && ac.gs < 1);
       add('cross', ['taxi', 'taxiin'].includes(ac.phase));
+      add('halt', !ac.halted && ['pushing', 'taxi', 'taxiin', 'vacating'].includes(ac.phase));
+      if (ac.halted) add('continue', true);
       break;
     case 'TWR':
       add('luw', ac.phase === 'holding' && !ac.cleared.luw);
@@ -208,6 +210,9 @@ export function validVerbs(world: World, st: State, cs: string): Command['verb']
       add('land', ac.kind === 'arr' && air && !ac.cleared.land && (ac.phase === 'final' || ac.nav.established));
       add('goaround', ac.kind === 'arr' && air && ac.phase !== 'goaround');
       add('cross', ['taxi', 'taxiin'].includes(ac.phase));
+      add('halt', !ac.halted && (['taxi', 'taxiin', 'vacating', 'lineup', 'lined'].includes(ac.phase) || (ac.phase === 'takeoff' && ac.ias < TYPES[ac.type].vr * 0.85)));
+      add('continue', !!ac.halted);
+      add('taxi', ac.kind === 'dep' && (ac.phase === 'lineup' || ac.phase === 'lined')); // back off the runway
       add('heading', air); add('alt', air);
       break;
     case 'DIR': case 'LON':

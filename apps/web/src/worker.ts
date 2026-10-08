@@ -1,5 +1,5 @@
 // Runs the sim off the main thread. In: init / resume / cmd / speed / replay / full. Out: snapshots after each batch of ticks.
-import { buildWorld, createShift, issue, replay, snapshot, step, TICK_HZ, type AirportPack, type Command, type ShiftConfig, type State, type World } from '@squawk/sim';
+import { crash, declareEmergency, buildWorld, createShift, issue, replay, snapshot, step, TICK_HZ, type AirportPack, type Command, type ShiftConfig, type State, type World } from '@squawk/sim';
 
 export type ToWorker =
   | { t: 'init'; packs: AirportPack[]; cfg: ShiftConfig }
@@ -8,7 +8,8 @@ export type ToWorker =
   | { t: 'cmd'; id: number; cmds: Command[]; voice?: boolean; seat?: string }
   | { t: 'speed'; v: number }
   | { t: 'replay'; cfg: ShiftConfig; log: State['cmdLog']; from: number; to: number }
-  | { t: 'stop' };
+  | { t: 'stop' }
+  | { t: 'debug'; what: 'crash' | 'emergency' }; // development builds only: stage an incident to look at
 export type FromWorker =
   | { t: 'snap'; st: ReturnType<typeof snapshot> }
   | { t: 'cmd'; id: number; err: string | null }
@@ -52,6 +53,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
       replayUntil = m.to;
       post({ t: 'snap', st: snapshot(st) });
     } else if (m.t === 'stop') { st = null; }
+    else if (m.t === 'debug' && import.meta.env.DEV && world && st) { debug(world, st, m.what); post({ t: 'snap', st: snapshot(st) }); }
   } catch (err) {
     post({ t: 'error', msg: String((err as Error)?.stack ?? err) });
   }
@@ -74,3 +76,19 @@ setInterval(() => {
   if (stepped) post({ t: 'snap', st: snapshot(st) });
   if (st.ended && replayUntil === Infinity) post({ t: 'final', st });
 }, 16);
+
+/** Development only: put two departures together on the first departure runway and crash them, or give an arrival on
+ *  final an engine failure (it will stop on the runway after landing). */
+function debug(world: World, st: State, what: 'crash' | 'emergency') {
+  const apt = world.primary;
+  if (what === 'crash') {
+    const deps = [...st.aircraft].sort((x, y) => (y.onGround ? 1 : 0) - (x.onGround ? 1 : 0)).slice(0, 2);
+    if (deps.length < 2) return;
+    const end = apt.ends[st.apts[0].dep[0]], p = { x: end.thr.x + end.ux * 700, y: end.thr.y + end.uy * 700 };
+    for (const [k, a] of deps.entries()) Object.assign(a, { x: p.x + k * 18, y: p.y + k * 6, onGround: true, alt: 0 });
+    crash(world, st, deps[0], deps[1], false);
+  } else {
+    const ac = st.aircraft.find(a => a.kind === 'arr' && !a.onGround && !a.emergency && (a.phase === 'final' || a.nav.established)) ?? st.aircraft.find(a => a.kind === 'arr' && !a.onGround && !a.emergency);
+    if (ac) declareEmergency(world, st, ac, '7700', 'engine');
+  }
+}

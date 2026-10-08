@@ -2,6 +2,7 @@
   import { onMount, type Snippet } from 'svelte';
   import { callsign, parseSpeech, type ParseCtx } from '@squawk/phraseology';
   import { find, seatRole, viaNames, type Command, type State } from '@squawk/sim';
+  import { GameClient } from './client.ts';
   import type { ShiftClient, Snap } from './client.ts';
   import Scope from './Scope.svelte';
   import StripBay from './StripBay.svelte';
@@ -123,6 +124,7 @@
 
   /** Fly the camera to an aircraft: close in on the ground, radar view in the air. */
   // ---------------------------------------------------------------- camera: follow and auto
+  if (import.meta.env.DEV && client instanceof GameClient) (window as unknown as { squawkDebug: (w: 'crash' | 'emergency') => void }).squawkDebug = (w) => client.debug(w), (window as unknown as { squawkSnap: () => unknown }).squawkSnap = () => client.snap;
   let following = $state<string | null>(null);
   let autoCam = $state(false);
   let autoTarget: string | null = null, autoSince = 0, autoPauseUntil = 0, autoHome = false; // plain: the effect below writes them
@@ -160,6 +162,8 @@
   });
   function focus(cs: string) {
     const a = snap && find(snap, cs);
+    const inc = snap?.incidents?.find(i => !i.resolved && i.cs.includes(cs));
+    if (inc && (!a || a.phase === 'wreck' || a.phase === 'stopped')) { viewRequest = { cx: inc.x, cy: inc.y, mpp: 1.2, t: performance.now() }; return; }
     if (!a) return;
     const mpp = a.onGround ? 0.9 : a.alt < 3000 ? 12 : 40;
     viewRequest = { cx: a.x, cy: a.y, mpp, t: performance.now() };
@@ -269,7 +273,7 @@
       {#if queue.length}
         <div class="alerts" aria-label="Needs you">
           {#each queue.slice(0, 5) as n (n.cs)}
-            <button class="alert {n.level}" class:sel={n.cs === selected} onclick={() => { selected = n.cs; focus(n.cs); }}>
+            <button class="alert {n.level}" class:sel={n.cs === selected} onclick={() => { selected = n.cs; focus(n.cs); if (/send the fire service/.test(n.text)) send([{ cs: n.cs, verb: 'rescue' }]); }}>
               <span class="mark"></span><span class="who"><b>{n.cs}</b><small>{callsign(n.cs)}</small></span><span class="what">{n.text}</span>
             </button>
           {/each}
@@ -285,7 +289,7 @@
       <Comms {world} snap={client.monitor ? { ...snap, coverage: client.cfg.coverage } : snap} {selected} {filter} onSend={(c) => send(c)} onSelect={(cs) => (selected = cs)} bind:inputEl={cmdInput} />
     </div>
 
-    <Console {world} {snap} {queue} {filter} {overlays} {stripsOpen} {logOpen} {autoCam} onAutoCam={toggleAuto}
+    <Console {world} {snap} {queue} {filter} {overlays} {stripsOpen} {logOpen} {autoCam} onAutoCam={toggleAuto} onRunway={(apt, pair, open) => send([{ cs: '', verb: open ? 'openrwy' : 'closerwy', runway: pair, apt }])}
       onSeat={(s) => { jump(s); }} onFilter={(s) => (filter = s)}
       onOverlay={(k) => (k === 'routes' ? (overlays = { ...overlays, sids: !overlays.sids, stars: !overlays.stars }) : (overlays = { ...overlays, weather: !overlays.weather }))}
       onStrips={() => (stripsOpen = !stripsOpen)} onLog={() => (logOpen = !logOpen)} onHelp={() => (helpOpen = true)} />

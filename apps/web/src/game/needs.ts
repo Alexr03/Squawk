@@ -7,8 +7,14 @@ export interface Need { cs: string; urgency: number; text: string; level: 'emerg
 export function needs(world: World, snap: Snap): Need[] {
   const out: Need[] = [];
   const mine = (a: Aircraft) => snap.coverage.includes(a.owner) && a.owner === a.freq;
+  // Crash and emergency sites waiting for the fire service: the most urgent thing on the frequency.
+  for (const inc of snap.incidents ?? []) {
+    if (inc.resolved || inc.offAirport || !snap.coverage.includes(`${inc.apt}:TWR`)) continue;
+    const what = inc.kind === 'crash' ? (inc.fire > 0 ? 'Crash, fire' : 'Crash') : inc.fire > 0 ? 'Engine fire on runway' : 'Stopped on runway';
+    if (inc.dispatched === null) out.push({ cs: inc.cs[0], urgency: 99, text: `${what}: send the fire service`, level: 'emergency' });
+  }
   for (const a of snap.aircraft) {
-    if (!mine(a) || a.phase === 'gone') continue;
+    if (!mine(a) || a.phase === 'gone' || a.phase === 'wreck' || a.phase === 'stopped') continue;
     const apt = world.byIcao[a.apt];
     const add = (urgency: number, text: string) => out.push({ cs: a.cs, urgency, text, level: urgency >= 90 ? 'emergency' : urgency >= 60 ? 'urgent' : 'routine' });
     if (a.emergency) add(100, a.emergency.code === '7600' ? 'Radio failure (7600)' : `MAYDAY: ${a.emergency.nature}`);

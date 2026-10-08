@@ -10,6 +10,7 @@ const UNIT: Record<string, string> = { DEL: 'Delivery', GND: 'Ground', TWR: 'Tow
 
 /** The obvious next step for an aircraft that needs you (or null if it needs a decision only you can make, like vectors). */
 export function primaryAction(world: World, snap: Snap, n: Need): Action | null {
+  if (/send the fire service/.test(n.text)) return { label: 'Send fire service', cmds: [{ cs: n.cs, verb: 'rescue' }], tone: 'warn' };
   const ac = find(snap, n.cs);
   if (!ac) return null;
   const cs = ac.cs;

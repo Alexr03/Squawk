@@ -17,6 +17,8 @@ const fl = (ft: number, ta: number) => (ft > ta ? `FL${Math.round(ft / 100)}` : 
 export function radialFor(world: World, snap: Snap, cs: string): RadialItem[] {
   const ac = find(snap, cs);
   if (!ac) return [];
+  // A wreck or an aircraft stopped after an emergency: the only thing to do is send the fire service.
+  if (ac.phase === 'wreck' || ac.phase === 'stopped') return snap.incidents?.some(i => !i.resolved && i.dispatched === null && i.cs.includes(cs)) ? [{ label: 'Send fire service', hint: 'R', cmd: [{ cs, verb: 'rescue' }], danger: true }] : [];
   const apt = world.byIcao[ac.apt];
   const as = snap.apts.find(a => a.icao === ac.apt)!;
   const ta = apt.pack.transitionAltFt;
@@ -34,7 +36,8 @@ export function radialFor(world: World, snap: Snap, cs: string): RadialItem[] {
   if (v.has('taxi')) {
     if (ac.kind === 'dep') {
       const end = ac.runway ?? as.dep[0];
-      items.push({ label: 'Taxi', hint: 'X', taxi: { to: end }, sub: () => [
+      const onRwy = ac.phase === 'lineup' || ac.phase === 'lined';
+      items.push({ label: onRwy ? 'Taxi off the runway' : 'Taxi', hint: 'X', taxi: { to: end }, sub: () => [
         ...as.dep.map(e => ({ label: `Runway ${e}`, taxi: { to: e } })),
         ...(apt.ends[end]?.front ?? []).slice(0, 6).map(h => ({ label: `Hold ${apt.nodes[h].hold}`, taxi: { to: apt.nodes[h].hold! } })),
       ] });
@@ -47,8 +50,10 @@ export function radialFor(world: World, snap: Snap, cs: string): RadialItem[] {
     const rws = apt.runways.map(r => r.ends[0]);
     items.push({ label: 'Cross runway', sub: () => rws.map(r => ({ label: apt.runways.find(x => x.ends[0] === r)!.name, cmd: C({ cs, verb: 'cross', runway: r }) })) });
   }
-  if (v.has('holdshort')) items.push({ label: 'Hold position', cmd: C({ cs, verb: 'holdshort', at: '' }) });
-  if (v.has('continue')) items.push({ label: 'Continue taxi', cmd: C({ cs, verb: 'continue' }) });
+  // Stop it where it is: taxiing, lining up, or (early in the roll) a rejected take-off.
+  if (v.has('halt')) items.push({ label: ac.phase === 'takeoff' ? 'Stop immediately' : 'Hold position', hint: 'B', cmd: C({ cs, verb: 'halt' }), danger: ac.phase === 'takeoff' });
+  if (v.has('continue')) items.push({ label: 'Continue', cmd: C({ cs, verb: 'continue' }) });
+  if (snap.incidents?.some(i => !i.resolved && i.dispatched === null && i.cs.includes(cs))) items.unshift({ label: 'Send fire service', hint: 'R', cmd: [{ cs, verb: 'rescue' }], danger: true });
   if (v.has('luw')) items.push({ label: 'Line up', hint: 'L', cmd: C({ cs, verb: 'luw', runway: ac.runway ?? '' }) });
   if (v.has('cto')) items.push({ label: 'Take-off', hint: 'T', cmd: C({ cs, verb: 'cto', runway: ac.runway ?? '' }) });
   if (v.has('land')) items.push({ label: 'Cleared to land', hint: 'L', cmd: C({ cs, verb: 'land', runway: ac.runway ?? '' }) });

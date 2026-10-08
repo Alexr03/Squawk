@@ -8,14 +8,23 @@
     world: World; snap: Snap; queue: Need[]; filter: string | null;
     overlays: { sids: boolean; stars: boolean; weather: boolean };
     stripsOpen: boolean; logOpen: boolean; autoCam?: boolean; onAutoCam?: () => void;
+    onRunway?: (apt: string, pair: string, open: boolean) => void;
     onSeat: (seat: string) => void; onFilter: (s: string | null) => void;
     onOverlay: (k: 'routes' | 'weather') => void; onStrips: () => void; onLog: () => void; onHelp: () => void;
   }
-  let { world, snap, queue, filter, overlays, stripsOpen, logOpen, autoCam = false, onAutoCam, onSeat, onFilter, onOverlay, onStrips, onLog, onHelp }: Props = $props();
+  let { world, snap, queue, filter, overlays, stripsOpen, logOpen, autoCam = false, onAutoCam, onRunway, onSeat, onFilter, onOverlay, onStrips, onLog, onHelp }: Props = $props();
 
   const NAME: Record<string, string> = { DEL: 'Delivery', GND: 'Ground', TWR: 'Tower', DIR: 'Director', LON: 'London' };
   const freq = (seat: string) => { const icao = seat === 'LON' ? world.primary.icao : seat.split(':')[0]; return world.byIcao[icao]?.freq[seatRole(seat)]?.freq ?? ''; };
   const multi = $derived(new Set(snap.coverage.filter(s => s !== 'LON').map(s => s.split(':')[0])).size > 1);
+  // Runways the player's towers control: open or closed, and what (if anything) is blocking one.
+  let rwyOpen = $state(false);
+  const runways = $derived(snap.apts.filter(a => snap.coverage.includes(`${a.icao}:TWR`)).flatMap(a => world.byIcao[a.icao].runways.map(r => {
+    const closed = (a.closed[r.name] ?? 0) > snap.tick;
+    const blocker = (snap.incidents ?? []).find(i => !i.resolved && i.apt === a.icao && i.runway === r.name);
+    return { apt: a.icao, pair: r.name, closed, blocker: blocker ? (blocker.kind === 'crash' ? 'wreckage' : 'aircraft stopped') : null };
+  })));
+  const anyClosed = $derived(runways.some(r => r.closed));
   const waiting = (seat: string) => queue.filter(n => n.level !== 'routine' && snap.aircraft.find(a => a.cs === n.cs)?.owner === seat).length;
 </script>
 
@@ -44,6 +53,26 @@
     <button class="tool" class:on={overlays.weather} onclick={() => onOverlay('weather')} title="Weather radar (W)">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17h10a4 4 0 0 0 0-8 6 6 0 0 0-11.5 1.5A3.3 3.3 0 0 0 7 17z" /></svg>
     </button>
+    {#if onRunway && runways.length}
+      <div class="rwywrap">
+        <button class="tool" class:on={rwyOpen} class:alarm={anyClosed} onclick={() => (rwyOpen = !rwyOpen)} title="Runways: open or close" aria-expanded={rwyOpen}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3l-3 18M15 3l3 18M12 5v2M12 10v3M12 16v3" /></svg>
+        </button>
+        {#if rwyOpen}
+          <div class="rwypop" role="dialog" aria-label="Runways">
+            <b>Runways</b>
+            {#each runways as r (r.apt + r.pair)}
+              <div class="rw" class:closed={r.closed}>
+                <span class="nm">{r.pair}{snap.apts.length > 1 ? ` · ${r.apt}` : ''}</span>
+                <span class="st">{r.closed ? (r.blocker ? `Closed · ${r.blocker}` : 'Closed') : 'Open'}</span>
+                <button disabled={r.closed && !!r.blocker} onclick={() => onRunway(r.apt, r.pair, r.closed)}>{r.closed ? 'Reopen' : 'Close'}</button>
+              </div>
+            {/each}
+            <p>Closing a runway moves traffic to the others. With every runway closed, arrivals hold.</p>
+          </div>
+        {/if}
+      </div>
+    {/if}
     {#if onAutoCam}<button class="tool" class:on={autoCam} onclick={onAutoCam} title="Auto camera: show me whatever needs me (Shift+V)" aria-pressed={autoCam}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="13" height="10" rx="2" /><path d="M16 11l5-3v8l-5-3z" /><path d="M7 4h2M11 4h2" /></svg>
     </button>{/if}
@@ -72,5 +101,16 @@
   svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   svg rect, svg circle { fill: none; }
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .rwywrap { position: relative; }
+  .tool.alarm { color: var(--red); }
+  .rwypop { position: absolute; bottom: calc(100% + 14px); left: 50%; transform: translateX(-50%); width: 300px; padding: 12px 14px; border-radius: 14px; background: var(--glass-hi); backdrop-filter: blur(14px); box-shadow: var(--lift); display: flex; flex-direction: column; gap: 6px; }
+  .rwypop > b { font: 600 14px var(--ui); color: var(--ink-strong); }
+  .rw { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--glass-line); }
+  .rw .nm { font: 600 13px var(--mono); color: var(--ink-strong); }
+  .rw .st { font: 500 12px var(--ui); color: var(--green); }
+  .rw.closed .st { color: var(--red); }
+  .rw button { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--glass-line); background: var(--knob); color: var(--ink-strong); font: 600 12px var(--ui); cursor: pointer; }
+  .rw button:disabled { opacity: 0.4; cursor: default; }
+  .rwypop p { margin: 4px 0 0; font: 400 12px/1.4 var(--ui); color: var(--muted); }
   @media (max-width: 900px) { .seat { min-width: 0; padding: 6px 9px; } .freq { display: none; } }
 </style>
