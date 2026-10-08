@@ -103,6 +103,8 @@ function delivery(world: World, st: State, ac: Aircraft) {
 function ground(world: World, st: State, ac: Aircraft) {
   const apt = aptOf(world, ac);
   if (ac.kind === 'dep') {
+    // Sent to Ground from the runway or a holding point by mistake: straight back to Tower, who owns the runway.
+    if (['holding', 'lineup', 'lined', 'takeoff'].includes(ac.phase) && ac.checkedIn) { handTo(world, st, ac); return; }
     if (ac.phase === 'stand' && ac.cleared.dl && !ac.cleared.push && ac.checkedIn) {
       if (pushPathClear(world, st, ac)) say(world, st, ac, [{ cs: ac.cs, verb: 'push' }]);
       return;

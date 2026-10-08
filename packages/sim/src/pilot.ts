@@ -22,7 +22,8 @@ export const find = (st: State, cs: string) => st.aircraft.find(a => a.cs === cs
 /** Seats this aircraft may be handed to from its current owner. */
 export function nextSeats(ac: Aircraft): Seat[] {
   const r = seatRole(ac.owner);
-  if (ac.kind === 'dep') return { DEL: ['GND'], GND: ['TWR'], TWR: ac.onGround ? ['GND'] : ['LON'], DIR: ['LON'], LON: [] }[r] as Seat[];
+  // A departure lining up or rolling belongs to Tower until it is airborne: no handing it back to Ground from the runway.
+  if (ac.kind === 'dep') return { DEL: ['GND'], GND: ['TWR'], TWR: !ac.onGround ? ['LON'] : ['lineup', 'lined', 'takeoff'].includes(ac.phase) ? [] : ['GND'], DIR: ['LON'], LON: [] }[r] as Seat[];
   return { LON: ['DIR'], DIR: ['TWR'], TWR: ac.onGround ? ['GND'] : ['DIR'], GND: [], DEL: [] }[r] as Seat[];
 }
 

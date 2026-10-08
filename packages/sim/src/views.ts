@@ -25,6 +25,7 @@ export function aircraftView(ac: Aircraft, st: State, transitionAlt = 6000): Air
     },
     tug: ac.phase === 'pushing' || ac.towing,
     mine: st.coverage.includes(ac.owner),
+    onRunway: ['lineup', 'lined', 'takeoff', 'landing', 'vacating'].includes(ac.phase) || (ac.onGround && ac.gs > 40),
     alert: ac.alert,
     squawk: ac.squawk,
     clearedAlt: ac.onGround ? null : ac.tgtAlt,
