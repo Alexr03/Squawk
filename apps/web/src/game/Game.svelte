@@ -11,6 +11,7 @@
   import AircraftCard from './AircraftCard.svelte';
   import RadialMenu from './RadialMenu.svelte';
   import Console from './Console.svelte';
+  import DevPanel from './DevPanel.svelte';
   import Settings from '../screens/Settings.svelte';
   import { viewFor } from './views.ts';
   import { versionLabel } from '../lib/version.ts';
@@ -125,6 +126,9 @@
   /** Fly the camera to an aircraft: close in on the ground, radar view in the air. */
   // ---------------------------------------------------------------- camera: follow and auto
   if (import.meta.env.DEV && client instanceof GameClient) (window as unknown as { squawkDebug: (w: 'crash' | 'emergency') => void }).squawkDebug = (w) => client.debug(w), (window as unknown as { squawkSnap: () => unknown }).squawkSnap = () => client.snap;
+  // Dev panel (F2): development builds, or ?dev in the address. Host only (the sim runs in this browser).
+  const devAllowed = (import.meta.env.DEV || new URLSearchParams(location.search).has('dev')) && client instanceof GameClient;
+  let devOpen = $state(false);
   let following = $state<string | null>(null);
   let autoCam = $state(false);
   let autoTarget: string | null = null, autoSince = 0, autoPauseUntil = 0, autoHome = false; // plain: the effect below writes them
@@ -174,6 +178,7 @@
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     sound.unlock();
     if (settings.voiceInput && e.code === settings.pttKey) { e.preventDefault(); if (!e.repeat) pttDown(); return; }
+    if (e.key === 'F2' && devAllowed) { e.preventDefault(); devOpen = !devOpen; return; }
     if (radial || settingsOpen) return; // the menu / settings handle their own keys
     const k = e.key.toLowerCase();
     if (e.key === 'Escape') { if (taxiEdit) taxiDone(false); else if (selected) selected = null; else menuOpen = !menuOpen; return; }
@@ -294,6 +299,7 @@
       onOverlay={(k) => (k === 'routes' ? (overlays = { ...overlays, sids: !overlays.sids, stars: !overlays.stars }) : (overlays = { ...overlays, weather: !overlays.weather }))}
       onStrips={() => (stripsOpen = !stripsOpen)} onLog={() => (logOpen = !logOpen)} onHelp={() => (helpOpen = true)} />
 
+    {#if devOpen}<DevPanel {selected} onDebug={(w, cs, n) => { (client as GameClient).debug(w, cs, n); toast('Dev panel: staged', 'caution'); }} onClose={() => (devOpen = false)} />{/if}
     {#if coachText}<div class="coach"><span class="who">Instructor</span>{coachText}</div>{/if}
     {#if pendingVoice}
       <div class="confirm">

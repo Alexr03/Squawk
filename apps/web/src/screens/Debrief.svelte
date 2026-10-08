@@ -50,7 +50,7 @@
       </ol>
     {:else}<p class="quiet">Nothing worth replaying. Clean shift.</p>{/if}
     <div class="acts">
-      {#if dailyKey}<button onclick={submit} disabled={!!submitted}>{submitted ?? 'Submit to leaderboard'}</button>{/if}
+      {#if dailyKey && !st.debugUsed}<button onclick={submit} disabled={!!submitted}>{submitted ?? 'Submit to leaderboard'}</button>{:else if dailyKey}<span class="devnote">Dev panel used: not eligible for the leaderboard</span>{/if}
       <button onclick={onAgain}>Again</button>
       <button class="primary" onclick={onMenu}>Continue</button>
     </div>
@@ -84,4 +84,5 @@
   button { background: var(--btn); border: 1px solid var(--line-strong); color: var(--ink-strong); font: 13px var(--ui); padding: 4px 12px; cursor: pointer; }
   .acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 22px; }
   .primary { background: var(--green); color: var(--bg); border-color: var(--green); font: 600 14px var(--ui); }
+  .devnote { align-self: center; font: 500 12px var(--ui); color: var(--muted); }
 </style>

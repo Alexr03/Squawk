@@ -1,6 +1,6 @@
 // Main-thread side of a running shift. ShiftClient keeps the last two snapshots for smooth motion; GameClient owns the
 // sim worker (solo, or the co-op host), RemoteClient (net/coop.svelte.ts) gets its snapshots from a co-op host.
-import { aircraftView, buildWorld, find, seatRole, type AircraftView, type AirportPack, type Command, type ShiftConfig, type State, type World } from '@squawk/sim';
+import { aircraftView, buildWorld, find, seatRole, type AircraftView, type AirportPack, type Command, type Nature, type ShiftConfig, type State, type World } from '@squawk/sim';
 import type { FromWorker, ToWorker } from '../worker.ts';
 
 export type Snap = State & { upcoming: State['schedule'] };
@@ -131,7 +131,7 @@ export class GameClient extends ShiftClient {
   full(): Promise<State> { return new Promise(res => { this.fulls.push(res); this.send({ t: 'full' }); }); }
   setSpeed(v: number) { this.speed = v; this.send({ t: 'speed', v }); }
   /** Development only: stage a crash or an emergency (window.squawkDebug in the console). */
-  debug(what: 'crash' | 'emergency') { if (import.meta.env.DEV) this.send({ t: 'debug', what }); }
+  debug(what: 'crash' | 'midair' | 'emergency', cs?: string, nature?: Nature | 'radio') { this.send({ t: 'debug', what, cs, nature }); }
   // The log usually comes from Svelte state (a proxy the worker can't clone), so send plain copies.
   replay(log: State['cmdLog'], from: number, to: number) { this.final = null; this.send({ t: 'replay', cfg: JSON.parse(JSON.stringify(this.cfg)), log: JSON.parse(JSON.stringify(log)), from, to }); }
   dispose() { this.send({ t: 'stop' }); this.worker.terminate(); }

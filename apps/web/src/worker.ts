@@ -1,5 +1,5 @@
 // Runs the sim off the main thread. In: init / resume / cmd / speed / replay / full. Out: snapshots after each batch of ticks.
-import { crash, declareEmergency, buildWorld, createShift, issue, replay, snapshot, step, TICK_HZ, type AirportPack, type Command, type ShiftConfig, type State, type World } from '@squawk/sim';
+import { crash, declareEmergency, buildWorld, createShift, issue, replay, snapshot, step, TICK_HZ, type AirportPack, type Command, type Nature, type ShiftConfig, type State, type World } from '@squawk/sim';
 
 export type ToWorker =
   | { t: 'init'; packs: AirportPack[]; cfg: ShiftConfig }
@@ -9,7 +9,7 @@ export type ToWorker =
   | { t: 'speed'; v: number }
   | { t: 'replay'; cfg: ShiftConfig; log: State['cmdLog']; from: number; to: number }
   | { t: 'stop' }
-  | { t: 'debug'; what: 'crash' | 'emergency' }; // development builds only: stage an incident to look at
+  | { t: 'debug'; what: DebugWhat; cs?: string; nature?: Nature | 'radio' }; // the dev panel: stage an incident to look at
 export type FromWorker =
   | { t: 'snap'; st: ReturnType<typeof snapshot> }
   | { t: 'cmd'; id: number; err: string | null }
@@ -53,7 +53,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
       replayUntil = m.to;
       post({ t: 'snap', st: snapshot(st) });
     } else if (m.t === 'stop') { st = null; }
-    else if (m.t === 'debug' && import.meta.env.DEV && world && st) { debug(world, st, m.what); post({ t: 'snap', st: snapshot(st) }); }
+    else if (m.t === 'debug' && world && st) { debug(world, st, m.what, m.cs, m.nature); post({ t: 'snap', st: snapshot(st) }); }
   } catch (err) {
     post({ t: 'error', msg: String((err as Error)?.stack ?? err) });
   }
@@ -77,18 +77,38 @@ setInterval(() => {
   if (st.ended && replayUntil === Infinity) post({ t: 'final', st });
 }, 16);
 
-/** Development only: put two departures together on the first departure runway and crash them, or give an arrival on
- *  final an engine failure (it will stop on the runway after landing). */
-function debug(world: World, st: State, what: 'crash' | 'emergency') {
+export type DebugWhat = 'crash' | 'midair' | 'emergency';
+
+/** The dev panel: stage a crash on the ground, a mid-air collision or an emergency. Uses the given aircraft where it can.
+ *  A shift that used it is marked, and is kept off the leaderboard. */
+function debug(world: World, st: State, what: DebugWhat, cs?: string, nature?: Nature | 'radio') {
   const apt = world.primary;
+  st.debugUsed = true;
+  const say = (why: string) => { st.alerts.push({ tick: st.tick, level: 'caution', text: `Dev panel: ${why}` }); };
+  const pick = cs ? st.aircraft.find(a => a.cs === cs && a.phase !== 'gone') : undefined;
+  const nearest = (to: { x: number; y: number }, ok: (a: (typeof st.aircraft)[number]) => boolean) =>
+    st.aircraft.filter(a => a !== pick && a.phase !== 'gone' && a.phase !== 'wreck' && ok(a)).sort((a, b) => Math.hypot(a.x - to.x, a.y - to.y) - Math.hypot(b.x - to.x, b.y - to.y))[0];
   if (what === 'crash') {
-    const deps = [...st.aircraft].sort((x, y) => (y.onGround ? 1 : 0) - (x.onGround ? 1 : 0)).slice(0, 2);
-    if (deps.length < 2) return;
-    const end = apt.ends[st.apts[0].dep[0]], p = { x: end.thr.x + end.ux * 700, y: end.thr.y + end.uy * 700 };
-    for (const [k, a] of deps.entries()) Object.assign(a, { x: p.x + k * 18, y: p.y + k * 6, onGround: true, alt: 0 });
-    crash(world, st, deps[0], deps[1], false);
+    // Two aircraft meet on the ground: at the selected one, or on the departure runway.
+    let a = pick && pick.onGround ? pick : undefined;
+    const end = apt.ends[st.apts[0].dep[0]];
+    const p = a ? { x: a.x, y: a.y } : { x: end.thr.x + end.ux * 700, y: end.thr.y + end.uy * 700 };
+    a ??= nearest(p, x => x.onGround) ?? nearest(p, () => true);
+    const b = a && nearest(p, x => x !== a && x.onGround) || a && nearest(p, x => x !== a);
+    if (!a || !b) return say('a ground collision needs two aircraft');
+    Object.assign(a, { x: p.x, y: p.y, onGround: true, alt: elevationOf(apt) }); Object.assign(b, { x: p.x + 18, y: p.y + 6, onGround: true, alt: elevationOf(apt) });
+    crash(world, st, a, b, false);
+  } else if (what === 'midair') {
+    const a = pick && !pick.onGround ? pick : st.aircraft.find(x => !x.onGround && x.phase !== 'gone');
+    const b = a && nearest(a, x => x !== a && !x.onGround);
+    if (!a || !b) return say('a mid-air collision needs two aircraft in the air');
+    Object.assign(b, { x: a.x + 30, y: a.y, alt: a.alt });
+    crash(world, st, a, b, true);
   } else {
-    const ac = st.aircraft.find(a => a.kind === 'arr' && !a.onGround && !a.emergency && (a.phase === 'final' || a.nav.established)) ?? st.aircraft.find(a => a.kind === 'arr' && !a.onGround && !a.emergency);
-    if (ac) declareEmergency(world, st, ac, '7700', 'engine');
+    const a = pick && !pick.emergency ? pick : st.aircraft.find(x => x.kind === 'arr' && !x.onGround && !x.emergency && (x.phase === 'final' || x.nav.established)) ?? st.aircraft.find(x => !x.onGround && !x.emergency);
+    if (!a) return say('no aircraft in the air for an emergency');
+    if (nature === 'radio') declareEmergency(world, st, a, '7600');
+    else declareEmergency(world, st, a, '7700', nature ?? 'engine');
   }
 }
+const elevationOf = (apt: World['primary']) => apt.pack.runways[0]?.ends[0].elevationFt ?? 0;

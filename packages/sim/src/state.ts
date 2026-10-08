@@ -187,6 +187,7 @@ export interface State {
   alerts: { tick: number; level: 'info' | 'caution' | 'conflict'; text: string; cs?: string }[];
   stats: Stats;
   incidents: Incident[];
+  debugUsed?: boolean;         // the dev panel staged something: kept off the leaderboard
   vehicles: { id: string; kind: 'fire' | 'followme' | 'tug'; x: number; y: number; hdg: number; lights: boolean; target: XY | null; home: XY; until: number }[];
   ended: null | 'time' | 'incident' | 'endless-over';
   cmdLog: { tick: number; seat: SeatId; cmds: Command[]; voice?: boolean }[];
