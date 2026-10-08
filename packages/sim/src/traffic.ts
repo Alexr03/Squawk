@@ -54,11 +54,11 @@ export function chooseStar(apt: Apt, origin: string, st: State) {
 // ------------------------------------------------------------------ schedule
 
 const DEP_LEAD_S = 22 * 60;     // departures call for clearance this long before take-off
-export function buildSchedule(world: World, cfg: ShiftConfig, st: State, mixes?: Flight[][]) {
+export function buildSchedule(world: World, cfg: ShiftConfig, st: State, mixes?: Flight[][], perHour = 36) {
   const end = cfg.start + (cfg.durationS || 3 * 3600);
   cfg.airports.forEach((icao, i) => {
     const apt = world.byIcao[icao];
-    const day = cfg.days[i] ?? synthDay(apt, cfg.start, end, st, 36, mixes?.[i]);
+    const day = cfg.days[i] ?? synthDay(apt, cfg.start, end, st, perHour, mixes?.[i]);
     const seen = new Set<string>();
     // Flights with no known destination (OpenSky's ZZZZ) get one their airline really flies from here that day.
     const dests = new Map<string, string[]>(), all: string[] = [];
@@ -89,6 +89,10 @@ export function buildSchedule(world: World, cfg: ShiftConfig, st: State, mixes?:
       }
     }
   });
+  st.schedule.sort((a, b) => a.at - b.at);
+  // Nothing floods in at once: spawns stacked at the start (or bunched anywhere) join at least 45 s apart per airport.
+  const nextFree: Record<string, number> = {};
+  for (const sp of st.schedule) { const t = Math.max(sp.at, nextFree[sp.apt] ?? 0); if (t > sp.at) { sp.sched += (t - sp.at) * DT; sp.at = t; } nextFree[sp.apt] = t + ticks(45); }
   st.schedule.sort((a, b) => a.at - b.at);
 }
 

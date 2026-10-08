@@ -53,7 +53,8 @@ export function createShift(world: World, cfg: ShiftConfig): State {
     st.apts.push(as);
   }
   // Endless invents its traffic, but from each airport's real airline/aircraft/destination mix.
-  buildSchedule(world, cfg.mode === 'endless' ? { ...cfg, days: cfg.days.map(() => null) } : cfg, st, cfg.mode === 'endless' ? cfg.days.map(realMix) : undefined);
+  // Endless starts quiet (about 14 movements an hour for its first half hour) and then ramps up (see endless()).
+  buildSchedule(world, cfg.mode === 'endless' ? { ...cfg, days: cfg.days.map(() => null), durationS: 1800 } : cfg, st, cfg.mode === 'endless' ? cfg.days.map(realMix) : undefined, cfg.mode === 'endless' ? 7 : undefined); // per direction
   scheduleNextEmergency(st);
   return st;
 }
