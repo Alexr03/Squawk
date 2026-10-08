@@ -112,7 +112,8 @@ export function separation(world: World, st: State) {
         penal(st, [a.cs, b.cs], 'sepLoss');
         event(st, { kind: 'seploss', severity: 4, text: `Separation lost: ${a.cs} and ${b.cs}, ${(d / NM).toFixed(1)} nm / ${Math.round(dv / 100) * 100} ft`, cs: [a.cs, b.cs], x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
       }
-      if (d < 0.15 * NM && dv < 250) {
+      // An actual mid-air: wingspans overlapping (allowing for how far the pair closes in one tick), not merely too close.
+      if (d < 90 + (a.gs + b.gs) * 0.514 * DT && dv < 120) {
         penal(st, [a.cs, b.cs], 'collisions');
         event(st, { kind: 'collision', severity: 5, text: `MID-AIR COLLISION: ${a.cs} and ${b.cs}`, cs: [a.cs, b.cs], x: a.x, y: a.y });
         st.ended = 'incident';

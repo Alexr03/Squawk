@@ -33,7 +33,7 @@
           <li><b>Emergencies</b>: 7700 needs priority; 7600 is a radio failure — the aircraft flies its last clearance and Tower uses light signals.</li>
         </ul>
         <h3>Scoring</h3>
-        <p>Safety multiplies everything: a loss of separation costs a lot, a collision ends the shift. Efficiency (delays, holding), throughput and radio discipline (on-time handoffs, answered requests) rank a clean shift from D to S.</p>
+        <p>Safety multiplies everything: a loss of separation or a runway incursion costs some score, but the shift goes on. Only an actual collision ends it (and Endless runs until one happens). Efficiency (delays, holding), throughput and radio discipline (on-time handoffs, answered requests) rank a clean shift from D to S.</p>
         <h3>Time</h3>
         <p><kbd>Space</kbd> pauses (not in the daily challenge or co-op). <kbd>1</kbd>–<kbd>5</kbd> set the speed from 1× to 5× (or use the buttons at the top). <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>5</kbd> jump the view to Delivery, Ground, Tower, Director and London.</p>
       </section>

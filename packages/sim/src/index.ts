@@ -144,7 +144,8 @@ function endless(world: World, st: State, cfg: Pick<ShiftConfig, 'days'>) {
     }
     st.schedule.sort((a, b) => a.at - b.at);
   }
-  if (st.stats.collisions || st.stats.sepLoss + st.stats.runwayLoss >= 3) st.ended = 'endless-over';
+  // Endless runs until something actually hits: a loss of separation costs score, not the shift.
+  if (st.stats.collisions) st.ended = 'endless-over';
 }
 
 /** Snapshot for the UI thread: everything except the bulky future schedule and replay log. */
