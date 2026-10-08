@@ -4,6 +4,8 @@
   import { find, geo, route, viaNames, type Command, type XY } from '@squawk/sim';
   import type { ShiftClient } from './client.ts';
   import { settings } from '../lib/settings.svelte.ts';
+  import { dropAction, primaryAction, Feedback, type Action } from './assist.ts';
+  import type { Need } from './needs.ts';
 
   interface Props {
     client: ShiftClient;
@@ -15,8 +17,12 @@
     onIssue: (cmds: Command[]) => void;
     onTaxiDone: (commit: boolean) => void;
     viewRequest: { cx: number; cy: number; mpp: number; t: number } | null;
+    queue: Need[];
+    onAction: (cs: string, a: Action) => void;
   }
-  let { client, selected, taxiEdit = $bindable(), overlays, onSelect, onRadial, onIssue, onTaxiDone, viewRequest }: Props = $props();
+  let { client, selected, taxiEdit = $bindable(), overlays, onSelect, onRadial, onIssue, onTaxiDone, viewRequest, queue, onAction }: Props = $props();
+  const feedback = new Feedback();
+  let bubbles = $state<{ cs: string; x: number; y: number; a: Action; level: string }[]>([]);
 
   let wrap: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -61,7 +67,9 @@
       scene.setStopBars(stopBars());
       scene.render();
       mpp = scene.getView().mpp;
-      drawUi();
+      feedback.update(snap, now);
+      placeBubbles();
+      drawUi(now);
     };
     frame();
     return () => { cancelAnimationFrame(raf); ro.disconnect(); scene?.dispose(); };
@@ -118,7 +126,25 @@
   }
   function nearestNode(p: XY) { let best = 0, bd = Infinity; for (const n of apt.nodes) { const d = geo.dist(n, p); if (d < bd) { bd = d; best = n.id; } } return best; }
 
-  function drawUi() {
+  /** One-click bubbles next to the aircraft that need you most. */
+  function placeBubbles() {
+    const out: typeof bubbles = [];
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    const views = new Map(client.views().map(v => [v.cs, v]));
+    for (const n of queue.slice(0, 8)) {
+      const a = primaryAction(world, client.snap!, n);
+      const v = views.get(n.cs);
+      if (!a || !v || taxiEdit) continue;
+      const p = scene!.worldToScreen(v);
+      if (p.x < 0 || p.y < 0 || p.x > w || p.y > h) continue;
+      out.push({ cs: n.cs, x: Math.round(p.x), y: Math.round(p.y), a, level: n.level });
+      if (out.length >= 6) break;
+    }
+    // Avoid rewriting state every frame when nothing moved.
+    if (out.length !== bubbles.length || out.some((b, i) => b.cs !== bubbles[i].cs || b.x !== bubbles[i].x || b.y !== bubbles[i].y || b.a.label !== bubbles[i].a.label)) bubbles = out;
+  }
+
+  function drawUi(now = performance.now()) {
     const dpr = devicePixelRatio || 1;
     const w = wrap.clientWidth, h = wrap.clientHeight;
     if (ui.width !== Math.round(w * dpr) || ui.height !== Math.round(h * dpr)) { ui.width = Math.round(w * dpr); ui.height = Math.round(h * dpr); }
@@ -127,6 +153,26 @@
     ctx.clearRect(0, 0, w, h);
     if (!scene) return;
     const S = (p: XY) => scene!.worldToScreen(p);
+    // Pulses on aircraft that need you.
+    const views = new Map(client.views().map(v => [v.cs, v]));
+    for (const n of queue.slice(0, 10)) {
+      const v = views.get(n.cs);
+      if (!v || n.level === 'routine') continue;
+      const p = S(v);
+      const k = (now / 900) % 1;
+      ctx.strokeStyle = n.level === 'emergency' ? `rgba(255,90,90,${1 - k})` : `rgba(255,181,71,${0.9 - k * 0.9})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 12 + k * 16, 0, Math.PI * 2); ctx.stroke();
+    }
+    // Score pops float up and fade.
+    ctx.font = "600 13px 'IBM Plex Sans', system-ui, sans-serif"; ctx.textAlign = 'center';
+    for (const pop of feedback.pops) {
+      const k = (now - pop.t0) / 2200, p = S(pop);
+      ctx.globalAlpha = Math.max(0, 1 - k);
+      ctx.fillStyle = pop.good ? '#4ff0b4' : '#ff5a5a';
+      ctx.fillText(pop.text, p.x, p.y - 22 - k * 34);
+    }
+    ctx.globalAlpha = 1; ctx.textAlign = 'left';
     // Taxi route being built.
     const path = taxiPath();
     if (path) {
@@ -137,15 +183,21 @@
       ctx.font = "12px 'IBM Plex Mono', ui-monospace, monospace"; ctx.fillStyle = '#ffd84a';
       ctx.fillText(`${taxiEdit!.to} via ${viaNames(apt, path).join(' ') || 'direct'} — click to add a point, Enter/double-click to send, Esc to cancel`, Math.min(end.x + 10, w - 520), end.y - 10);
     }
-    // Heading vector being dragged out of a blip.
-    if (drag?.vector && drag.cur) {
+    // Drag-to-target: a line from the aircraft, and what letting go will do.
+    if (drag?.vector && drag.cur && drag.moved) {
       const ac = find(client.snap!, drag.vector);
       if (ac) {
         const a = S(ac), b = S(drag.cur);
-        const hdg = Math.round(geo.bearing(ac, drag.cur) / 5) * 5 || 360;
-        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+        const act = dropAction(world, client.snap!, ac, drag.cur, mpp);
+        const col = !act ? '#7d90ae' : act.tone === 'go' ? '#4ff0b4' : act.tone === 'warn' ? '#ffb547' : '#ffffff';
+        ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
-        ctx.font = "600 13px 'IBM Plex Mono', ui-monospace, monospace"; ctx.fillStyle = '#fff'; ctx.fillText(`H${String(hdg).padStart(3, '0')}`, b.x + 8, b.y - 8);
+        ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill();
+        const label = act?.label ?? 'Drop on a runway, holding point, final approach, stack or fix';
+        ctx.font = "600 13px 'IBM Plex Sans', system-ui, sans-serif";
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(7,14,28,0.9)'; ctx.fillRect(b.x + 10, b.y - 26, tw + 14, 22);
+        ctx.fillStyle = col; ctx.fillText(label, b.x + 17, b.y - 10);
       }
     }
   }
@@ -160,8 +212,9 @@
   function down(e: PointerEvent) {
     const p = local(e);
     const hit = pickAircraft(p.x, p.y);
-    // Radar: drag out of the selected blip to vector it.
-    const vector = e.button === 0 && hit && hit === selected && mpp > 8 && find(client.snap!, hit) && !find(client.snap!, hit)!.onGround ? hit : null;
+    // Drag out of any of your aircraft to send it somewhere (runway, holding point, final, stack, fix, or a heading).
+    const ac = hit ? find(client.snap!, hit) : null;
+    const vector = e.button === 0 && !taxiEdit && ac && client.seats.includes(ac.freq) ? hit : null;
     drag = { x: p.x, y: p.y, moved: false, vector, cur: null, button: e.button };
     canvas.setPointerCapture(e.pointerId);
   }
@@ -181,9 +234,9 @@
     const p = local(e);
     if (drag.vector && drag.cur && drag.moved) {
       const ac = find(client.snap!, drag.vector)!;
-      const hdg = Math.round(geo.bearing(ac, drag.cur) / 5) * 5 || 360;
-      const turn = ((hdg - ac.hdg + 540) % 360) - 180 < 0 ? 'L' : 'R';
-      onIssue([{ cs: ac.cs, verb: 'heading', hdg, turn }]);
+      const act = dropAction(world, client.snap!, ac, drag.cur, mpp);
+      onSelect(ac.cs);
+      if (act) onAction(ac.cs, act);
     } else if (!drag.moved && drag.button === 0) {
       if (taxiEdit) {
         const w = scene.screenToWorld(p.x, p.y);
@@ -223,6 +276,11 @@
 <div class="scope" bind:this={wrap}>
   <canvas bind:this={canvas} onpointerdown={down} onpointermove={move} onpointerup={up} oncontextmenu={context} onwheel={wheel} ondblclick={dbl}></canvas>
   <canvas class="ui" bind:this={ui}></canvas>
+  {#each bubbles as b (b.cs)}
+    <button class="bubble {b.a.tone} {b.level}" style="left:{b.x + 16}px; top:{b.y - 34}px" onclick={() => onAction(b.cs, b.a)} title="{b.cs}: {b.a.label}">
+      <span class="cs">{b.cs}</span>{b.a.label}
+    </button>
+  {/each}
   <div class="scale">{mpp < 8 ? `${mpp.toFixed(1)} m/px` : `${((mpp * 900) / 1852).toFixed(0)} nm across`}</div>
 </div>
 
@@ -230,5 +288,15 @@
   .scope { position: relative; width: 100%; height: 100%; overflow: hidden; background: #0a1324; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   canvas.ui { pointer-events: none; z-index: 2; }
+  .bubble { position: absolute; z-index: 4; display: flex; gap: 6px; align-items: baseline; padding: 4px 10px; border-radius: 14px; border: 1px solid var(--line-strong);
+    background: rgba(13, 22, 40, 0.92); color: var(--ink-strong); font: 600 12.5px var(--ui); cursor: pointer; white-space: nowrap; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35); }
+  .bubble .cs { font: 500 11px var(--mono); color: var(--muted); }
+  .bubble.go { border-color: var(--green); }
+  .bubble.go:hover { background: var(--green); color: var(--bg); }
+  .bubble.warn { border-color: var(--amber); color: var(--amber); }
+  .bubble.warn:hover { background: var(--amber); color: var(--bg); }
+  .bubble.info:hover { border-color: var(--accent); color: var(--accent); }
+  .bubble.emergency { box-shadow: 0 0 0 2px var(--red); }
+  .bubble:hover .cs { color: inherit; }
   .scale { position: absolute; right: 10px; bottom: 8px; z-index: 3; font: 11px var(--mono); color: #6f86a8; pointer-events: none; }
 </style>

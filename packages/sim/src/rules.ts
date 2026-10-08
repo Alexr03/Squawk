@@ -97,7 +97,7 @@ export function separation(world: World, st: State) {
       if (d < need) {
         const key = `${lead.cs}|${follow.cs}|w`;
         live.add(key);
-        if (!(key in st.sepActive)) { st.sepActive[key] = st.tick; penal(st, [follow.cs, lead.cs], 'wakeInf'); event(st, { kind: 'wake', severity: 2, text: `Wake spacing: ${follow.cs} ${(d / NM).toFixed(1)} nm behind ${lead.cs} (needs ${(need / NM + 0.25).toFixed(0)} nm)`, cs: [follow.cs, lead.cs], x: follow.x, y: follow.y }); }
+        if (!(key in st.sepActive)) { st.sepActive[key] = st.tick; if (st.coverage.includes(seatId(a.apt, 'DIR'))) penal(st, [follow.cs, lead.cs], 'wakeInf'); event(st, { kind: 'wake', severity: 2, text: `Wake spacing: ${follow.cs} ${(d / NM).toFixed(1)} nm behind ${lead.cs} (needs ${(need / NM + 0.25).toFixed(0)} nm)`, cs: [follow.cs, lead.cs], x: follow.x, y: follow.y }); }
         stca[key] = 'caution'; mark(follow, 'caution');
       }
       req = Math.min(req, 2.5 * NM);

@@ -108,7 +108,7 @@ export interface Aircraft {
   vectors: { pts: XY[]; i: number } | null; // AI Director's planned vectors to the ILS
 }
 
-export interface Spawn { at: number; kind: 'arr' | 'dep'; apt: string; cs: string; type: string; operator: string; other: string; sched: number; stand?: string }
+export interface Spawn { at: number; kind: 'arr' | 'dep'; apt: string; cs: string; type: string; operator: string; other: string; sched: number; stand?: string; atHold?: boolean }
 
 export interface ScoreEvent {
   tick: number;

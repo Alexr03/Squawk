@@ -69,11 +69,13 @@ export function buildSchedule(world: World, cfg: ShiftConfig, st: State) {
       if (rand(st) > cfg.traffic) continue;
       let cs = f.cs; for (let k = 2; seen.has(cs); k++) cs = f.cs.slice(0, 6) + String.fromCharCode(64 + k);
       if (f.kind === 'dep') {
-        if (f.time < cfg.start + 13 * 60 || f.time > end + 5 * 60) continue;
+        if (f.time < cfg.start + 90 || f.time > end + 5 * 60) continue;
         seen.add(cs);
-        st.schedule.push({ at: ticks(Math.max(0, f.time - DEP_LEAD_S - cfg.start)), kind: 'dep', apt: icao, cs, type: f.type, operator: f.operator, other: f.other, sched: f.time, stand: f.stand });
+        // Departures due in the first minutes are already waiting at the holding point when the shift starts.
+        const early = f.time < cfg.start + 13 * 60;
+        st.schedule.push({ at: ticks(Math.max(0, f.time - (early ? 200 : DEP_LEAD_S) - cfg.start)), kind: 'dep', apt: icao, cs, type: f.type, operator: f.operator, other: f.other, sched: f.time, stand: f.stand, ...(early ? { atHold: true } : {}) });
       } else {
-        if (f.time < cfg.start + 7 * 60 || f.time > end + 5 * 60) continue;
+        if (f.time < cfg.start + 100 || f.time > end + 5 * 60) continue;
         seen.add(cs);
         st.schedule.push({ at: ticks(Math.max(0, f.time - arrivalLead(apt) - cfg.start)), kind: 'arr', apt: icao, cs, type: f.type, operator: f.operator, other: f.other, sched: f.time });
       }
@@ -145,6 +147,21 @@ export function spawn(world: World, st: State, sp: Spawn): Aircraft | null {
   const apt = world.byIcao[sp.apt];
   const as = st.apts.find(a => a.icao === sp.apt)!;
   const ac = base(sp, st);
+  if (sp.kind === 'dep' && sp.atHold) {
+    // Already taxied out: waiting at a free holding point for the departure runway.
+    const end = as.dep[0];
+    const holds = apt.ends[end]?.front ?? [];
+    const free = holds.find(h => !st.aircraft.some(o => o.onGround && dist(o, apt.nodes[h]) < 90));
+    if (free !== undefined) {
+      const n = apt.nodes[free];
+      const nb = apt.adj[free].map(a => apt.nodes[a.to]).sort((a, b) => dist(b, apt.ends[end].end) - dist(a, apt.ends[end].end))[0] ?? n;
+      Object.assign(ac, { x: n.x, y: n.y, hdg: bearing(nb, n), phase: 'holding' as const, runway: end, squawk: newSquawk(st), path: [free], pi: 1, claims: [free] });
+      ac.cleared = { ...ac.cleared, dl: true, push: true, taxi: true };
+      ac.sid = chooseSid(apt, end, sp.other, st);
+      ac.owner = ac.freq = seatId(apt.icao, 'TWR');
+      return ac;
+    }
+  }
   if (sp.kind === 'dep') {
     const stand = freeStand(world, st, apt, sp.operator, ac.wake, 'dep', sp.stand);
     if (!stand) return null;

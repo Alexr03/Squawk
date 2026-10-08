@@ -198,7 +198,8 @@
         onHandoff={(cs) => { const a = find(snap!, cs); const it = a && radialFor(world, snap!, cs).find(i => i.label.startsWith('Contact')); if (it?.cmd) send(it.cmd); }} />
       <div class="scopewrap">
         <Scope bind:this={scope} {client} {selected} bind:taxiEdit {overlays} {viewRequest}
-          onSelect={(cs) => (selected = cs)} onRadial={(cs, x, y) => (radial = { cs, x, y })} onIssue={(c) => send(c)} onTaxiDone={taxiDone} />
+          onSelect={(cs) => (selected = cs)} onRadial={(cs, x, y) => (radial = { cs, x, y })} onIssue={(c) => send(c)} onTaxiDone={taxiDone}
+          {queue} onAction={(cs, a) => { selected = cs; if (a.cmds) send(a.cmds); else if (a.taxi) send([a.taxi.greens ? { cs, verb: 'greens', to: a.taxi.to } : { cs, verb: 'taxi', to: a.taxi.to, via: [] }]); }} />
         {#if queue.length}
           <div class="queue">
             <h4>Needs you <span>N</span></h4>
