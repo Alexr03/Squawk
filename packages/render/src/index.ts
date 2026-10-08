@@ -423,7 +423,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
       }
       radar.draw({
         w: W, h: H, dpr, M: affine(), mpp: view.mpp, fade, night: nightOverride ?? sunEl < -4, now,
-        aircraft, screenOf, sizeOf, selected, overlays, arr, dep, cells: weather.cells ?? [],
+        aircraft, screenOf, groundOf: p => worldToScreen(p), sizeOf, selected, overlays, arr, dep, cells: weather.cells ?? [],
       });
     },
     dispose() {

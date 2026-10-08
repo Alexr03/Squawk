@@ -24,6 +24,7 @@ export interface RadarFrame {
   now: number;           // ms, for flashing
   aircraft: AircraftView[];
   screenOf: (ac: AircraftView) => XY; // projected 3D position (airport tier)
+  groundOf: (p: XY) => XY;              // projected ground point (airport tier)
   sizeOf: (ac: AircraftView) => number; // aircraft half-length in px (airport tier)
   selected: string | null;
   overlays: { sids?: boolean; stars?: boolean; weather?: boolean; ctr?: boolean; rings?: boolean };
@@ -31,7 +32,8 @@ export interface RadarFrame {
   cells: { x: number; y: number; r: number; intensity: number }[];
 }
 
-interface PackPaths { pack: AirportPack; off: XY; aprons: Path2D; rwys: Path2D; bldgs: Path2D; twy: Path2D }
+type Label = { x: number; y: number; text: string; kind: 'twy' | 'hold' | 'stand' };
+interface PackPaths { pack: AirportPack; off: XY; aprons: Path2D; rwys: Path2D; bldgs: Path2D; twy: Path2D; labels: Label[] }
 
 function hash(n: number) { n = Math.imul(n ^ (n >>> 15), 0x2c1b3c6d); n = Math.imul(n ^ (n >>> 12), 0x297a2d39); return ((n ^ (n >>> 15)) >>> 0) / 4294967296; }
 
@@ -55,7 +57,21 @@ export class Radar {
       }
       const byId = new Map(pack.taxi.nodes.map(n => [n.id, n]));
       for (const e of pack.taxi.edges) if (!e.runway) { const a = byId.get(e.a)!, b = byId.get(e.b)!; twy.moveTo(a.x + off.x, a.y + off.y); twy.lineTo(b.x + off.x, b.y + off.y); }
-      return { pack, off, aprons, rwys, bldgs, twy };
+      // Names you can say on the radio: taxiways (every ~300 m along each), holding points and stands.
+      const labels: Label[] = [];
+      for (const e of pack.taxi.edges) {
+        if (!e.name || e.runway) continue;
+        const a = byId.get(e.a)!, b = byId.get(e.b)!;
+        if (Math.hypot(b.x - a.x, b.y - a.y) < 40) continue;
+        const m = { x: (a.x + b.x) / 2 + off.x, y: (a.y + b.y) / 2 + off.y };
+        if (labels.some(l => l.text === e.name && Math.hypot(l.x - m.x, l.y - m.y) < 300)) continue;
+        labels.push({ ...m, text: e.name, kind: 'twy' });
+      }
+      for (const n of pack.taxi.nodes) if (n.hold) labels.push({ x: n.x + off.x, y: n.y + off.y, text: n.hold, kind: 'hold' });
+      for (const s of pack.stands) { const n = byId.get(s.node); if (n) labels.push({ x: n.x + off.x, y: n.y + off.y, text: s.ref, kind: 'stand' }); }
+      const order = { hold: 0, twy: 1, stand: 2 }; // drawing priority when labels collide
+      labels.sort((a, b) => order[a.kind] - order[b.kind]);
+      return { pack, off, aprons, rwys, bldgs, twy, labels };
     });
     const prim = packs[0].pack;
     for (const l of prim.airspace.map) {
@@ -72,6 +88,32 @@ export class Radar {
       if (dh < 3200) continue;
       if (hash(i * 13 + 9) < Math.exp(-dl / 18000) + 0.12) this.city.push(q);
     }
+  }
+
+  /** Taxiway letters (yellow-on-black signs), holding points and stands, when zoomed in on the ground. */
+  private drawGroundLabels(F: RadarFrame) {
+    const { ctx } = this;
+    const a0 = ctx.globalAlpha;
+    const stands = F.mpp < 1.1;
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+    const placed: { x: number; y: number; w: number; h: number }[] = [];
+    for (const pk of this.packs) for (const l of pk.labels) {
+      if (l.kind === 'stand' && !stands) continue;
+      const p = F.groundOf(l);
+      if (p.x < -20 || p.y < -20 || p.x > F.w + 20 || p.y > F.h + 20) continue;
+      ctx.font = l.kind === 'stand' ? "500 9px 'IBM Plex Mono', monospace" : "700 11px 'IBM Plex Sans', system-ui, sans-serif";
+      const w = Math.ceil(ctx.measureText(l.text).width) + 8, h = l.kind === 'stand' ? 13 : 16;
+      const x = Math.round(p.x - w / 2), y = Math.round(p.y - h / 2);
+      if (placed.some(b => x < b.x + b.w + 2 && b.x < x + w + 2 && y < b.y + b.h + 2 && b.y < y + h + 2)) continue;
+      placed.push({ x, y, w, h });
+      // Airfield sign colours: location (taxiway) black on yellow, mandatory (holding point) white on red.
+      ctx.fillStyle = l.kind === 'twy' ? '#f5c518' : l.kind === 'hold' ? '#c8102e' : 'rgba(10,18,32,0.7)';
+      ctx.globalAlpha = a0 * (l.kind === 'stand' ? 0.85 : 0.95);
+      ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = l.kind === 'twy' ? '#111' : '#fff';
+      ctx.fillText(l.text, Math.round(p.x), Math.round(p.y) + 1);
+    }
+    ctx.globalAlpha = a0;
   }
 
   draw(F: RadarFrame) {
@@ -234,6 +276,8 @@ export class Radar {
 
     if (fade < 1) { // airport tier: small callsign labels and selection brackets
       ctx.globalAlpha = Math.max(0, 1 - fade * 2.5);
+      ctx.font = SMALL_FONT; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+      if (F.mpp < 2.2) this.drawGroundLabels(F);
       ctx.font = SMALL_FONT; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
       for (const ac of list) {
         if (ac.cs.startsWith("~")) continue; // parked scenery, no label

@@ -9,7 +9,7 @@ export default async (page, shot) => {
   await page.getByRole('button', { name: '4 times speed' }).click();
   await page.waitForTimeout(12000);
   await page.getByRole('button', { name: '1 times speed' }).click();
-  await page.locator('.strip').first().click();
+  await page.locator('.strip:not(.dim)').first().click();
   await page.waitForTimeout(1500);
   await shot('65-strip-zoom');
   const b = await page.locator('.bubble').first().boundingBox();
