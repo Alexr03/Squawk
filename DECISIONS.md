@@ -40,3 +40,32 @@ Choices made where PLAN.md is silent, or where milestone 1 deliberately cuts a c
 - **Crossfade:** tilt eases to zero by about 3.5 m/px. Buildings flatten between 2.5 and 5 m/px. The 3D image desaturates while the navy scope fades in between 3 and 8 m/px. Above 8 m/px the WebGL pass is skipped entirely.
 - **Fonts:** VT323 for data tags and Silkscreen for small labels (both OFL), bundled under `packages/render/assets`.
 - **Only the primary pack is built in 3D.** Other packs appear on the scope as runway symbols, placed by their ARP.
+
+## Co-op (apps/web/src/net)
+
+- **Star topology over WebRTC.** The host's browser runs the only sim (a normal `GameClient`). Each guest has one reliable, ordered data channel to the host. STUN is Google's public server, and there is no TURN, so two players behind symmetric NATs can't connect. TURN costs money to run, so it waits until someone hits this.
+- **Signalling has two modes.** *Manual* needs no server: the host makes an invite code per guest (the SDP offer with every ICE candidate, deflate-raw and base64url, about 600 characters), and the guest pastes it and sends back an answer code. *Room codes* need `VITE_LEADERBOARD_URL`: the host keeps one invite posted in a 6-letter KV room, a guest takes it by writing an answer under the invite's id (a second taker gets 409 and waits for the next invite), and both sides poll every 1.5 s. Manual mode is always offered as a fallback.
+- **Wire format:** JSON, deflate-raw, split into 60 kB frames with a one-byte "last frame" flag. The host packs each broadcast once for all guests. A guest more than 1 MB behind skips snapshots, since the next one replaces it.
+- **Measured sizes** at 08:00 on the summer peak day: a snapshot is about 21 to 27 kB of JSON and 3.6 to 4.6 kB deflated. The full state is about 22 kB of JSON and 3.9 kB deflated early in a shift, and it grows with the schedule and command log. At 4 per second, that's under 20 kB/s per guest.
+- **What goes over the wire:** the worker's trimmed snapshot about 4 times a second (sampled every 250 ms, whatever the sim speed), a full `State` every 10 s for takeover, a ping when idle, the final state, and per-guest command results. Guests send `hello`, `claim` and `cmd`.
+- **Authority:** the host runs a guest's command only if the aircraft's current frequency (`ac.freq`) is one of *that guest's* seats. The same check applies to the host's own commands, because the sim's coverage is everyone's seats. Malformed commands are refused before they reach the worker.
+- **Seats:** the sim models one seat per role per airport, so the lobby offers the five roles (Delivery, Ground, Tower, Director, London Control). PLAN's Heathrow splits (Ground ×3, Tower N/S, Director N/S/Final) need the sim to split those roles first. With 5 or more players, each gets one role, and players beyond the fifth can only watch (with "monitor" on).
+- **Default split** follows PLAN: 2 players get DEL+GND · TWR+DIR, 3 get DEL+GND · TWR · DIR, 4 get DEL+GND · TWR · DIR · LON, and 1 gets Tower. Shift coverage is the union of claimed seats, and AI works the rest.
+- **Mid-shift split/merge:** the host moves seats between players from the pause menu. The sim's coverage is fixed at the start, so a seat can't go back to AI mid-shift. When a guest leaves, their seats bandbox back to the host. Each move shows both players a handover toast listing the aircraft on that frequency.
+- **The clock is the host's.** Guests can't pause or change speed, and replay is host/solo only.
+- **Host drop:** guests treat a closed channel, or 5 s with no message (the host pings every 2 s), as host loss and show "Host lost — shift paused". One guest can take over. Their browser starts a sim from the last full state (`worker.ts` `resume`), so up to 10 s of play is lost. The new host gets a fresh lobby to re-invite players and re-assign seats, and in room mode it reuses the same room code. Guests can only resume if they received at least one full state, and the host sends one as soon as the first guest is in the shift.
+- **Monitor** is a per-player toggle in the lobby and in the pause menu. It shows every covered frequency in the radio log. Instructions still go only to your own frequencies.
+
+## Leaderboard / rooms worker (apps/leaderboard)
+
+- **No package.json.** It's one TypeScript file deployed with `npx wrangler`. It defines the small KV interface it uses, so there's no workers-types dependency. Root `tsc` and Vitest cover it.
+- **The rate limit is 30 s per IP**, but KV's minimum TTL is 60 s, so the key stores the time of the last score and the handler checks the 30 s itself. The server sets `at`.
+- **Polling-friendly reads:** a missing offer or answer in an existing room returns `200 null`, not 404, so the browser console stays quiet while polling. An unknown room is a 404.
+- **KV is eventually consistent.** That's fine for a leaderboard. Room signalling can lag for players in different regions, and copy-paste codes always work. A Durable Object is the upgrade path if it matters.
+
+## PWA
+
+- **No plugin.** A small Vite plugin (`vite.config.ts`) emits `sw.js` from `apps/web/sw.js` with the build's file list. The worker is registered from `main.ts` in production builds only.
+- **Precached:** `./`, the manifest, the icons, and every JS, CSS and woff2 file in the build. **Not precached:** the data packs, which are cached on first use, cache-first, since their names are hashed. Also left out are the audio/render test pages and the transformers chunk and its ONNX/wasm files. The service worker never touches those, and transformers.js caches its models itself. Navigations are network-first, so a new release shows up on the next load and the cached shell is the offline fallback.
+- **One version-free `squawk-assets` cache** keeps the data packs across releases, and it is never pruned (a few MB per release). Shell caches are versioned and the old ones are deleted on activate.
+- **Icons** are a 32×32 pixel-art radar scope, drawn by `tools/icons.mjs` using only Node built-ins (zlib deflate and crc32). The maskable icon keeps the art inside the safe zone. They're committed under `apps/web/public/icons`.

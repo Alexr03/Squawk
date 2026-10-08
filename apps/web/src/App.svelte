@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { debrief, type Debrief, type ShiftConfig, type State } from '@squawk/sim';
+  import { debrief, type Debrief, type State } from '@squawk/sim';
   import Game from './game/Game.svelte';
-  import { GameClient, type Snap } from './game/client.ts';
-  import { loadAirport, loadDay } from './lib/data.ts';
+  import { GameClient, type ShiftClient, type Snap } from './game/client.ts';
+  import { coop, endCoop, type Guest } from './net/coop.svelte.ts';
+  import CoopSeats from './screens/CoopSeats.svelte';
   import { coach as careerCoach } from './lib/career.ts';
   import { loadProgress, saveProgress, gradeAtLeast } from './lib/progress.ts';
   import { settings } from './lib/settings.svelte.ts';
@@ -13,11 +14,11 @@
   import Career from './screens/Career.svelte';
   import Daily from './screens/Daily.svelte';
   import Coop from './screens/Coop.svelte';
-  import type { Launch } from './lib/launch.ts';
+  import { prepare, type Launch } from './lib/launch.ts';
 
   type Screen = 'menu' | 'setup' | 'loading' | 'game' | 'debrief' | 'settings' | 'career' | 'daily' | 'coop';
   let screen = $state<Screen>('menu');
-  let client = $state<GameClient | null>(null);
+  let client = $state<ShiftClient | null>(null);
   let launch = $state<Launch | null>(null);
   let result = $state<{ d: Debrief; st: State; outcome: string | null } | null>(null);
   let replaying = $state(false);
@@ -27,13 +28,18 @@
   async function start(l: Launch) {
     screen = 'loading'; error = ''; launch = l; replaying = false;
     try {
-      const packs = await Promise.all(l.airports.map(loadAirport));
-      const days = await Promise.all(l.days.map(d => (d ? loadDay(d) : Promise.resolve(null))));
-      const cfg: ShiftConfig = { seed: l.seed, airports: l.airports, days, start: l.start, durationS: l.mode === 'endless' ? 0 : l.minutes * 60, traffic: l.traffic, coverage: l.coverage, difficulty: l.difficulty, mode: l.mode, ...(l.weather ? { weather: l.weather } : {}) };
+      const { packs, cfg } = await prepare(l);
       client?.dispose();
       client = new GameClient(packs, cfg);
       screen = 'game';
     } catch (e) { error = String(e); screen = 'menu'; }
+  }
+  /** Co-op: the lobby hands over a running shift (the host's GameClient or a guest's RemoteClient). */
+  function play(c: ShiftClient, l: Launch) { launch = l; replaying = false; client = c; screen = 'game'; }
+  function takeOver() {
+    const h = (coop.session as Guest).takeover();
+    client?.dispose(); client = null;
+    coop.session = h; coop.lost = false; screen = 'coop';
   }
 
   function ended(st: State) {
@@ -58,12 +64,12 @@
   }
 
   function replayMoment(tick: number) {
-    if (!client || !result) return;
+    if (!(client instanceof GameClient) || !result) return;
     replaying = true;
     client.replay(result.st.cmdLog, Math.max(0, tick - 4 * 40), tick + 4 * 30);
     screen = 'game';
   }
-  function quit() { client?.dispose(); client = null; screen = launch?.career ? 'career' : 'menu'; }
+  function quit() { client?.dispose(); client = null; endCoop(); screen = launch?.career ? 'career' : 'menu'; }
 </script>
 
 <div class="app" class:hc={settings.highContrast} class:cb={settings.colorblind} class:rm={settings.reducedMotion}>
@@ -76,7 +82,7 @@
   {:else if screen === 'daily'}
     <Daily onStart={start} onBack={() => (screen = 'menu')} />
   {:else if screen === 'coop'}
-    <Coop onBack={() => (screen = 'menu')} />
+    <Coop onBack={() => (screen = 'menu')} onPlay={play} />
   {:else if screen === 'settings'}
     <Settings onBack={() => (screen = 'menu')} />
   {:else if screen === 'loading'}
@@ -85,11 +91,26 @@
     {#key client}
       <Game {client} title={replaying ? `REPLAY — ${launch.title}` : launch.title} canPause={launch.difficulty.pause && launch.mode !== 'daily' || replaying}
         coach={launch.hints && settings.tutorialHints ? (s: Snap, sel: string | null) => careerCoach(client!.world, s, sel) : undefined}
-        onEnd={(st) => (replaying ? (screen = 'debrief') : ended(st))} onQuit={() => (replaying ? (screen = 'debrief') : client && ended((client.final ?? client.snap) as State))} />
+        onEnd={(st) => (replaying ? (screen = 'debrief') : ended(st))} onQuit={() => (replaying ? (screen = 'debrief') : client && ended((client.final ?? client.snap) as State))}
+        menuExtra={coop.session ? coopPanel : undefined} />
     {/key}
+    {#snippet coopPanel()}<CoopSeats />{/snippet}
+    {#if coop.lost}
+      <div class="lost" role="alertdialog" aria-label="Host lost">
+        <div class="box">
+          <h2>Host lost — shift paused</h2>
+          <p>The host's browser stopped answering. One player can take over hosting from the last saved moment (up to 10 s ago); everyone else rejoins them.</p>
+          <div class="row">
+            {#if (coop.session as Guest | null)?.canTakeOver}<button onclick={takeOver}>Take over hosting</button>{/if}
+            <button onclick={() => { const room = (coop.session as Guest | null)?.room ?? null; quit(); coop.rejoin = room; screen = 'coop'; }}>Rejoin a new host</button>
+            <button onclick={quit}>Leave</button>
+          </div>
+        </div>
+      </div>
+    {/if}
   {:else if screen === 'debrief' && result && launch}
     <DebriefScreen d={result.d} st={result.st} title={launch.title} outcome={result.outcome} dailyKey={launch.dailyKey ?? null}
-      onReplay={replayMoment} onAgain={() => start({ ...launch!, seed: launch!.mode === 'free' ? (Math.random() * 2 ** 31) | 0 : launch!.seed })} onMenu={quit} />
+      onReplay={replayMoment} onAgain={() => coop.session ? quit() : start({ ...launch!, seed: launch!.mode === 'free' ? (Math.random() * 2 ** 31) | 0 : launch!.seed })} onMenu={quit} />
   {/if}
 </div>
 
@@ -118,6 +139,11 @@
   :global(.strip .need.urgent) { color: #a8650a !important; }
   :global(.strip .need.emergency) { color: #c0262d !important; }
   .loading { height: 100vh; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center; font: 600 15px var(--ui); color: var(--green); }
+  .lost { position: fixed; inset: 0; z-index: 80; background: rgba(5, 10, 20, 0.75); display: flex; align-items: center; justify-content: center; }
+  .lost .box { width: min(520px, 92vw); background: var(--panel-2); border: 1px solid var(--amber); padding: 18px 20px; font: 14px var(--ui); }
+  .lost h2 { margin: 0 0 8px; font: 600 15px var(--ui); color: var(--amber); }
+  .lost .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .lost button { background: var(--btn); border: 1px solid var(--line-strong); color: var(--ink-strong); font: 13px var(--ui); padding: 4px 12px; cursor: pointer; }
   .spin { width: 18px; height: 18px; border: 2px solid var(--green); border-right-color: transparent; border-radius: 50%; animation: s 0.8s linear infinite; }
   @keyframes s { to { transform: rotate(360deg); } }
 </style>

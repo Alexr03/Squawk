@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, type Snippet } from 'svelte';
   import { parseSpeech, type ParseCtx } from '@squawk/phraseology';
   import { find, seatRole, viaNames, type Command, type State } from '@squawk/sim';
-  import type { GameClient, Snap } from './client.ts';
+  import type { ShiftClient, Snap } from './client.ts';
   import Scope from './Scope.svelte';
   import StripBay from './StripBay.svelte';
   import Comms from './Comms.svelte';
@@ -17,11 +17,13 @@
   import Help from '../screens/Help.svelte';
 
   interface Props {
-    client: GameClient; title: string; canPause: boolean;
+    client: ShiftClient; title: string; canPause: boolean;
+    /** Extra controls in the pause menu (co-op seats). */
+    menuExtra?: Snippet;
     coach?: (snap: Snap, selected: string | null) => string | null;
     onEnd: (st: State) => void; onQuit: () => void;
   }
-  let { client, title, canPause, coach, onEnd, onQuit }: Props = $props();
+  let { client, title, canPause, coach, onEnd, onQuit, menuExtra }: Props = $props();
 
   let snap = $state.raw<Snap | null>(null);
   let selected = $state<string | null>(null);
@@ -64,6 +66,7 @@
       }
     };
     client.onFinal = st => { sound.stop(); onEnd(st); };
+    client.onNote = m => toast(m);
     client.onError = m => toast(`Sim error: ${m.split('\n')[0]}`, 'conflict');
     if (client.snap) snap = { ...client.snap, coverage: client.seats };
     return () => { sound.stop(); voiceInput?.dispose(); };
@@ -95,6 +98,7 @@
     send([te.greens ? { cs: te.cs, verb: 'greens', to: te.to, nodes: path ?? undefined } : { cs: te.cs, verb: 'taxi', to: te.to, via, nodes: path ?? undefined }]);
   }
   function setSpeed(v: number) {
+    if (!client.canSetSpeed) { toast('The host runs the clock'); return; }
     speed = v; paused = v === 0;
     client.setSpeed(v);
   }
@@ -218,7 +222,7 @@
       {/if}
     </div>
     <div class="bottom">
-      <Comms {world} {snap} {selected} {filter} onSend={(c) => send(c)} onSelect={(cs) => (selected = cs)} bind:inputEl={cmdInput} />
+      <Comms {world} snap={client.monitor ? { ...snap, coverage: client.cfg.coverage } : snap} {selected} {filter} onSend={(c) => send(c)} onSelect={(cs) => (selected = cs)} bind:inputEl={cmdInput} />
     </div>
   </div>
   {#if radial && snap}
@@ -233,6 +237,7 @@
         <label>Volume <input type="range" min="0" max="1" step="0.05" bind:value={settings.master} oninput={() => { saveSettings(); sound.apply(); }} /></label>
         <label>Auto-slow when busy <input type="checkbox" bind:checked={settings.autoSlow} onchange={saveSettings} /></label>
         <label>Push-to-talk voice <input type="checkbox" bind:checked={settings.voiceInput} onchange={saveSettings} /></label>
+        {@render menuExtra?.()}
         <div class="keys">Keys: Tab next aircraft · N most urgent · L/T/G/C/X/K/H/A/S/D/I instructions · Enter command line · right-click radial menu · drag a radar blip to vector · 1–5 views · O routes · W weather · Space pause · ` push-to-talk</div>
         <button onclick={() => (helpOpen = true)}>How to play</button>
         <button class="quit" onclick={onQuit}>End shift</button>

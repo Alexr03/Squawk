@@ -1,10 +1,12 @@
-// Main-thread side of a running shift: owns the sim worker, keeps the last two snapshots for smooth motion.
-import { aircraftView, buildWorld, type AircraftView, type AirportPack, type Command, type ShiftConfig, type State, type World } from '@squawk/sim';
+// Main-thread side of a running shift. ShiftClient keeps the last two snapshots for smooth motion; GameClient owns the
+// sim worker (solo, or the co-op host), RemoteClient (net/coop.svelte.ts) gets its snapshots from a co-op host.
+import { aircraftView, buildWorld, find, seatRole, type AircraftView, type AirportPack, type Command, type ShiftConfig, type State, type World } from '@squawk/sim';
 import type { FromWorker, ToWorker } from '../worker.ts';
 
 export type Snap = State & { upcoming: State['schedule'] };
 
-export class GameClient {
+/** What Game.svelte needs from a shift, wherever the sim runs. */
+export abstract class ShiftClient {
   world: World;
   packs: AirportPack[];
   cfg: ShiftConfig;
@@ -15,44 +17,33 @@ export class GameClient {
   speed = 1;
   /** Seats this player works (in co-op the sim's coverage is everyone's seats). */
   seats: string[];
+  /** Only the sim's owner can change the clock. */
+  canSetSpeed = true;
+  /** Co-op: show every frequency in the radio log, not just this player's. */
+  monitor = false;
   onSnap: (s: Snap) => void = () => {};
   onFinal: (s: State) => void = () => {};
   onError: (m: string) => void = () => {};
-  private worker: Worker;
-  private nextId = 1;
-  private waiting = new Map<number, (err: string | null) => void>();
+  onNote: (m: string) => void = () => {};
 
   constructor(packs: AirportPack[], cfg: ShiftConfig) {
-    this.packs = packs; this.cfg = cfg;
+    // Plain data only: Svelte state proxies can't cross to a worker or a data channel.
+    this.packs = packs; this.cfg = JSON.parse(JSON.stringify(cfg));
     this.world = buildWorld(packs);
     this.seats = [...cfg.coverage];
-    this.worker = new Worker(new URL('../worker.ts', import.meta.url), { type: 'module' });
-    this.worker.onmessage = (e: MessageEvent<FromWorker>) => this.receive(e.data);
-    // Plain data only: Svelte state proxies can't cross to a worker.
-    this.cfg = JSON.parse(JSON.stringify(cfg));
-    this.send({ t: 'init', packs, cfg: this.cfg });
-  }
-
-  private send(m: ToWorker) { this.worker.postMessage(m); }
-  private receive(m: FromWorker) {
-    if (m.t === 'snap') {
-      if (this.snap && m.st.tick !== this.snap.tick) { this.prev = this.snap; this.prevAt = this.curAt; }
-      this.snap = m.st as Snap;
-      this.curAt = performance.now();
-      this.onSnap(this.snap);
-    } else if (m.t === 'cmd') { this.waiting.get(m.id)?.(m.err); this.waiting.delete(m.id); }
-    else if (m.t === 'final') { this.final = m.st; this.onFinal(m.st); }
-    else if (m.t === 'error') this.onError(m.msg);
   }
 
   /** Send one transmission. Resolves to an error message, or null if the pilot will read it back. */
-  issue(cmds: Command[], opts: { voice?: boolean; seat?: string } = {}): Promise<string | null> {
-    const id = this.nextId++;
-    return new Promise(res => { this.waiting.set(id, res); this.send({ t: 'cmd', id, cmds, ...opts }); });
+  abstract issue(cmds: Command[], opts?: { voice?: boolean }): Promise<string | null>;
+  abstract setSpeed(v: number): void;
+  abstract dispose(): void;
+
+  protected push(st: Snap) {
+    if (this.snap && st.tick !== this.snap.tick) { this.prev = this.snap; this.prevAt = this.curAt; }
+    this.snap = st;
+    this.curAt = performance.now();
+    this.onSnap(st);
   }
-  setSpeed(v: number) { this.speed = v; this.send({ t: 'speed', v }); }
-  replay(log: State['cmdLog'], from: number, to: number) { this.final = null; this.send({ t: 'replay', cfg: this.cfg, log, from, to }); }
-  dispose() { this.send({ t: 'stop' }); this.worker.terminate(); }
 
   /** Aircraft views blended between the previous and current snapshot (the sim ticks at 4 Hz, the screen at 60). */
   views(now = performance.now()): AircraftView[] {
@@ -99,4 +90,42 @@ export class GameClient {
     const dt = Math.min(0.25, (now - this.curAt) / 1000 * this.speed);
     return cur.start + cur.tick / 4 + (cur.ended ? 0 : dt);
   }
+}
+
+export class GameClient extends ShiftClient {
+  private worker: Worker;
+  private nextId = 1;
+  private waiting = new Map<number, (v: string | null) => void>();
+  private fulls: ((st: State) => void)[] = [];
+
+  /** `from`: continue a shift from a full state (co-op host takeover) instead of starting it. */
+  constructor(packs: AirportPack[], cfg: ShiftConfig, from?: State) {
+    super(packs, cfg);
+    this.worker = new Worker(new URL('../worker.ts', import.meta.url), { type: 'module' });
+    this.worker.onmessage = (e: MessageEvent<FromWorker>) => this.receive(e.data);
+    this.send(from ? { t: 'resume', packs, cfg: this.cfg, st: from } : { t: 'init', packs, cfg: this.cfg });
+  }
+
+  private send(m: ToWorker) { this.worker.postMessage(m); }
+  private receive(m: FromWorker) {
+    if (m.t === 'snap') this.push(m.st as Snap);
+    else if (m.t === 'cmd') { this.waiting.get(m.id)?.(m.err); this.waiting.delete(m.id); }
+    else if (m.t === 'full') this.fulls.shift()?.(m.st);
+    else if (m.t === 'final') { this.final = m.st; this.onFinal(m.st); }
+    else if (m.t === 'error') this.onError(m.msg);
+  }
+
+  /** `seats`: whose seats the sender works (the co-op host checks guests' commands against theirs). */
+  issue(cmds: Command[], opts: { voice?: boolean; seats?: string[] } = {}): Promise<string | null> {
+    const ac = this.snap && cmds[0] ? find(this.snap, cmds[0].cs) : undefined;
+    const seats = opts.seats ?? this.seats;
+    if (ac && !seats.includes(ac.freq)) return Promise.resolve(`${ac.cs} is on ${seatRole(ac.freq)}, not your frequency`);
+    const id = this.nextId++;
+    return new Promise(res => { this.waiting.set(id, res); this.send({ t: 'cmd', id, cmds, voice: opts.voice, seat: opts.seats && ac?.freq }); });
+  }
+  /** The whole sim state (with schedule and command log), for handing the shift to another host. */
+  full(): Promise<State> { return new Promise(res => { this.fulls.push(res); this.send({ t: 'full' }); }); }
+  setSpeed(v: number) { this.speed = v; this.send({ t: 'speed', v }); }
+  replay(log: State['cmdLog'], from: number, to: number) { this.final = null; this.send({ t: 'replay', cfg: this.cfg, log, from, to }); }
+  dispose() { this.send({ t: 'stop' }); this.worker.terminate(); }
 }

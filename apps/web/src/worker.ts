@@ -1,8 +1,10 @@
-// Runs the sim off the main thread. In: init / cmd / speed / replay. Out: snapshots after each batch of ticks.
+// Runs the sim off the main thread. In: init / resume / cmd / speed / replay / full. Out: snapshots after each batch of ticks.
 import { buildWorld, createShift, issue, replay, snapshot, step, TICK_HZ, type AirportPack, type Command, type ShiftConfig, type State, type World } from '@squawk/sim';
 
 export type ToWorker =
   | { t: 'init'; packs: AirportPack[]; cfg: ShiftConfig }
+  | { t: 'resume'; packs: AirportPack[]; cfg: ShiftConfig; st: State }
+  | { t: 'full' }
   | { t: 'cmd'; id: number; cmds: Command[]; voice?: boolean; seat?: string }
   | { t: 'speed'; v: number }
   | { t: 'replay'; cfg: ShiftConfig; log: State['cmdLog']; from: number; to: number }
@@ -11,6 +13,7 @@ export type FromWorker =
   | { t: 'snap'; st: ReturnType<typeof snapshot> }
   | { t: 'cmd'; id: number; err: string | null }
   | { t: 'final'; st: State }
+  | { t: 'full'; st: State }
   | { t: 'error'; msg: string };
 
 let world: World | null = null;
@@ -29,7 +32,13 @@ onmessage = (e: MessageEvent<ToWorker>) => {
       world = buildWorld(m.packs); cfg = m.cfg;
       st = createShift(world, cfg); acc = 0; replayUntil = Infinity; replayCmds = [];
       post({ t: 'snap', st: snapshot(st) });
-    } else if (m.t === 'speed') speed = m.v;
+    } else if (m.t === 'resume') {
+      // Co-op host takeover: carry on from another host's full state.
+      world = buildWorld(m.packs); cfg = m.cfg;
+      st = m.st; acc = 0; replayUntil = Infinity; replayCmds = [];
+      post({ t: 'snap', st: snapshot(st) });
+    } else if (m.t === 'full' && st) post({ t: 'full', st });
+    else if (m.t === 'speed') speed = m.v;
     else if (m.t === 'cmd' && world && st) {
       if (replayUntil !== Infinity) { post({ t: 'cmd', id: m.id, err: 'Replay: watching only' }); return; }
       const err = issue(world, st, m.cmds, { voice: m.voice, seat: m.seat });
