@@ -5,7 +5,7 @@ import { aptOf, aptState, enterHold, flowPenalty, lineupPath } from './physics.t
 import { DT, rand, seatApt, seatId, seatRole, ticks, type Aircraft, type SeatId, type State } from './state.ts';
 import { newSquawk, sidFor } from './traffic.ts';
 import type { Command, Msg, PilotCall, Seat, Verb } from './types.ts';
-import { along, route, runwayAt, viaNames, type World } from './world.ts';
+import { along, pathLength, route, runwayAt, viaNames, type World } from './world.ts';
 
 const ROLE_VERBS: Record<Seat, Verb[]> = {
   DEL: ['clearance', 'contact', 'negative', 'sayagain', 'unable'],
@@ -31,8 +31,22 @@ export function taxiTarget(world: World, ac: Aircraft, to: string): number | nul
   const apt = aptOf(world, ac);
   const end = apt.ends[to];
   if (end) {
-    // Full-length holding point unless the current one is already for this runway.
-    return end.front[0] ?? end.holds[0] ?? null;
+    // A holding point near the start of the runway (full length or close to it), on this aircraft's side: the one with the
+    // shortest route that doesn't cross a runway. Already at one for this runway? Stay there.
+    if (ac.phase === 'holding' && ac.path.length && end.holds.includes(ac.path[ac.path.length - 1])) return ac.path[ac.path.length - 1];
+    const holds = end.front.length ? end.front : end.holds;
+    if (!holds.length) return null;
+    const first = Math.min(...holds.map(h => along(end, apt.nodes[h])));
+    const near = holds.filter(h => along(end, apt.nodes[h]) <= first + Math.max(450, end.len * 0.15));
+    const start = routeStart(world, ac);
+    let best: number | null = null, bc = Infinity;
+    for (const h of near) {
+      const r = route(apt, start, h);
+      if (!r) continue;
+      const c = pathLength(apt, r) + (r.slice(1, -1).some(n => apt.onRunway.has(n)) ? 1e6 : 0);
+      if (c < bc) { bc = c; best = h; }
+    }
+    return best ?? near[0];
   }
   const hold = apt.nodes.find(n => n.hold === to);
   if (hold) return hold.id;

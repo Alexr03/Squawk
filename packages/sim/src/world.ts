@@ -82,7 +82,7 @@ function buildApt(pack: AirportPack, off: XY): Apt {
       const clash = kept.some(k => Math.sign(lateral(e, nodes[k.h])) === Math.sign(lateral(e, nodes[h])) && (k.path.some(n => dist(nodes[n], nodes[h]) < 70) || path.some(n => dist(nodes[n], nodes[k.h]) < 70)));
       if (!clash) kept.push({ h, path });
     }
-    e.front = kept.map(k => k.h);
+    e.front = kept.map(k => k.h).sort((a, b) => along(e, nodes[a]) - along(e, nodes[b])); // nearest the take-off end first, either side
   }
   const fixes: Record<string, Fix> = {};
   for (const [k, f] of Object.entries(pack.airspace.fixes)) fixes[k] = { ...f, ...o(f) };
