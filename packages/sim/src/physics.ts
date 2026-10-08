@@ -174,9 +174,8 @@ function stepToward(ac: Aircraft, target: { x: number; y: number }, step: number
   return Math.max(0, step - d);
 }
 export function turnToward(h: number, want: number, maxStep: number, dir?: 'L' | 'R' | null) {
-  let diff = angleDiff(h, want);
-  if (dir === 'L' && diff > 0 && diff < 179) diff = diff - 360;
-  if (dir === 'R' && diff < 0 && diff > -179) diff = diff + 360;
+  // With a forced direction, measure the turn the long way round if need be (monotonic, no flip-flop near 180°).
+  const diff = dir === 'R' ? norm360(want - h) : dir === 'L' ? -norm360(h - want) : angleDiff(h, want);
   return norm360(h + Math.max(-maxStep, Math.min(maxStep, diff)));
 }
 
@@ -271,18 +270,40 @@ export function moveGround(world: World, st: State, ac: Aircraft) {
         const need = v > exitV ? (v * v - exitV * exitV) / (2 * 1.8 * wet) : 0;
         if (e.s - ac.s >= need - 5) { target = e; break; }
       }
-      let allowed = 30;
+      let allowed = Math.max(12, Math.min(30, Math.sqrt(2 * 1.4 * Math.max(0, end.len - 60 - ac.s)) / KT)); // no exit ahead: 30 kt, and stop before the end
       if (target) {
         const exitV = MS(target.angle < 50 ? 40 : 15);
         allowed = Math.sqrt(exitV * exitV + 2 * 1.6 * wet * Math.max(0, target.s - ac.s)) / KT;
       }
       if (ac.s > end.thrS + 350) ac.ias = Math.max(12, Math.min(ac.ias, Math.max(allowed, ac.ias - t.decel * wet * DT)));
       ac.gs = Math.max(0, ac.ias - headwind(st, end.hdgTrue) * Math.min(1, ac.ias / 60));
-      ac.s += MS(ac.gs) * DT;
+      ac.s = Math.min(end.len - 1, ac.s + MS(ac.gs) * DT);
       const p = pointOnEnd(end, ac.s);
       ac.x = p.x; ac.y = p.y;
       ac.alt = elevation(apt);
-      if (target && target.s - ac.s < 3) {
+      if (!target && ac.ias <= 16) {
+        // No normal exit ahead (short runway, sharp exits): leave by the nearest exit of any angle, backtracking if needed.
+        let best: { node: number; out: number; d: number } | null = null;
+        for (const [n, rw] of apt.onRunway) {
+          if (rw !== end.runway) continue;
+          for (const { to } of apt.adj[n]) {
+            if (apt.onRunway.get(to) === rw) continue;
+            const d = Math.abs(along(end, apt.nodes[n]) - ac.s);
+            if (!best || d < best.d) best = { node: n, out: to, d };
+          }
+        }
+        if (best) {
+          let near = best.node, nd = Infinity;
+          for (const [n, rw] of apt.onRunway) if (rw === end.runway) { const d = dist(apt.nodes[n], ac); if (d < nd) { nd = d; near = n; } }
+          const onRwy = route(apt, near, best.node, { allowRunway: r => r === end.runway }) ?? [near, best.node];
+          const goal = ac.stand ? apt.standByRef[ac.stand].node : best.out;
+          const r = route(apt, best.out, goal, { penalty: flowPenalty(st, apt, ac) });
+          ac.phase = 'vacating'; ac.s = 0; ac.gs = 8;
+          ac.path = [...onRwy, ...(r ?? [best.out])]; ac.pi = 1; ac.cleared.cross = [];
+        }
+        break;
+      }
+      if (target && (target.s - ac.s < 3 || ac.s >= end.len - 2)) {
         ac.phase = 'vacating'; ac.s = 0;
         const goal = ac.stand ? apt.standByRef[ac.stand].node : target.out;
         const r = route(apt, target.out, goal, { penalty: flowPenalty(st, apt, ac) });
@@ -417,7 +438,7 @@ export function moveAir(world: World, st: State, ac: Aircraft) {
     }
     if (nav.established) {
       wantHdg = crab(st, ac, course - Math.max(-30, Math.min(30, (xt / NM) * 40)));
-      gsAlt = elev + 50 + toThr * Math.tan(3 * Math.PI / 180) * 3.28084;
+      gsAlt = elev + 50 + toThr * Math.tan((end.ils?.gsDeg ?? 3) * Math.PI / 180) * 3.28084;
       if (!nav.gs && ac.alt >= gsAlt - 60) nav.gs = true;
     }
   }

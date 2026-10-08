@@ -37,7 +37,7 @@ export function createShift(world: World, cfg: ShiftConfig): State {
     const apt = world.byIcao[icao];
     const config = cfg.config?.[i] ?? chooseConfig(apt, st.weather.wind, cfg.start);
     const c = apt.pack.configs[config];
-    const as: AptState = { icao, config, arr: [...c.arrivals], dep: [...c.departures], pendingConfig: null, closed: {}, lastDep: {}, standOcc: {}, stack: {}, seq: [], fillers: {} };
+    const as: AptState = { icao, config, arr: [...c.arrivals], dep: [...c.departures], pendingConfig: null, closed: {}, lastDep: {}, standOcc: {}, stack: {}, seq: [], fillers: {}, lastRelease: {} };
     // A living apron: parked aircraft on about half the stands (they give way when a stand is needed).
     const ops = Object.keys(apt.pack.airlineTerminals);
     for (const s of apt.stands) if (rand(st) < 0.45) {

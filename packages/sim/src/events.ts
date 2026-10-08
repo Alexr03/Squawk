@@ -128,7 +128,7 @@ export function approachChecks(world: World, st: State) {
     if (ac.phase !== 'final' || !ac.nav.established || ac.onGround) continue;
     const apt = aptOf(world, ac), end = apt.ends[ac.runway!];
     const toThr = dist(ac, end.thr) / NM;
-    const gsAlt = elevation(apt) + 50 + toThr * NM * Math.tan(3 * Math.PI / 180) * 3.28084;
+    const gsAlt = elevation(apt) + 50 + toThr * NM * Math.tan((end.ils?.gsDeg ?? 3) * Math.PI / 180) * 3.28084;
     if (toThr < 3.5 && ac.alt > gsAlt + 700) {
       event(st, { kind: 'missed-approach', severity: 1, text: `${ac.cs} unstable approach (too high), going around`, cs: [ac.cs] });
       goAround(world, st, ac, true);

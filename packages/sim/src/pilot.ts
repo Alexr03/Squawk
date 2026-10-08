@@ -177,7 +177,7 @@ export function issue(world: World, st: State, seat: SeatId, cmds: Command[], op
   const ac = find(st, cmds[0].cs);
   for (const c of cmds) { const e = validate(world, st, seat, ac, c); if (e) return e; }
   // Already said, waiting for the readback.
-  if (ac && cmds.some(c => c.verb !== 'sayagain' && c.verb !== 'negative' && st.pending.some(q => q.cs === ac.cs && q.apply?.some(a => a.verb === c.verb)))) return `${ac.cs}: waiting for the readback`;
+  if (ac && !opts.auto && cmds.some(c => c.verb !== 'sayagain' && c.verb !== 'negative' && st.pending.some(q => q.cs === ac.cs && q.apply?.some(a => a.verb === c.verb)))) return `${ac.cs}: waiting for the readback`;
   const a = ac!;
   const out = cmds.map(c => enrich(world, st, a, c));
   if (!opts.auto) st.cmdLog.push({ tick: st.tick, seat, cmds, ...(opts.voice ? { voice: true } : {}) });

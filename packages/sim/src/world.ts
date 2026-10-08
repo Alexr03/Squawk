@@ -68,7 +68,7 @@ function buildApt(pack: AirportPack, off: XY): Apt {
   // Order departure holds: full-length first (nearest the take-off end).
   for (const e of Object.values(ends)) e.holds.sort((a, b) => along(e, nodes[a]) - along(e, nodes[b]));
 
-  const apt0 = { nodes, adj, edges, onRunway } as unknown as Apt;
+  const apt0 = { nodes, adj, edges, onRunway, runways } as unknown as Apt;
   for (const e of Object.values(ends)) {
     const front = e.holds.filter(h => {
       const p = routeToRunway(apt0, h, e);

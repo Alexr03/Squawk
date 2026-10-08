@@ -3,11 +3,12 @@ import { readFileSync } from 'node:fs';
 import { buildWorld, createShift, debrief, DIFFICULTY, step, type AirportPack, type DayPack, type ShiftConfig } from '../packages/sim/src/index.ts';
 
 const [dayId = 'EGLL-2026-08-28', hour = '7', minutes = '60', traffic = '1', cov = ''] = process.argv.slice(2);
-const pack: AirportPack = JSON.parse(readFileSync(new URL('../data/airports/EGLL/airport.json', import.meta.url), 'utf8'));
+const icao = dayId.slice(0, 4);
+const pack: AirportPack = JSON.parse(readFileSync(new URL(`../data/airports/${icao}/airport.json`, import.meta.url), 'utf8'));
 const day: DayPack = JSON.parse(readFileSync(new URL(`../data/days/${dayId}.json`, import.meta.url), 'utf8'));
 const world = buildWorld([pack]);
 const start = Date.parse(day.date + 'T00:00:00Z') / 1000 + +hour * 3600;
-const cfg: ShiftConfig = { seed: 7, airports: ['EGLL'], days: [day], start, durationS: +minutes * 60, traffic: +traffic, coverage: cov ? cov.split(',') : [], difficulty: DIFFICULTY.standard, mode: 'free' };
+const cfg: ShiftConfig = { seed: 7, airports: [icao], days: [day], start, durationS: +minutes * 60, traffic: +traffic, coverage: cov ? cov.split(',') : [], difficulty: DIFFICULTY.standard, mode: 'free' };
 const st = createShift(world, cfg);
 const t0 = performance.now();
 let maxAc = 0;

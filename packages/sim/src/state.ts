@@ -138,6 +138,7 @@ export interface AptState {
   standOcc: Record<string, string>; // stand -> callsign
   stack: Record<string, string[]>;  // stack name -> callsigns holding, bottom first
   seq: string[];                    // landing sequence (AI Director)
+  lastRelease: Record<string, number>; // per arrival end: tick of the last AI release
   fillers: Record<string, { type: string; operator: string }>; // stand -> static parked aircraft (scenery)
 }
 

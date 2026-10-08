@@ -260,7 +260,8 @@ function tower(world: World, st: State, ac: Aircraft) {
   if (ac.phase === 'lined' && ac.cleared.luw && !ac.cleared.cto) {
     const end = apt.ends[ac.runway!];
     const busy = st.aircraft.some(o => o !== ac && ((o.runway && apt.ends[o.runway]?.runway === end.runway && (o.phase === 'takeoff' || o.phase === 'landing')) || (o.onGround && o.phase !== 'holding' && runwayAt(apt, o) === end.runway)));
-    const landingSoon = st.aircraft.some(o => o.kind === 'arr' && o.runway && apt.ends[o.runway]?.runway === end.runway && o.nav.established && dist(o, apt.ends[o.runway].thr) < 3 * NM);
+    // Mixed mode: only go if the next arrival is far enough out for us to be airborne first.
+    const landingSoon = nextArrivalEta(world, st, ac.apt, end.runway) < 70;
     if (!busy && !landingSoon && depGap(world, st, ac) === 0) say(world, st, ac, [{ cs: ac.cs, verb: 'cto', runway: ac.runway! }]);
     return;
   }
@@ -298,6 +299,8 @@ function departures(world: World, st: State, ac: Aircraft) {
   if (onRunway) return;
   const rolling = st.aircraft.find(o => o.runway === ac.runway && o.phase === 'takeoff');
   if (rolling && rolling.ias < 60) return;
+  // Mixed mode: line up only in a gap in the arrivals.
+  if (nextArrivalEta(world, st, ac.apt, end.runway) < 150) return;
   const waiting = st.aircraft.filter(o => o.apt === ac.apt && o.phase === 'holding' && o.runway === ac.runway && o.checkedIn && seatRole(o.owner) === 'TWR' && !human(st, o.owner) && !lineupBlocked(world, st, o));
   let best = ac, bestScore = Infinity;
   for (const w of waiting) {
@@ -380,7 +383,7 @@ function sequence(world: World, st: State, apt: Apt) {
     // When will the last released aircraft land?
     const released = st.aircraft.filter(a => a.apt === apt.icao && a.kind === 'arr' && a.runway === endName && !a.onGround && (a.vectors || a.nav.established || a.phase === 'final' || a.phase === 'goaround' && a.owner !== dirSeat));
     let lastEta = st.tick * DT, lastWake: Wake = 'M';
-    for (const a of released) { const eta = etaToThreshold(world, st, a); if (eta > lastEta) { lastEta = eta; lastWake = a.wake; } }
+    for (const a of released) { const eta = etaToThreshold(world, st, a); if (eta > lastEta && eta < st.tick * DT + 1500) { lastEta = eta; lastWake = a.wake; } }
     const candidates = st.aircraft.filter(a => a.apt === apt.icao && a.kind === 'arr' && a.owner === dirSeat && a.checkedIn && !a.vectors && !a.nav.established && !a.onGround
       && (a.phase === 'stack' || a.phase === 'goaround' || a.phase === 'approach' || (a.phase === 'arrival' && a.stack && dist(a, apt.fixes[a.stack]) < 12 * NM)) && a.runway === endName);
     if (!candidates.length) continue;
@@ -395,9 +398,14 @@ function sequence(world: World, st: State, apt: Apt) {
     if (!next) continue;
     const pts = transition(apt, next.phase === 'stack' || next.phase === 'arrival' ? apt.fixes[next.stack!] : next, end);
     const eta = st.tick * DT + pathTime(next, pts, end);
-    const need = appSpacing(lastWake, next.wake, st.weather.lvp) + 0.45;
+    const mixed = as.dep.some(d => apt.ends[d]?.runway === end.runway);
+    const deps = mixed ? st.aircraft.filter(a => a.apt === apt.icao && a.kind === 'dep' && (a.phase === 'holding' || (a.phase === 'taxi' && a.runway && apt.ends[a.runway]?.runway === end.runway))).length : 0;
+    const need = appSpacing(lastWake, next.wake, st.weather.lvp) + 0.45 + (deps ? 3.5 : mixed ? 1 : 0);
     const gapS = need * NM / (140 * NM / 3600);
-    if (eta >= lastEta + gapS || next.emergency) {
+    // Steady flow: one release per spacing interval, ordered by arrival time.
+    const since = (st.tick - (as.lastRelease[endName] ?? -1e9)) * DT;
+    if ((eta >= lastEta + gapS * 0.75 && since >= gapS * 0.9) || next.emergency) {
+      as.lastRelease[endName] = st.tick;
       next.vectors = { pts, i: 0 };
       const first = pts[0];
       const cmds: Command[] = [{ cs: next.cs, verb: 'heading', hdg: Math.round(norm(bearing(next, first))) || 360 }, { cs: next.cs, verb: 'alt', alt: next.alt > 6000 ? 6000 : 5000 }, { cs: next.cs, verb: 'speed', kt: 220 }];
@@ -470,3 +478,15 @@ function levelBlocked(st: State, ac: Aircraft, lvl: number) {
 
 
 
+
+/** Seconds until the next arrival to this runway (pair) crosses the threshold. */
+export function nextArrivalEta(world: World, st: State, icao: string, pair: string): number {
+  const apt = world.byIcao[icao];
+  let best = Infinity;
+  for (const o of st.aircraft) {
+    if (o.apt !== icao || o.kind !== 'arr' || o.onGround || !o.runway || apt.ends[o.runway]?.runway !== pair) continue;
+    if (!o.nav.established && o.phase !== 'final') continue;
+    best = Math.min(best, dist(o, apt.ends[o.runway].thr) / (Math.max(110, o.gs) * NM / 3600));
+  }
+  return best;
+}
