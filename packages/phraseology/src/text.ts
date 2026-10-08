@@ -1,4 +1,5 @@
 // Radio messages -> UK CAP 413 text, as printed in the radio log and spoken by the synthesised voices.
+import { placeName } from './places.ts';
 import type { Command, Frequency, Nature, PilotCall, Radio, Seat, Wind } from '@squawk/sim/types';
 import { AIRLINES } from '@squawk/sim/airlines';
 import { DIGITS, PHONETIC, spell } from './words.ts';
@@ -30,7 +31,7 @@ const target = (t: string) => !t ? '' : isRunway(t) ? `holding point ${runway(t)
 const limit = (t: string) => isRunway(t) ? runway(t) : spell(t);
 /** Named place: fix or airport name if known, five-letter fixes as a word ("Maxit"), else spelled. */
 const place = (id: string, x: PhraseCtx) =>
-  x.fixNames?.[id] ?? (/^[A-Z]{5}$/.test(id) ? id[0] + id.slice(1).toLowerCase() : spell(id));
+  x.fixNames?.[id] ?? (/^[A-Z]{5}$/.test(id) ? id[0] + id.slice(1).toLowerCase() : /^[A-Z]{2}[A-Z0-9]{2}$/.test(id) ? placeName(id) ?? (id === 'ZZZZ' ? 'your destination' : spell(id)) : spell(id));
 /** SID/STAR designator: BPK7G -> "Brookmans Park seven Golf". */
 const route = (d: string, x: PhraseCtx) => {
   const m = /^([A-Z]{3,5})(\d)([A-Z])$/.exec(d);
