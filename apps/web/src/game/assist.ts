@@ -14,6 +14,9 @@ export function primaryAction(world: World, snap: Snap, n: Need): Action | null 
   const ac = find(snap, n.cs);
   if (!ac) return null;
   const cs = ac.cs;
+  // An emergency's alert is about the emergency, but the bubble should still offer what it needs next: landing clearance.
+  if (/MAYDAY|PAN|Radio failure/.test(n.text) && ac.kind === 'arr' && !ac.onGround && !ac.cleared.land && (ac.phase === 'final' || ac.nav.established) && seatRole(ac.owner) === 'TWR')
+    return { label: 'Clear to land', cmds: [{ cs, verb: 'land', runway: ac.runway ?? '' }], tone: 'go' };
   if (/Landing clearance/.test(n.text)) return { label: 'Clear to land', cmds: [{ cs, verb: 'land', runway: ac.runway ?? '' }], tone: 'go' };
   if (/Lined up, gap OK/.test(n.text)) return { label: 'Take-off', cmds: [{ cs, verb: 'cto', runway: ac.runway ?? '' }], tone: 'go' };
   if (/Ready, gap OK/.test(n.text)) return { label: 'Line up', cmds: [{ cs, verb: 'luw', runway: ac.runway ?? '' }], tone: 'go' };

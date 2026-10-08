@@ -54,7 +54,7 @@ Everything you see is built from real data: OpenStreetMap airport geometry check
   </tr>
   <tr>
     <td valign="top"><img src="docs/icons/camera.svg" width="34" align="left">&nbsp;<b>Follow and auto camera</b><br>Lock the camera to an aircraft, or let the auto camera fly to whatever needs you next and back home when it's quiet.</td>
-    <td valign="top"><img src="docs/icons/replay.svg" width="34" align="left">&nbsp;<b>Debrief and replays</b><br>Safety multiplies your score. After each shift, replay your worst moments from just before they happened — the sim is deterministic, so it plays back exactly.</td>
+    <td valign="top"><img src="docs/icons/replay.svg" width="34" align="left">&nbsp;<b>When it goes wrong</b><br>Collisions leave burning wrecks; send the fire service, close the runway and reroute traffic. Emergency landings stop on the runway with fire crews meeting them. Afterwards, safety multiplies your score. After each shift, replay your worst moments from just before they happened — the sim is deterministic, so it plays back exactly.</td>
   </tr>
 </table>
 
@@ -99,6 +99,8 @@ Everything you see is built from real data: OpenStreetMap airport geometry check
 | **Type** | <kbd>Enter</kbd> then e.g. `BAW12 H270 A40 S210`, `LUW`, `CTO`, `TX 27L VIA A B`, `ILS27R` |
 | **Talk** | Turn on voice commands in Settings and hold <kbd>`</kbd> |
 | **Camera** | Drag to pan, scroll to zoom, <kbd>V</kbd> follow the selected aircraft, <kbd>Shift</kbd>+<kbd>V</kbd> auto camera, <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>5</kbd> jump to a position |
+| **Stop** | <kbd>B</kbd> hold position, or stop a take-off roll early; taxi an aircraft back off the runway from its menu |
+| **Incidents** | <kbd>R</kbd> or click the alert to send the fire service; the runways button on the console closes and reopens runways |
 | **Time** | <kbd>Space</kbd> pause, <kbd>1</kbd>–<kbd>5</kbd> for 1× to 5× speed |
 
 ## Getting started

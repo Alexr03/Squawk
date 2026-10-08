@@ -30,7 +30,9 @@
           <li><b>Departures</b>: one aircraft rolling at a time. On Realistic (or with <i>Departure gaps</i> on in Free shift) real spacing applies too: 2 minutes between aircraft on the same route, 1 minute on different routes, 2 behind a heavy, 3 behind an A380. Strips then count down the wait.</li>
           <li><b>Radar</b>: 3 nm or 1,000 ft near the airport (5 nm further out); 2.5–7 nm on final depending on wake. Amber tags mean a predicted conflict, red means lost.</li>
           <li><b>Readbacks</b>: listen — sometimes a pilot reads back the wrong level or heading. Correct it with <kbd>Z</kbd>.</li>
-          <li><b>Emergencies</b>: 7700 needs priority; 7600 is a radio failure — the aircraft flies its last clearance and Tower uses light signals.</li>
+          <li><b>Emergencies</b>: 7700 needs priority; 7600 is a radio failure — the aircraft flies its last clearance and Tower uses light signals. An engine, tyre or bird-strike Mayday stops on the runway after landing: send the fire service (<kbd>R</kbd>, or click its alert).</li>
+          <li><b>Crashes</b>: aircraft that collide become wrecks, often on fire. The shift carries on: send the fire service, keep traffic away, and reopen the runway from the runways button on the console once it's clear. Closing a runway moves arrivals and departures to the others; with none left, arrivals hold.</li>
+          <li><b>Stopping someone</b>: <kbd>B</kbd> holds position (taxiing, lining up) or, early in a take-off roll, stops it. An aircraft on the runway can be taxied off it again to a holding point.</li>
         </ul>
         <h3>Scoring</h3>
         <p>Safety multiplies everything: a loss of separation or a runway incursion costs some score, but the shift goes on. Only an actual collision ends it (and Endless runs until one happens). Efficiency (delays, holding), throughput and radio discipline (on-time handoffs, answered requests) rank a clean shift from D to S.</p>
