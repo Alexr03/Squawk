@@ -2,7 +2,8 @@
   import { dayClock } from '../lib/settings.svelte.ts';
   import { onMount } from 'svelte';
   import { createScene, type Scene } from '@squawk/render';
-  import { find, geo, route, viaNames, type Command, type XY } from '@squawk/sim';
+  import { find, flowPenalty, geo, route, routeStart, startHdg, taxiTarget, viaNames, type Aircraft, type Command, type XY } from '@squawk/sim';
+  import { flightPlan, withCommands, type FlightPlan } from './flightplan.ts';
   import type { ShiftClient } from './client.ts';
   import { settings } from '../lib/settings.svelte.ts';
   import { dropAction, primaryAction, Feedback, type Action } from './assist.ts';
@@ -190,15 +191,27 @@
       ctx.font = "12px 'IBM Plex Mono', ui-monospace, monospace"; ctx.fillStyle = '#ffd84a';
       ctx.fillText(`${taxiEdit!.to} via ${viaNames(apt, path).join(' ') || 'direct'} — click to add a point, Enter/double-click to send, Esc to cancel`, Math.min(end.x + 10, w - 520), end.y - 10);
     }
-    // Drag-to-target: a line from the aircraft, and what letting go will do.
+    // The selected aircraft's filed route (dashed) and where it is really going (solid, a tick a minute).
+    const selAc = selected && !(drag?.vector && drag.moved) ? find(client.snap!, selected) : undefined;
+    if (selAc && !selAc.onGround) drawPlan(ctx, selAc, flightPlan(world, selAc), '#eef3f8', true);
+    // Drag-to-target: preview exactly what letting go will do (the new path in the air, the taxi route on the ground).
     if (drag?.vector && drag.cur && drag.moved) {
       const ac = find(client.snap!, drag.vector);
       if (ac) {
         const a = S(ac), b = S(drag.cur);
         const act = dropAction(world, client.snap!, ac, drag.cur, mpp);
         const col = !act ? '#7d90ae' : act.tone === 'go' ? '#4ff0b4' : act.tone === 'warn' ? '#ffb547' : '#ffffff';
-        ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
-        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+        const preview = act?.cmds && !ac.onGround ? flightPlan(world, withCommands(ac, act.cmds)) : null;
+        const taxi = act?.taxi && ac.onGround ? taxiPreview(ac, act.taxi.to) : null;
+        if (preview) drawPlan(ctx, ac, preview, col, false);
+        else if (taxi) {
+          const tapt = world.byIcao[ac.apt] ?? apt;
+          ctx.strokeStyle = act?.taxi?.greens ? '#5dff8a' : '#ffd84a'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
+          ctx.beginPath(); taxi.forEach((n, i) => { const p = S(tapt.nodes[n]); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke(); ctx.setLineDash([]);
+        } else {
+          ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+        }
         ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill();
         const label = act?.label ?? 'Drop on a runway, holding point, final approach, stack or fix';
         ctx.font = "600 13px 'IBM Plex Sans', system-ui, sans-serif";
@@ -207,6 +220,64 @@
         ctx.fillStyle = col; ctx.fillText(label, b.x + 17, b.y - 10);
       }
     }
+  }
+
+  /** Draw a flight plan: the filed route dashed in blue (with fix names), the projected path solid with a tick each minute. */
+  function drawPlan(ctx: CanvasRenderingContext2D, ac: Aircraft, fp: FlightPlan | null, col: string, showPlan: boolean) {
+    if (!fp || !scene) return;
+    const S = (p: XY) => scene!.worldToScreen(p);
+    const start = scene.worldToScreen(ac);
+    ctx.save();
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    if (showPlan && fp.plan.length > 1) {
+      ctx.strokeStyle = 'rgba(108,183,255,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([7, 6]);
+      ctx.beginPath(); ctx.moveTo(start.x, start.y); for (const p of fp.plan.slice(1)) { const q = S(p); ctx.lineTo(q.x, q.y); } ctx.stroke(); ctx.setLineDash([]);
+      ctx.font = "600 11px 'IBM Plex Mono', ui-monospace, monospace"; ctx.textBaseline = 'middle';
+      for (const f of fp.fixes) {
+        const q = S(f.p);
+        ctx.fillStyle = '#6cb7ff'; ctx.beginPath(); ctx.arc(q.x, q.y, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(7,14,28,0.8)'; const w = ctx.measureText(f.name).width; ctx.fillRect(q.x + 7, q.y - 8, w + 8, 16);
+        ctx.fillStyle = '#cfe6ff'; ctx.fillText(f.name, q.x + 11, q.y);
+      }
+      if (fp.end) {
+        let q = S(fp.end.p);
+        if (fp.end.dir !== undefined) {
+          // Departures: an arrow on past the last fix, toward the destination.
+          const b = (fp.end.dir * Math.PI) / 180, far = S({ x: fp.end.p.x + Math.sin(b) * 9000, y: fp.end.p.y + Math.cos(b) * 9000 });
+          ctx.strokeStyle = 'rgba(108,183,255,0.85)'; ctx.setLineDash([7, 6]); ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(far.x, far.y); ctx.stroke(); ctx.setLineDash([]);
+          const a = Math.atan2(far.y - q.y, far.x - q.x);
+          ctx.fillStyle = '#6cb7ff'; ctx.beginPath(); ctx.moveTo(far.x, far.y); ctx.lineTo(far.x - 10 * Math.cos(a - 0.45), far.y - 10 * Math.sin(a - 0.45)); ctx.lineTo(far.x - 10 * Math.cos(a + 0.45), far.y - 10 * Math.sin(a + 0.45)); ctx.fill();
+          q = far;
+        }
+        ctx.font = "600 12px 'IBM Plex Sans', system-ui, sans-serif";
+        const w = ctx.measureText(fp.end.text).width;
+        ctx.fillStyle = 'rgba(7,14,28,0.85)'; ctx.fillRect(q.x + 8, q.y - 10, w + 12, 20);
+        ctx.fillStyle = '#6cb7ff'; ctx.fillText(fp.end.text, q.x + 14, q.y);
+      }
+    }
+    if (fp.track.length) {
+      ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.globalAlpha = 0.95;
+      ctx.beginPath(); ctx.moveTo(start.x, start.y); for (const p of fp.track) { const q = S(p); ctx.lineTo(q.x, q.y); } ctx.stroke();
+      ctx.font = "500 11px 'IBM Plex Mono', ui-monospace, monospace"; ctx.textBaseline = 'middle';
+      for (const m of fp.minutes) {
+        const q = S(m.p);
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(q.x, q.y, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(7,14,28,0.75)'; const w = ctx.measureText(m.text).width; ctx.fillRect(q.x + 6, q.y + 4, w + 6, 15);
+        ctx.fillStyle = col; ctx.fillText(m.text, q.x + 9, q.y + 12);
+      }
+    }
+    ctx.restore();
+  }
+  /** The taxi route a drop would give (same routing as the sim), cached while the drag stays on one target. */
+  let taxiMemo: { key: string; path: number[] | null } | null = null;
+  function taxiPreview(ac: Aircraft, to: string): number[] | null {
+    const key = ac.cs + '>' + to + '@' + (client.snap!.tick >> 4); // re-route every few seconds as traffic moves
+    if (taxiMemo?.key === key) return taxiMemo.path;
+    const tapt = world.byIcao[ac.apt] ?? apt;
+    const tgt = taxiTarget(world, ac, to);
+    const path = tgt === null ? null : route(tapt, routeStart(world, ac), tgt, { penalty: flowPenalty(client.snap!, tapt, ac), hdg: startHdg(ac) });
+    taxiMemo = { key, path };
+    return path;
   }
 
   // ---------------------------------------------------------------- input

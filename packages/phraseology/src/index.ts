@@ -5,3 +5,4 @@
 export { callsign, spokenNumber, speech, text, type PhraseCtx } from './text.ts';
 export { complete, parseLine, type ParseCtx } from './shortcuts.ts';
 export { parse, parseSpeech, type SpeechResult } from './voice.ts';
+export { placeName } from './places.ts';

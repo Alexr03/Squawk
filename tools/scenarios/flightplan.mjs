@@ -1,0 +1,23 @@
+export default async (page, shot) => {
+  await page.waitForTimeout(2500);
+  if (await page.locator('.help').count()) await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: /Free shift/ }).click();
+  await page.waitForTimeout(300);
+  await page.getByRole('button', { name: 'Director', exact: true }).click();
+  await page.getByRole('button', { name: 'Start shift' }).click();
+  await page.waitForTimeout(6000);
+  if (await page.locator('.help').count()) await page.keyboard.press('Escape');
+  await page.locator('.strip:not(.dim)').first().click();
+  await page.waitForTimeout(2000);
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await page.waitForTimeout(500);
+  await shot('95-plan');
+  await page.mouse.move(800, 450); await page.mouse.down();
+  await page.mouse.move(700, 600, { steps: 8 });
+  await page.waitForTimeout(400);
+  await shot('96-drag-preview');
+  await page.mouse.move(1100, 700, { steps: 8 });
+  await page.waitForTimeout(400);
+  await shot('97-drag-preview2');
+  await page.keyboard.press('Escape');
+};
