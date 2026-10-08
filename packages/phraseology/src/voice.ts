@@ -403,6 +403,7 @@ export function parseSpeech(transcript: string, ctx: ParseCtx): SpeechResult | n
         else out.push({ cs, verb: 'holdshort', at: atName });
         return r?.n ?? n!.n;
       }
+      case 'holdposition': case 'stopnow': out.push({ cs, verb: 'halt' }); return i + 1;
       case 'continue':
         if (nx && !['taxi', 'taxiing'].includes(nx)) return 0;
         out.push({ cs, verb: 'continue' });

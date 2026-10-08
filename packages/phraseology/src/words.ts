@@ -35,7 +35,8 @@ Object.assign(LETTER, { alfa: 'A', juliett: 'J', whisky: 'W' });
 const PHRASES: [RegExp, string][] = [
   [/\bx ray\b/g, 'xray'], [/\bfox trot\b/g, 'foxtrot'], [/\bi l s\b/g, 'ils'], [/\bq n h\b/g, 'qnh'], [/\bf l\b/g, 'fl'],
   [/\bflight level\b/g, 'fl'], [/\btake off\b/g, 'takeoff'], [/\bline up\b/g, 'lineup'], [/\bgo a?round\b/g, 'goaround'],
-  [/\bgoing a?round\b/g, 'goaround'], [/\bhold(ing)? short\b/g, 'holdshort'], [/\bi say again\b/g, 'isayagain'],
+  [/\bgoing a?round\b/g, 'goaround'], [/\bhold(ing)? short\b/g, 'holdshort'], [/\bhold(ing)? (your )?position\b/g, 'holdposition'],
+  [/\bstop(ping)? immediately\b/g, 'stopnow'], [/\bi say again\b/g, 'isayagain'],
   [/\bsay again\b/g, 'sayagain'], [/\bfollow (the )?greens?\b/g, 'greens'],
   [/\bpush (and|back and|back &) start\b|\bpush back\b|\bpushback\b|\bpush start\b/g, 'push'],
   [/\bresume (own )?nav(igation)?\b/g, 'resumenav'], [/\bresume (normal )?speed\b|\bno speed restrictions?\b/g, 'resumespeed'],

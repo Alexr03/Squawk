@@ -1,4 +1,5 @@
 // AI controllers. They staff every seat the player leaves empty and use exactly the same commands as a human.
+import { isClosed } from './incidents.ts';
 import { TYPES } from './aircraft.ts';
 import { angleDiff, bearing, dist, NM, segDist } from './geo.ts';
 import { aptOf, aptState, elevation, flowPenalty, lineupPath, lockedBy } from './physics.ts';
@@ -238,6 +239,12 @@ export function planUnjam(world: World, st: State, x: Aircraft, o: Aircraft): { 
 // ------------------------------------------------------------------ Tower
 
 function tower(world: World, st: State, ac: Aircraft) {
+  // A departure waiting for a runway that has closed: taxi it to one that is open.
+  if (ac.kind === 'dep' && ac.phase === 'holding' && ac.runway && !st.pending.some(p => p.cs === ac.cs)) {
+    const apt = aptOf(world, ac), as = aptState(st, ac.apt);
+    const open = as.dep.find(e => !isClosed(st, ac.apt, apt.ends[e]?.runway ?? ''));
+    if (isClosed(st, ac.apt, apt.ends[ac.runway]?.runway ?? '') && open && open !== ac.runway) { say(world, st, ac, [{ cs: ac.cs, verb: 'taxi', to: open, via: [] }]); return; }
+  }
   const apt = aptOf(world, ac);
   const elev = elevation(apt);
   if (ac.kind === 'arr') {
@@ -379,9 +386,11 @@ function sequence(world: World, st: State, apt: Apt) {
   const dirSeat = seatId(apt.icao, 'DIR');
   if (human(st, dirSeat)) return;
   const as = aptState(st, apt.icao);
+  // A runway closed: arrivals not yet on the ILS go to the runway still open (re-planned), or wait in the stacks.
+  for (const a of st.aircraft) if (a.apt === apt.icao && a.kind === 'arr' && !a.onGround && a.owner === dirSeat && !a.nav.established && a.runway && !as.arr.includes(a.runway) && !isClosed(st, apt.icao, apt.ends[as.arr[0]]?.runway ?? '')) { a.runway = as.arr[0]; a.vectors = null; }
   for (const endName of as.arr) {
     const end = apt.ends[endName];
-    if (!end) continue;
+    if (!end || isClosed(st, apt.icao, end.runway)) continue;
     // When will the last released aircraft land?
     const released = st.aircraft.filter(a => a.apt === apt.icao && a.kind === 'arr' && a.runway === endName && !a.onGround && (a.vectors || a.nav.established || a.phase === 'final' || a.phase === 'goaround' && a.owner !== dirSeat));
     let lastEta = st.tick * DT, lastWake: Wake = 'M';

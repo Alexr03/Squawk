@@ -100,6 +100,8 @@ function instr(c: Command, x: PhraseCtx, rb: boolean): string {
     case 'sayagain': return rb ? '' : 'say again';
     case 'unable': return rb ? 'roger' : 'unable';
     case 'resume': return 'resume own navigation';
+    case 'halt': return c.abort ? (rb ? 'stopping' : 'stop immediately, I say again, stop immediately') : rb ? 'holding position' : 'hold position';
+    case 'rescue': case 'closerwy': case 'openrwy': return ''; // tower actions, never transmitted
   }
 }
 

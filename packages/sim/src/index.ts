@@ -8,6 +8,9 @@ import { deliverPending, find, goAround, initialCall, issue as rawIssue, settleO
 import { arrivalCalls, earlyHandoff, event, groundRules, handoffs, radioRules, separation, startRolls, thresholdCheck } from './rules.ts';
 import { DT, newStats, pick, rand, seatRole, ticks, type AptState, type ShiftConfig, type State } from './state.ts';
 import { buildSchedule, realMix, spawn, synthDay } from './traffic.ts';
+import { facility } from './incidents.ts';
+
+const TOWER_ACTIONS = new Set<string>(['rescue', 'closerwy', 'openrwy']);
 import type { Command } from './types.ts';
 import { chooseConfig, initialWeather, updateWeather } from './weather.ts';
 import type { World } from './world.ts';
@@ -24,6 +27,7 @@ export { domain } from './rules.ts';
 export { debrief, type Debrief } from './score.ts';
 export { views, aircraftView } from './views.ts';
 export { declare as declareEmergency } from './events.ts';
+export { isClosed, crash } from './incidents.ts';
 export { localHour, chooseConfig } from './weather.ts';
 export * as geo from './geo.ts';
 
@@ -31,7 +35,7 @@ export function createShift(world: World, cfg: ShiftConfig): State {
   const st: State = {
     tick: 0, rng: cfg.seed | 0, start: cfg.start, durationS: cfg.durationS, coverage: [...cfg.coverage], difficulty: cfg.difficulty, mode: cfg.mode,
     aircraft: [], schedule: [], apts: [], weather: null as never, radio: [], radioId: 0, pending: [], events: [], alerts: [], stats: newStats(),
-    vehicles: [], ended: null, cmdLog: [], squawks: [], nextEmergencyAt: 0, endlessLevel: 1, stca: {}, sepActive: {},
+    vehicles: [], incidents: [], ended: null, cmdLog: [], squawks: [], nextEmergencyAt: 0, endlessLevel: 1, stca: {}, sepActive: {},
   };
   st.weather = initialWeather(cfg, st);
   for (const [i, icao] of cfg.airports.entries()) {
@@ -61,6 +65,12 @@ export function createShift(world: World, cfg: ShiftConfig): State {
 
 /** Issue a controller transmission from whichever of the player's seats the aircraft is on. */
 export function issue(world: World, st: State, cmds: Command[], opts: { voice?: boolean; seat?: string } = {}): string | null {
+  // The tower's own actions (fire service, runway closures) aren't radio calls to an aircraft.
+  if (cmds[0] && TOWER_ACTIONS.has(cmds[0].verb)) {
+    const err = facility(world, st, cmds[0]);
+    if (!err) st.cmdLog.push({ tick: st.tick, seat: 'tower', cmds });
+    return err;
+  }
   const ac = cmds[0] && find(st, cmds[0].cs);
   if (!ac) return `${cmds[0]?.cs ?? '?'}: no such aircraft`;
   const seat = opts.seat ?? ac.freq;
@@ -145,7 +155,7 @@ function endless(world: World, st: State, cfg: Pick<ShiftConfig, 'days'>) {
     st.schedule.sort((a, b) => a.at - b.at);
   }
   // Endless runs until something actually hits: a loss of separation costs score, not the shift.
-  if (st.stats.collisions) st.ended = 'endless-over';
+  if (st.stats.collisions >= 3) st.ended = 'endless-over'; // crashes are survivable; three of them end the run
 }
 
 /** Snapshot for the UI thread: everything except the bulky future schedule and replay log. */
@@ -161,7 +171,7 @@ export function replay(world: World, cfg: ShiftConfig, log: State['cmdLog'], unt
   const st = createShift(world, cfg);
   let i = 0;
   while (st.tick < until && !st.ended) {
-    while (i < log.length && log[i].tick === st.tick) { rawIssue(world, st, log[i].seat, log[i].cmds, { voice: log[i].voice }); i++; }
+    while (i < log.length && log[i].tick === st.tick) { if (TOWER_ACTIONS.has(log[i].cmds[0]?.verb)) { facility(world, st, log[i].cmds[0]); i++; continue; } rawIssue(world, st, log[i].seat, log[i].cmds, { voice: log[i].voice }); i++; }
     step(world, cfg, st);
   }
   return st;

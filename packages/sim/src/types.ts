@@ -167,7 +167,11 @@ export type Command =
   | { cs: string; verb: 'negative' }   // "negative, I say again ..." — repeats the last instruction to fix a wrong readback
   | { cs: string; verb: 'sayagain' }   // ask the pilot to repeat their last call
   | { cs: string; verb: 'unable' }     // decline the pilot's request
-  | { cs: string; verb: 'resume' };    // resume own navigation (SID / STAR)
+  | { cs: string; verb: 'resume' }     // resume own navigation (SID / STAR)
+  | { cs: string; verb: 'halt'; abort?: boolean } // "hold position" on the ground; "stop immediately" on a take-off roll
+  // Not to an aircraft: the tower's own actions (cs names the aircraft concerned, if any).
+  | { cs: string; verb: 'rescue' }                                      // send the fire service to this aircraft or wreck
+  | { cs: string; verb: 'closerwy' | 'openrwy'; runway: string; apt: string };
 export type Verb = Command['verb'];
 
 // ---------------------------------------------------------------- radio

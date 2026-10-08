@@ -9,13 +9,21 @@ import { along, pathLength, route, runwayAt, viaNames, type World } from './worl
 
 const ROLE_VERBS: Record<Seat, Verb[]> = {
   DEL: ['clearance', 'contact', 'negative', 'sayagain', 'unable'],
-  GND: ['push', 'taxi', 'greens', 'holdshort', 'continue', 'giveway', 'cross', 'contact', 'negative', 'sayagain', 'unable'],
-  TWR: ['luw', 'cto', 'land', 'goaround', 'cross', 'holdshort', 'continue', 'contact', 'heading', 'alt', 'speed', 'negative', 'sayagain', 'unable', 'taxi'],
+  GND: ['push', 'taxi', 'greens', 'holdshort', 'continue', 'halt', 'giveway', 'cross', 'contact', 'negative', 'sayagain', 'unable'],
+  TWR: ['luw', 'cto', 'land', 'goaround', 'cross', 'holdshort', 'continue', 'halt', 'contact', 'heading', 'alt', 'speed', 'negative', 'sayagain', 'unable', 'taxi'],
   DIR: ['heading', 'alt', 'speed', 'direct', 'hold', 'ils', 'contact', 'resume', 'negative', 'sayagain', 'unable', 'goaround'],
   LON: ['heading', 'alt', 'speed', 'direct', 'hold', 'contact', 'resume', 'negative', 'sayagain', 'unable'],
 };
 const AIR = new Set(['climb', 'arrival', 'stack', 'approach', 'final', 'goaround']);
 const TAXI = new Set(['pushed', 'taxi', 'taxiin', 'vacating', 'holding']);
+
+/** A departure lining up or lined up may be taxied off the runway again (back to a holding point). */
+const onRunwayDep = (ac: Aircraft) => ac.kind === 'dep' && (ac.phase === 'lineup' || ac.phase === 'lined');
+/** Route options for a new taxi route: a departure on the runway may use that runway to get off it. */
+export const taxiOpts = (apt: { ends: Record<string, { runway: string }> }, ac: Aircraft) => {
+  const pair = onRunwayDep(ac) && ac.runway ? apt.ends[ac.runway]?.runway : undefined;
+  return pair ? { allowRunway: (r: string) => r === pair } : {};
+};
 
 export const find = (st: State, cs: string) => st.aircraft.find(a => a.cs === cs && a.phase !== 'gone');
 
@@ -84,13 +92,20 @@ export function validate(world: World, st: State, seat: SeatId, ac: Aircraft | u
     case 'clearance': return ac.kind === 'dep' && ac.phase === 'stand' && !ac.cleared.dl ? null : `${ac.cs} doesn't need a clearance`;
     case 'push': return ac.phase === 'stand' && ac.cleared.dl && !ac.cleared.push ? null : !ac.cleared.dl ? `${ac.cs} has no clearance yet` : `${ac.cs} can't push now`;
     case 'taxi': case 'greens': {
-      if (!TAXI.has(ac.phase) && ac.phase !== 'parked') return ac.phase === 'stand' ? `${ac.cs} needs pushback first` : `${ac.cs} isn't taxiing`;
+      if (!TAXI.has(ac.phase) && ac.phase !== 'parked' && !onRunwayDep(ac)) return ac.phase === 'stand' ? `${ac.cs} needs pushback first` : `${ac.cs} isn't taxiing`;
       const tgt = taxiTarget(world, ac, c.to || (ac.kind === 'dep' ? ac.runway! : ac.stand ?? ''));
       if (tgt === null) return `Unknown taxi limit ${c.to}`;
-      const r = route(apt, routeStart(world, ac), tgt, { via: c.verb === 'taxi' ? c.via : [], penalty: flowPenalty(st, apt, ac), hdg: startHdg(ac) });
+      const r = route(apt, routeStart(world, ac), tgt, { via: c.verb === 'taxi' ? c.via : [], penalty: flowPenalty(st, apt, ac), hdg: startHdg(ac), ...taxiOpts(apt, ac) });
       return r ? null : `No route to ${c.to}`;
     }
-    case 'holdshort': case 'continue': case 'giveway': return ac.onGround && (TAXI.has(ac.phase) || ac.phase === 'pushing') ? null : `${ac.cs} isn't taxiing`;
+    case 'holdshort': case 'giveway': return ac.onGround && (TAXI.has(ac.phase) || ac.phase === 'pushing') ? null : `${ac.cs} isn't taxiing`;
+    case 'continue': return ac.onGround && (TAXI.has(ac.phase) || ac.phase === 'pushing' || (onRunwayDep(ac) && !!ac.halted)) ? null : `${ac.cs} isn't taxiing`;
+    case 'halt': {
+      if (!ac.onGround || !['pushing', 'pushed', 'taxi', 'taxiin', 'vacating', 'lineup', 'lined', 'takeoff'].includes(ac.phase)) return `${ac.cs} isn't moving on the ground`;
+      if (ac.phase === 'takeoff' && ac.ias > TYPES[ac.type].vr * 0.85) return `${ac.cs} is too fast to stop, it's committed to take off`;
+      return ac.halted ? `${ac.cs} is already holding position` : null;
+    }
+    case 'rescue': case 'closerwy': case 'openrwy': return 'That is a tower action, not an instruction to an aircraft';
     case 'cross': {
       if (!ac.onGround) return `${ac.cs} is airborne`;
       const rw = apt.runways.find(r => r.ends.includes(c.runway) || r.name === c.runway);
@@ -124,6 +139,7 @@ export function validate(world: World, st: State, seat: SeatId, ac: Aircraft | u
 /** Is a runway clear of landing/departing traffic for the next `secs` seconds? */
 export function runwayFree(world: World, st: State, icao: string, pair: string, secs: number, at?: { x: number; y: number }): boolean {
   const apt = world.byIcao[icao];
+  if ((aptState(st, icao).closed[pair] ?? 0) > st.tick) return false; // closed (wreckage, an aircraft stopped on it, or the tower)
   for (const o of st.aircraft) {
     if (o.apt !== icao || !o.runway || apt.ends[o.runway]?.runway !== pair) continue;
     const end = apt.ends[o.runway];
@@ -147,6 +163,7 @@ function enrich(world: World, st: State, ac: Aircraft, c: Command): Command {
   switch (c.verb) {
     case 'cto': case 'land': return { ...c, runway: c.runway || ac.runway!, wind: { ...st.weather.wind } };
     case 'luw': return { ...c, runway: c.runway || ac.runway! };
+    case 'halt': return { ...c, abort: ac.phase === 'takeoff' };
     case 'alt': return { ...c, climb: c.alt > ac.alt, ...(c.alt <= apt.pack.transitionAltFt ? { qnh: st.weather.qnh } : {}) };
     case 'contact': {
       const icao = c.seat === 'LON' ? apt.icao : ac.apt;
@@ -163,7 +180,7 @@ function enrich(world: World, st: State, ac: Aircraft, c: Command): Command {
       const tgt = taxiTarget(world, ac, to)!;
       // A route drawn by the player on the map is used as given if it's continuous and ends at the limit.
       const given = c.nodes && c.nodes.length > 1 && c.nodes[c.nodes.length - 1] === tgt && c.nodes.every((n, i) => i === 0 || apt.adj[c.nodes![i - 1]]?.some(a => a.to === n)) ? c.nodes : null;
-      const nodes = given ?? route(apt, routeStart(world, ac), tgt, { via: c.verb === 'taxi' ? c.via : [], penalty: flowPenalty(st, apt, ac), hdg: startHdg(ac) })!;
+      const nodes = given ?? route(apt, routeStart(world, ac), tgt, { via: c.verb === 'taxi' ? c.via : [], penalty: flowPenalty(st, apt, ac), hdg: startHdg(ac), ...taxiOpts(apt, ac) })!;
       const via = c.verb === 'taxi' && c.via.length ? c.via : viaNames(apt, nodes);
       return c.verb === 'taxi' ? { ...c, to, via, nodes } : { ...c, to, nodes };
     }
@@ -291,6 +308,7 @@ export function apply(world: World, st: State, ac: Aircraft, c: Command) {
         const n = apt.nodes.find(x => x.hold === c.holdShort);
         if (n && nodes.includes(n.id)) ac.holdAt = n.id;
       }
+      if (onRunwayDep(ac)) { ac.cleared.luw = false; ac.cleared.cto = false; ac.halted = false; ac.claims = []; ac.phase = 'taxi'; } // off the runway again
       if (ac.phase === 'pushed' || ac.phase === 'holding') ac.phase = ac.kind === 'dep' ? 'taxi' : 'taxiin';
       if (ac.phase === 'parked') ac.phase = 'taxiin';
       if (ac.kind === 'dep' && apt.ends[c.to]) ac.runway = c.to;
@@ -308,7 +326,8 @@ export function apply(world: World, st: State, ac: Aircraft, c: Command) {
       }
       break;
     }
-    case 'continue': ac.holdAt = null; ac.actAt = st.tick + ticks(2); break;
+    case 'continue': ac.holdAt = null; ac.halted = false; ac.actAt = st.tick + ticks(2); break;
+    case 'halt': ac.halted = true; if (ac.phase === 'lined') ac.cleared.cto = false; break;
     case 'giveway': ac.holdAt = ac.pi < ac.path.length ? ac.path[ac.pi] : null; ac.blockedBy = c.other; break;
     case 'cross': {
       const rw = apt.runways.find(r => r.ends.includes(c.runway) || r.name === c.runway);

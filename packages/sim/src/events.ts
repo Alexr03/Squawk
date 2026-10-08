@@ -3,6 +3,7 @@ import { dist, NM } from './geo.ts';
 import { aptOf, aptState, elevation } from './physics.ts';
 import { goAround, pilotCall } from './pilot.ts';
 import { event } from './rules.ts';
+import { updateIncidents } from './incidents.ts';
 import { DT, pick, rand, seatId, ticks, type Aircraft, type State } from './state.ts';
 import type { Nature } from './types.ts';
 import { chooseConfig } from './weather.ts';
@@ -56,26 +57,14 @@ function returnToLand(world: World, st: State, ac: Aircraft) {
   ac.sched = st.start + st.tick * DT;
 }
 
-/** After an emergency landing, fire crews meet the aircraft and the runway closes for an inspection. */
+/** An emergency arrival with an engine, tyre or birdstrike problem stops on the runway after landing and waits for the
+ *  fire service there (see incidents.ts); the rest vacate as normal. */
 export function emergencyAftermath(world: World, st: State) {
   for (const ac of st.aircraft) {
     if (!ac.emergency || ac.phase !== 'landing' || ac.landedAt !== st.tick - 1) continue;
-    const apt = aptOf(world, ac), as = aptState(st, ac.apt);
-    const pair = apt.ends[ac.runway!].runway;
-    const mins = ac.emergency.nature === 'tyre' || ac.emergency.nature === 'birdstrike' ? 12 : ac.emergency.code === '7700' ? 6 : 0;
-    if (mins) {
-      as.closed[pair] = st.tick + ticks(mins * 60);
-      st.alerts.push({ tick: st.tick, level: 'caution', text: `Runway ${pair} closed for inspection, about ${mins} minutes` });
-    }
-    for (let i = 0; i < 3; i++) st.vehicles.push({ id: `fire${st.tick}-${i}`, kind: 'fire', x: apt.fire.x + i * 12, y: apt.fire.y, hdg: 0, lights: true, target: { x: ac.x, y: ac.y }, home: { ...apt.fire }, until: st.tick + ticks(mins * 60 || 300) });
+    if (ac.emergency.code === '7700' && ['engine', 'tyre', 'birdstrike'].includes(ac.emergency.nature)) ac.fullStop = true;
   }
-  // Vehicles drive straight to their target, wait, then go home.
-  for (const v of st.vehicles) {
-    const tgt = st.tick < v.until ? v.target! : v.home;
-    const d = dist(v, tgt);
-    if (d > 3) { const sp = 18 * DT; v.hdg = Math.atan2(tgt.x - v.x, tgt.y - v.y) * 180 / Math.PI; v.x += (tgt.x - v.x) / d * Math.min(sp, d); v.y += (tgt.y - v.y) / d * Math.min(sp, d); }
-  }
-  st.vehicles = st.vehicles.filter(v => st.tick < v.until || dist(v, v.home) > 3);
+  updateIncidents(world, st);
 }
 
 /** Radio failure: the aircraft flies its last clearance, then makes its own approach. */

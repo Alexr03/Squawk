@@ -20,7 +20,7 @@ export function debrief(st: State): Debrief {
   const s = st.stats;
   const hours = Math.max(0.25, st.tick / 4 / 3600);
   const movements = s.landed + s.departed;
-  const incident = st.ended === 'incident';
+  const incident = s.collisions > 0; // a crash: the shift carries on, but it is a D
   // Only a crash zeroes the shift; close calls cost score, gently enough that one bad moment does not sink everything.
   const safety = incident ? 0 : Math.max(0.2, 1 - 0.1 * s.sepLoss - 0.12 * s.runwayLoss - 0.12 * s.incursions - 0.04 * s.wakeInf - 0.05 * s.readbackMissed);
   // Efficiency: average delay per movement and wasted holding, against a generous baseline.

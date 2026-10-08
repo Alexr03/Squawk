@@ -18,7 +18,7 @@ export interface ParseCtx {
 type Result = { cmds: Command[] } | { error: string };
 
 const WORDS = ['SR', 'D', 'DCT', 'HOLD', 'ILS', 'LUW', 'CTO', 'CLR', 'LAND', 'GA', 'CT', 'PB', 'PUSH', 'TX', 'VIA', 'FG',
-  'GREENS', 'HS', 'CONT', 'X', 'CROSS', 'GW', 'CLD', 'NEG', 'SA', 'UNABLE', 'RES'];
+  'GREENS', 'HS', 'CONT', 'X', 'CROSS', 'GW', 'CLD', 'NEG', 'SA', 'UNABLE', 'RES', 'HP', 'STOP'];
 const VALUE = /^([HLR]\d{1,3}|A\d+|FL?\d+|S\d+|ILS\d\d?[LRC]?)$/;
 const isVerb = (t: string) => WORDS.includes(t) || VALUE.test(t);
 const SEATS: Record<string, Seat> = { DEL: 'DEL', GND: 'GND', TWR: 'TWR', DIR: 'DIR', LON: 'LON', APP: 'DIR', CTR: 'LON' };
@@ -164,6 +164,7 @@ export function parseLine(line: string, ctx: ParseCtx): Result {
       case 'SA': cmds.push({ cs, verb: 'sayagain' }); break;
       case 'UNABLE': cmds.push({ cs, verb: 'unable' }); break;
       case 'RES': cmds.push({ cs, verb: 'resume' }); break;
+      case 'HP': case 'STOP': cmds.push({ cs, verb: 'halt' }); break; // hold position / stop immediately
       default: return { error: `Unknown instruction ${t}` };
     }
   }

@@ -3,6 +3,7 @@ import { TYPES } from './aircraft.ts';
 import { angleDiff, bearing, dist, KT, NM, norm360, segDist } from './geo.ts';
 import { DT, rand, ticks, type Aircraft, type State } from './state.ts';
 import { along, lateral, pointOnEnd, route, routeToRunway, runwayAt, type Apt, type EndInfo, type World } from './world.ts';
+import { emergencyStop } from './incidents.ts';
 
 const MS = (kt: number) => kt * KT;
 
@@ -185,6 +186,7 @@ export function moveGround(world: World, st: State, ac: Aircraft) {
   const lvp = st.weather.lvp;
   switch (ac.phase) {
     case 'pushing': {
+      if (ac.halted) { ac.gs = 0; break; } // "hold position": the tug stops
       const target = apt.nodes[ac.path[1]];
       // Lock the lane around the push point so taxiing traffic waits; wait if someone is already there.
       if (!ac.claims.length) {
@@ -215,6 +217,7 @@ export function moveGround(world: World, st: State, ac: Aircraft) {
         if (dist(ac, n) < 25 && Math.abs(angleDiff(ac.hdg, bearing(ac, n))) > 100) ac.pi++;
       }
       let want = ac.towing ? 4 : ac.phase === 'lineup' ? 10 : Math.min(t.taxi, lvp ? 12 : 30) * (ac.phase === 'vacating' ? 1.6 : 1);
+      if (ac.halted) want = 0; // "hold position"
       // Slow for the coming turn.
       const n0 = apt.nodes[ac.path[ac.pi]], n1 = apt.nodes[ac.path[ac.pi + 1]];
       if (n1) {
@@ -244,6 +247,15 @@ export function moveGround(world: World, st: State, ac: Aircraft) {
     }
     case 'takeoff': {
       const end = apt.ends[ac.runway!];
+      if (ac.halted) {
+        // "Stop immediately": a rejected take-off. Brake hard, then sit on the runway (lined up where it stopped).
+        ac.ias = Math.max(0, ac.ias - t.decel * 1.3 * DT);
+        ac.gs = Math.max(0, ac.ias - headwind(st, end.hdgTrue));
+        ac.s += MS(ac.gs) * DT;
+        const q = pointOnEnd(end, ac.s); ac.x = q.x; ac.y = q.y;
+        if (ac.ias < 1) { ac.ias = 0; ac.gs = 0; ac.phase = 'lined'; ac.cleared.cto = false; ac.halted = false; }
+        break;
+      }
       ac.ias += t.accel * DT;
       ac.gs = Math.max(0, ac.ias - headwind(st, end.hdgTrue));
       ac.s += MS(ac.gs) * DT;
@@ -262,6 +274,15 @@ export function moveGround(world: World, st: State, ac: Aircraft) {
     }
     case 'landing': {
       const end = apt.ends[ac.runway!];
+      if (ac.fullStop && ac.s > end.thrS + 250) {
+        // Emergency: stop straight ahead on the runway and wait for the fire service.
+        ac.ias = Math.max(0, ac.ias - t.decel * 1.15 * DT);
+        ac.gs = Math.max(0, ac.ias - headwind(st, end.hdgTrue) * Math.min(1, ac.ias / 60));
+        ac.s = Math.min(end.len - 30, ac.s + MS(ac.gs) * DT);
+        const q = pointOnEnd(end, ac.s); ac.x = q.x; ac.y = q.y; ac.alt = elevation(apt);
+        if (ac.ias < 1) emergencyStop(world, st, ac);
+        break;
+      }
       const v = MS(ac.gs);
       const wet = st.weather.wx.some(w => w.includes('RA')) ? 0.85 : 1;
       // Pick the first exit we can still make, and brake so we arrive at it at exit speed.

@@ -1,5 +1,6 @@
 // Rules and scoring events: runway occupancy, air separation, wake, STCA prediction, handoff timing, requests, readbacks.
 import { TYPES } from './aircraft.ts';
+import { crash } from './incidents.ts';
 import { appSpacing, depGap } from './ai.ts';
 import { dist, NM } from './geo.ts';
 import { aptOf, aptState, elevation } from './physics.ts';
@@ -23,7 +24,7 @@ export function event(st: State, e: Omit<ScoreEvent, 'tick'>) {
 /** Lined-up aircraft with take-off clearance start rolling: check runway and departure spacing. */
 export function startRolls(world: World, st: State) {
   for (const ac of st.aircraft) {
-    if (ac.phase !== 'lined' || !ac.cleared.cto || st.tick < ac.actAt) continue;
+    if (ac.phase !== 'lined' || !ac.cleared.cto || ac.halted || st.tick < ac.actAt) continue;
     const apt = aptOf(world, ac), as = aptState(st, ac.apt);
     const pair = apt.ends[ac.runway!].runway;
     const blocker = st.aircraft.find(o => o !== ac && ((o.runway && apt.ends[o.runway]?.runway === pair && (o.phase === 'takeoff' || o.phase === 'landing')) || (o.onGround && o.phase !== 'holding' && o.phase !== 'lineup' && runwayAt(apt, o) === pair)));
@@ -81,6 +82,7 @@ export function separation(world: World, st: State) {
   for (const a of air) a.alert = a.emergency ? 'emergency' : 'none';
   for (let i = 0; i < air.length; i++) for (let j = i + 1; j < air.length; j++) {
     const a = air[i], b = air[j];
+    if (a.phase === 'gone' || b.phase === 'gone') continue; // already collided this tick
     const d = dist(a, b), dv = Math.abs(a.alt - b.alt);
     if (d > 12 * NM) continue;
     const aptA = aptOf(world, a), aptB = aptOf(world, b);
@@ -115,8 +117,8 @@ export function separation(world: World, st: State) {
       // An actual mid-air: wingspans overlapping (allowing for how far the pair closes in one tick), not merely too close.
       if (d < 90 + (a.gs + b.gs) * 0.514 * DT && dv < 120) {
         penal(st, [a.cs, b.cs], 'collisions');
-        event(st, { kind: 'collision', severity: 5, text: `MID-AIR COLLISION: ${a.cs} and ${b.cs}`, cs: [a.cs, b.cs], x: a.x, y: a.y });
-        st.ended = 'incident';
+        crash(world, st, a, b, true);
+        continue;
       }
     } else if (predictConflict(a, b, req)) {
       stca[key] = 'caution'; mark(a, 'caution'); mark(b, 'caution');
@@ -157,8 +159,7 @@ export function groundRules(world: World, st: State) {
     const playerInvolved = st.coverage.includes(a.owner) || st.coverage.includes(b.owner);
     if (playerInvolved && d < Math.min(ta.lengthM, tb.lengthM) * 0.45 && (a.gs > 3 || b.gs > 3)) {
       penal(st, [a.cs, b.cs], 'collisions');
-      event(st, { kind: 'collision', severity: 5, text: `COLLISION on the ground: ${a.cs} and ${b.cs}`, cs: [a.cs, b.cs], x: a.x, y: a.y });
-      st.ended = 'incident';
+      crash(world, st, a, b, false);
       return;
     }
     const gkey = `${a.cs}|${b.cs}|g`;

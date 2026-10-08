@@ -52,7 +52,9 @@ export type Phase =
   | 'stand' | 'pushing' | 'pushed' | 'taxi' | 'holding' | 'lineup' | 'lined' | 'takeoff' | 'climb'
   // arrivals
   | 'arrival' | 'stack' | 'approach' | 'final' | 'landing' | 'vacating' | 'taxiin' | 'parked'
-  | 'goaround' | 'gone';
+  | 'goaround' | 'gone'
+  // after something went wrong
+  | 'wreck' | 'stopped';
 
 export interface Nav {
   mode: 'hdg' | 'route' | 'hold' | 'climbout';
@@ -81,6 +83,8 @@ export interface Aircraft {
   onGround: boolean;
   tgtHdg: number | null; turn: 'L' | 'R' | null; tgtAlt: number; tgtSpd: number | null;
   nav: Nav;
+  halted?: boolean;            // told to hold position (or to stop a take-off roll)
+  fullStop?: boolean;          // emergency landing: stop on the runway and wait for the fire service
   // ground movement
   path: number[]; pi: number;  // taxi path (node ids) and index of the node being approached
   holdAt: number | null;       // node to stop at until cleared (hold short / stop bar)
@@ -129,12 +133,33 @@ export interface Weather {
   lvp: boolean;
 }
 
+/** A crash or an emergency that needs the fire service. */
+export interface Incident {
+  id: string;
+  kind: 'crash' | 'emergency';
+  apt: string;
+  x: number; y: number;
+  runway: string | null;       // runway pair it blocks, if any
+  fire: number;                // 0 = none, 1 = fully ablaze
+  cs: string[];                // aircraft involved
+  since: number;
+  dispatched: number | null;   // tick the fire service was sent
+  onScene: number | null;      // tick the first vehicle arrived
+  clearAt: number | null;      // tick the site is cleared (wreck removed / aircraft towed)
+  resolved: boolean;
+  offAirport: boolean;         // outside the airfield: handled by the local services, nothing for the tower to do
+  warned: boolean;
+}
+export const CLOSED_UNTIL_REOPENED = Number.MAX_SAFE_INTEGER;
+
 export interface AptState {
   icao: string;
   config: number;              // index into pack.configs
   arr: string[]; dep: string[]; // runway ends in use
   pendingConfig: { config: number; at: number } | null;
-  closed: Record<string, number>; // runway pair -> reopen tick
+  closed: Record<string, number>; // runway pair -> reopen tick (CLOSED_UNTIL_REOPENED: until the tower reopens it)
+  /** The configured runways before any closure, restored when everything reopens. */
+  base?: { arr: string[]; dep: string[] };
   lastDep: Record<string, { cs: string; wake: Wake; sid: string | null; at: number | null }>; // per departure end: last departure (airborne tick)
   standOcc: Record<string, string>; // stand -> callsign
   stack: Record<string, string[]>;  // stack name -> callsigns holding, bottom first
@@ -161,6 +186,7 @@ export interface State {
   events: ScoreEvent[];
   alerts: { tick: number; level: 'info' | 'caution' | 'conflict'; text: string; cs?: string }[];
   stats: Stats;
+  incidents: Incident[];
   vehicles: { id: string; kind: 'fire' | 'followme' | 'tug'; x: number; y: number; hdg: number; lights: boolean; target: XY | null; home: XY; until: number }[];
   ended: null | 'time' | 'incident' | 'endless-over';
   cmdLog: { tick: number; seat: SeatId; cmds: Command[]; voice?: boolean }[];

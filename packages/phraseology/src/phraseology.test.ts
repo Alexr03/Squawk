@@ -246,7 +246,7 @@ describe('typed shortcuts', () => {
     expect(complete('EZY45 TX 27L VIA A B', ctx)).toEqual(['B', 'B2']);
     expect(complete('EZY45 GW E', ctx)).toEqual(['EIN150', 'EZY45']);
     expect(complete('BAW12 ILS', ctx)).toEqual(['ILS']);
-    expect(complete('H', { ...ctx, selected: 'BAW12' })).toEqual(['H', 'HOLD', 'HS']);
+    expect(complete('H', { ...ctx, selected: 'BAW12' })).toEqual(['H', 'HOLD', 'HS', 'HP']);
   });
 });
 
