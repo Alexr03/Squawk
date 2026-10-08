@@ -1,6 +1,6 @@
 <script lang="ts">
   import { DIFFICULTY, seatId, type Difficulty, type Seat } from '@squawk/sim';
-  import { AIRPORTS, daysFor } from '../lib/data.ts';
+  import { AIRPORTS, daysFor, isMadeUp } from '../lib/data.ts';
   import type { Launch } from '../lib/launch.ts';
 
   interface Props { mode: 'free' | 'endless'; onStart: (l: Launch) => void; onBack: () => void }
@@ -53,7 +53,7 @@
       : { wind: { dir: 270, kt: 3 }, visM: 300, ceilingFt: 100, wx: ['FG'] };
     onStart({
       title: mode === 'endless' ? 'Endless' : `${AIRPORTS.find(a => a.icao === airport)?.name ?? airport} — ${PRESETS.find(p => p.seats.length === seats.length && p.seats.every(s => seats.includes(s)))?.name ?? seats.join('+')}`,
-      airports, days: airports.map(icao => (icao === airport ? dayId || null : daysFor(icao).find(d => d.date === date)?.id ?? null)),
+      airports, days: airports.map(icao => (icao === airport ? dayId || null : isMadeUp(dayId) ? `${icao}-madeup` : daysFor(icao).find(d => d.date === date && !isMadeUp(d.id))?.id ?? null)),
       start, minutes, traffic, coverage, difficulty: diff, mode, seed: +seed || 1, weather: wx,
     });
   }
@@ -73,7 +73,7 @@
       <div class="list">{#each days as d}<button class:on={dayId === d.id} onclick={() => (dayId = d.id)}><b>{d.label}</b><span>{d.flights} movements · {d.tags.join(', ')}</span></button>{/each}</div>
       <label class="row">Start (local) <input type="range" min="0" max="23" bind:value={hour} /> <b>{String(hour).padStart(2, '0')}:00</b></label>
       {#if mode !== 'endless'}<label class="row">Length <select bind:value={minutes}>{#each [15, 20, 30, 40, 60] as m}<option value={m}>{m} min</option>{/each}</select></label>{/if}
-      <label class="row">Traffic <input type="range" min="0.1" max="1" step="0.05" bind:value={traffic} /> <b>{Math.round(traffic * 100)}% of the real day</b></label>
+      <label class="row">Traffic <input type="range" min="0.1" max="1" step="0.05" bind:value={traffic} /> <b>{Math.round(traffic * 100)}% of {isMadeUp(dayId) ? 'a busy' : 'the real'} day</b></label>
     </section>
     <section>
       <h2>Your positions</h2>
@@ -96,7 +96,7 @@
         </div>
       {/if}
       <h2>Weather</h2>
-      <div class="chips">{#each [['real', 'Real METARs'], ['calm', 'Calm'], ['east', 'Easterly'], ['rain', 'Rain + gusts'], ['storm', 'Thunderstorms'], ['fog', 'Fog (LVP)']] as [k, n]}<button class:on={weather === k} onclick={() => (weather = k as typeof weather)}>{n}</button>{/each}</div>
+      <div class="chips">{#each [['real', isMadeUp(dayId) ? 'Typical' : 'Real METARs'], ['calm', 'Calm'], ['east', 'Easterly'], ['rain', 'Rain + gusts'], ['storm', 'Thunderstorms'], ['fog', 'Fog (LVP)']] as [k, n]}<button class:on={weather === k} onclick={() => (weather = k as typeof weather)}>{n}</button>{/each}</div>
       <label class="row">Seed <input class="seed" bind:value={seed} /></label>
       <button class="start" disabled={!seats.length} onclick={go}>Start shift</button>
     </section>

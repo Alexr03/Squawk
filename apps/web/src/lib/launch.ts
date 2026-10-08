@@ -12,7 +12,7 @@ export interface Launch {
 /** Load the packs and build the sim config for a launch. */
 export async function prepare(l: Launch): Promise<{ packs: AirportPack[]; cfg: ShiftConfig }> {
   const packs = await Promise.all(l.airports.map(loadAirport));
-  const days = await Promise.all(l.days.map(d => (d ? loadDay(d) : Promise.resolve(null))));
+  const days = await Promise.all(l.days.map(d => (d ? loadDay(d, l.seed) : Promise.resolve(null))));
   const cfg: ShiftConfig = { seed: l.seed, airports: l.airports, days, start: l.start, durationS: l.mode === 'endless' ? 0 : l.minutes * 60, traffic: l.traffic,
     coverage: l.coverage, difficulty: l.difficulty, mode: l.mode, ...(l.weather ? { weather: l.weather } : {}) };
   return { packs, cfg };

@@ -80,3 +80,6 @@ Choices made where PLAN.md is silent, or where milestone 1 deliberately cuts a c
 
 ## Game-style HUD (user feedback: "looks like an admin dashboard")
 The world fills the screen; everything else floats over it as rounded translucent glass (`--glass`, `--lift` tokens in App.svelte), in the spirit of Cities: Skylines / Planet Coaster. The bottom-centre radio console (one button per position, showing its frequency, with a badge counting waiting calls) is the signature control and replaces the frequency tabs. The flight strips are a collapsible drawer, alerts and the selected aircraft float on the right, and the radio feed plus command bar sit bottom-left (toggle the log to expand it). The menu screens share a sky gradient (`--screen-bg`) and rounded controls.
+
+## Made-up days
+Free shift and co-op offer a "Made-up day" per airport alongside the real recorded days. It borrows the airline/type/destination mix and daily rhythm of the busiest real day there, invents callsigns in each operator's style, jitters times by about ±40 min and varies the volume ±12%. Same seed, same day; "Again" picks a new seed, so it is fresh every shift (apps/web/src/lib/madeup.ts).
