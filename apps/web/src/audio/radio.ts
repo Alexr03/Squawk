@@ -1,5 +1,5 @@
 // Radio + UI audio. Speech comes from speechSynthesis, which can't be routed through
-// Web Audio, so the "radio" is faked: squelch click + band-passed static bed under the
+// Web Audio, so the "radio" is faked: a soft squelch click + a faint hiss under the
 // speech for its duration, then a squelch tail. Everything else is synthesised.
 
 export type ChimeKind = 'strip' | 'request' | 'conflict' | 'alarm' | 'emergency' | 'handoff' | 'click';
@@ -69,7 +69,6 @@ export function createRadioAudio(): RadioAudio {
   let ctx: AudioContext | null = null;
   let master!: GainNode, voiceBus!: GainNode, fxBus!: GainNode, ambientBus!: GainNode;
   let noise!: AudioBuffer, brown!: AudioBuffer;
-  let distortion!: Float32Array<ArrayBuffer>;
 
   const queue: QueueItem[] = [];
   let busy = false;
@@ -103,8 +102,6 @@ export function createRadioAudio(): RadioAudio {
       last = (last + 0.02 * w[i]) / 1.02;
       b[i] = last * 3.5;
     }
-    distortion = new Float32Array(1024);
-    for (let i = 0; i < 1024; i++) distortion[i] = Math.tanh(3 * ((i / 1023) * 2 - 1));
     return ctx;
   }
 
@@ -125,18 +122,16 @@ export function createRadioAudio(): RadioAudio {
     return s;
   }
 
-  /** 300-3400 Hz telephone band with light saturation, ending in `dest`. */
+  /** Soft radio band for the noise layers. No saturation: distorted white noise is what sounded harsh. */
   function radioBand(dest: AudioNode): AudioNode {
     const c = audio();
     const hp = c.createBiquadFilter();
     hp.type = 'highpass';
-    hp.frequency.value = 300;
+    hp.frequency.value = 400;
     const lp = c.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.frequency.value = 3400;
-    const shaper = c.createWaveShaper();
-    shaper.curve = distortion;
-    hp.connect(lp).connect(shaper).connect(dest);
+    lp.frequency.value = 2200;
+    hp.connect(lp).connect(dest);
     return hp;
   }
 
@@ -147,15 +142,15 @@ export function createRadioAudio(): RadioAudio {
     g.connect(voiceBus);
     const src = noiseSource();
     src.connect(radioBand(g));
-    const dur = kind === 'open' ? 0.04 : 0.18 + Math.random() * 0.1;
-    const peak = kind === 'open' ? 0.35 : 0.3;
+    const dur = kind === 'open' ? 0.03 : 0.09;
+    const peak = kind === 'open' ? 0.06 : 0.05;
     g.gain.setValueAtTime(peak, at);
     g.gain.exponentialRampToValueAtTime(0.001, at + dur);
     src.start(at);
     src.stop(at + dur + 0.05);
   }
 
-  /** Static + crackle bed under a transmission. Returns a stop function. */
+  /** Faint hiss under a transmission. Returns a stop function. */
   function staticBed(level: number): () => void {
     const c = audio();
     const t0 = c.currentTime;
@@ -170,17 +165,7 @@ export function createRadioAudio(): RadioAudio {
     hissGain.gain.value = level;
     hiss.connect(hissGain).connect(band);
 
-    // ponytail: crackle pre-scheduled for 20 s; longer transmissions just lose the crackle.
-    const crackle = noiseSource();
-    const crackleGain = c.createGain();
-    crackleGain.gain.setValueAtTime(0, t0);
-    for (let t = t0 + 0.1; t < t0 + 20; t += 0.05 + Math.random() * 0.3) {
-      crackleGain.gain.setValueAtTime(level * (2 + Math.random() * 4), t);
-      crackleGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.01 + Math.random() * 0.02);
-    }
-    crackle.connect(crackleGain).connect(band);
     hiss.start(t0);
-    crackle.start(t0);
 
     let stopped = false;
     return () => {
@@ -191,7 +176,6 @@ export function createRadioAudio(): RadioAudio {
       out.gain.setValueAtTime(out.gain.value, t);
       out.gain.linearRampToValueAtTime(0, t + 0.03);
       hiss.stop(t + 0.1);
-      crackle.stop(t + 0.1);
       squelch('tail', t + 0.02);
     };
   }
@@ -203,8 +187,8 @@ export function createRadioAudio(): RadioAudio {
     const dur = 0.8 + Math.random() * 0.6;
     const out = c.createGain();
     out.gain.setValueAtTime(0, t);
-    out.gain.linearRampToValueAtTime(0.22, t + 0.02);
-    out.gain.setValueAtTime(0.22, t + dur - 0.05);
+    out.gain.linearRampToValueAtTime(0.06, t + 0.02);
+    out.gain.setValueAtTime(0.06, t + dur - 0.05);
     out.gain.linearRampToValueAtTime(0, t + dur);
     out.connect(voiceBus);
     const band = radioBand(out);
@@ -306,12 +290,12 @@ export function createRadioAudio(): RadioAudio {
     audio();
     squelch('open');
     if (opts.stepOn) {
-      const stop = staticBed(0.05);
+      const stop = staticBed(0.008);
       await wait(heterodyne());
       stop();
       return;
     }
-    const stop = staticBed(opts.urgent ? 0.07 : 0.045);
+    const stop = staticBed(opts.urgent ? 0.012 : 0.006);
     await sleep(60); // let the click land before the words
     if (voiceEnabled && synth) await speak(text, opts);
     else await wait(voiceEnabled ? estimateMs(text) : 500);
@@ -368,10 +352,10 @@ export function createRadioAudio(): RadioAudio {
       tone(1046, 0.16, 0.3, 'triangle', 0.3);
     },
     conflict: () => {
-      for (let i = 0; i < 3; i++) tone(1000, i * 0.14, 0.08, 'square', 0.12);
+      for (let i = 0; i < 3; i++) tone(1000, i * 0.14, 0.08, 'square', 0.06);
     },
     emergency: () => {
-      for (let i = 0; i < 3; i++) tone(1400, i * 0.45, 0.4, 'sawtooth', 0.12, 500);
+      for (let i = 0; i < 3; i++) tone(1400, i * 0.45, 0.4, 'triangle', 0.12, 500);
     },
     handoff: () => tone(523, 0, 0.22, 'sine', 0.25, 784),
     click: () => tone(2200, 0, 0.015, 'square', 0.08),
@@ -411,8 +395,8 @@ export function createRadioAudio(): RadioAudio {
       if (alarmTimer) return;
       // STCA-style two-tone, repeating until stopAlarm().
       const cycle = () => {
-        tone(950, 0, 0.18, 'square', 0.12);
-        tone(750, 0.22, 0.18, 'square', 0.12);
+        tone(950, 0, 0.18, 'square', 0.06);
+        tone(750, 0.22, 0.18, 'square', 0.06);
       };
       cycle();
       alarmTimer = setInterval(cycle, 800);
@@ -438,27 +422,9 @@ export function createRadioAudio(): RadioAudio {
       roomLp.type = 'lowpass';
       roomLp.frequency.value = 350;
       const roomGain = c.createGain();
-      roomGain.gain.value = 0.25;
+      roomGain.gain.value = 0.06;
       room.connect(roomLp).connect(roomGain).connect(ambientBus);
-      // Equipment hum: 50 Hz mains + harmonic.
       const nodes: AudioScheduledSourceNode[] = [room];
-      for (const [f, g] of [
-        [50, 0.025],
-        [100, 0.012],
-      ]) {
-        const o = c.createOscillator();
-        o.frequency.value = f;
-        const og = c.createGain();
-        og.gain.value = g;
-        o.connect(og).connect(ambientBus);
-        nodes.push(o);
-      }
-      // Very faint open-frequency static.
-      const hiss = noiseSource();
-      const hg = c.createGain();
-      hg.gain.value = 0.006;
-      hiss.connect(hg).connect(radioBand(ambientBus));
-      nodes.push(hiss);
       for (const n of nodes) n.start();
       ambientNodes = nodes;
     },
