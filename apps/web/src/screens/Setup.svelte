@@ -132,6 +132,7 @@
             <div class="row"><span class="lab">Emergencies</span><input type="range" min="0" max="3" step="0.5" bind:value={diff.emergencies} aria-label="Emergencies per hour" /><output>{diff.emergencies}/h</output></div>
             <label class="row"><span class="lab">Conflict prediction</span><input class="switch" type="checkbox" bind:checked={diff.conflictPrediction} /></label>
             <label class="row"><span class="lab">Wake rules</span><input class="switch" type="checkbox" bind:checked={diff.wake} /></label>
+            <label class="row"><span class="lab">Departure gaps</span><input class="switch" type="checkbox" bind:checked={diff.depGaps} /></label>
             <label class="row"><span class="lab">Pause allowed</span><input class="switch" type="checkbox" bind:checked={diff.pause} /></label>
           </div>
         {/if}

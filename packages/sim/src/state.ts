@@ -17,6 +17,7 @@ export interface Difficulty {
   autoPush: boolean;           // assists: pushback approvals handled for you
   autoSequence: boolean;       // assists: AI sets final-approach speeds
   wake: boolean;               // wake rules enforced
+  depGaps?: boolean;           // departure spacing (same-route / wake gaps between take-offs) scored
   pause: boolean;
   emergencies: number;         // expected emergencies per hour (0 = off)
   weatherEvents: boolean;
@@ -24,7 +25,7 @@ export interface Difficulty {
 export const DIFFICULTY: Record<'casual' | 'standard' | 'realistic', Difficulty> = {
   casual: { readbackErrors: 0, conflictPrediction: true, suggestedRoutes: true, autoPush: false, autoSequence: false, wake: true, pause: true, emergencies: 0.5, weatherEvents: true },
   standard: { readbackErrors: 0.03, conflictPrediction: true, suggestedRoutes: true, autoPush: false, autoSequence: false, wake: true, pause: true, emergencies: 1, weatherEvents: true },
-  realistic: { readbackErrors: 0.06, conflictPrediction: false, suggestedRoutes: false, autoPush: false, autoSequence: false, wake: true, pause: true, emergencies: 1.5, weatherEvents: true },
+  realistic: { readbackErrors: 0.06, conflictPrediction: false, suggestedRoutes: false, autoPush: false, autoSequence: false, wake: true, depGaps: true, pause: true, emergencies: 1.5, weatherEvents: true },
 };
 
 export type Mode = 'free' | 'career' | 'daily' | 'endless' | 'tutorial' | 'checkride';

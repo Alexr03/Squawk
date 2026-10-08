@@ -27,7 +27,7 @@
         <h3>The rules (simplified)</h3>
         <ul>
           <li><b>Runway</b>: one aircraft at a time. Clear to land only when the runway is clear; no landing clearance by half a mile means a go-around.</li>
-          <li><b>Departures</b>: 2 minutes between aircraft on the same route, 1 minute on different routes; 2 minutes for a medium behind a heavy, 3 behind an A380. Order the queue to keep the runway busy.</li>
+          <li><b>Departures</b>: one aircraft rolling at a time. On Realistic (or with <i>Departure gaps</i> on in Free shift) real spacing applies too: 2 minutes between aircraft on the same route, 1 minute on different routes, 2 behind a heavy, 3 behind an A380. Strips then count down the wait.</li>
           <li><b>Radar</b>: 3 nm or 1,000 ft near the airport (5 nm further out); 2.5–7 nm on final depending on wake. Amber tags mean a predicted conflict, red means lost.</li>
           <li><b>Readbacks</b>: listen — sometimes a pilot reads back the wrong level or heading. Correct it with <kbd>Z</kbd>.</li>
           <li><b>Emergencies</b>: 7700 needs priority; 7600 is a radio failure — the aircraft flies its last clearance and Tower uses light signals.</li>

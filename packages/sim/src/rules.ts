@@ -32,7 +32,7 @@ export function startRolls(world: World, st: State) {
       event(st, { kind: 'runway', severity: 4, text: `Runway ${pair}: ${ac.cs} rolling with ${blocker.cs} on the runway`, cs: [ac.cs, blocker.cs], x: ac.x, y: ac.y });
     } else {
       const gap = depGap(world, st, ac);
-      if (gap > 0 && gap !== Infinity) {
+      if (st.difficulty.depGaps && gap > 0 && gap !== Infinity) {
         penal(st, [ac.cs], 'wakeInf');
         event(st, { kind: 'wake', severity: 2, text: `${ac.cs} departed ${Math.ceil(gap)} s inside the required gap behind ${as.lastDep[ac.runway!]?.cs}`, cs: [ac.cs], x: ac.x, y: ac.y });
       }

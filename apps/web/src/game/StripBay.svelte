@@ -2,7 +2,7 @@
   import { callsign } from '@squawk/phraseology';
   import { depGap, geo, nextSeats, seatRole, type Aircraft, type World } from '@squawk/sim';
   import type { Snap } from './client.ts';
-  import type { Need } from './needs.ts';
+  import { gapFor, type Need } from './needs.ts';
 
   interface Props { world: World; snap: Snap; selected: string | null; filter: string | null; queue: Need[]; onSelect: (cs: string) => void; onHandoff: (cs: string) => void }
   let { world, snap, selected, filter, queue, onSelect, onHandoff }: Props = $props();
@@ -46,9 +46,9 @@
       case 'pushing': return 'pushing';
       case 'pushed': return 'ready to taxi';
       case 'taxi': return a.stoppedS > 15 ? (a.blockedBy ? `wait ${a.blockedBy}` : 'holding short') : `taxi ${a.path.length ? apt.nodes[a.path[a.path.length - 1]].hold ?? '' : ''}`;
-      case 'holding': { const g = depGap(world, snap, a); return g === 0 ? 'ready · gap OK' : `ready · gap ${g === Infinity ? 'roll' : Math.ceil(g) + 's'}`; }
+      case 'holding': { const g = gapFor(world, snap, a); return g === 0 ? 'ready · gap OK' : `ready · gap ${g === Infinity ? 'roll' : Math.ceil(g) + 's'}`; }
       case 'lineup': return 'lining up';
-      case 'lined': { const g = depGap(world, snap, a); return a.cleared.cto ? 'rolling' : g === 0 ? 'lined · gap OK' : `lined · ${g === Infinity ? 'roll' : Math.ceil(g) + 's'}`; }
+      case 'lined': { const g = gapFor(world, snap, a); return a.cleared.cto ? 'rolling' : g === 0 ? 'lined · gap OK' : `lined · ${g === Infinity ? 'roll' : Math.ceil(g) + 's'}`; }
       case 'takeoff': return 'rolling';
       case 'climb': return `${alt(a.alt)} → ${alt(a.tgtAlt)}`;
       case 'arrival': return `${alt(a.alt)} → ${alt(a.tgtAlt)} ${a.stack ?? ''}`;
