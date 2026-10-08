@@ -1,5 +1,23 @@
 # Data pipeline
 
+## Airports
+
+`node tools/pipeline/airport.ts <ICAO> [--refresh]` builds `data/airports/<ICAO>/airport.json` from OSM plus
+`corrections/<ICAO>.json` (AIP values, typed by hand; each file's `notes` say what is AIP and what is approximate).
+Packs exist for EGLL, EGKK, EGSS, EGGW and EGLC. `airports.test.ts` validates every committed pack.
+
+Optional correction fields (all absent for EGLL, so its output is unchanged):
+
+- `mergeDisplacedThresholds`: fold OSM `runway=displaced_threshold` ways into the runway they touch.
+- `inactiveRunways`: runway refs (e.g. a standby runway) drawn as runway surface but routed as taxiway.
+- `holdRunways`: `{ holdRef: runwayEnd }` overrides the nearest-runway guess for holds between close parallels.
+- `dedupeStands`: drop a stand whose ref already exists within 150 m (OSM node + lead-in way for one stand).
+- `standTerminalRules`: `[{ pattern, terminal }]` regexes on the stand ref, tried before `standTerminalByFirstDigit`.
+- `standTerminalNearest`: `{ "OSM terminal name": terminal }` for stands no rule matched (Remote past 1.5 km).
+- per runway `gsDeg` (default 3; EGLC 5.5) and per SID `altFt` (default `sidAltFt`).
+
+Previews: `node tools/pipeline/preview.ts <ICAO> [area] > x.html`, then `node tools/shot.mjs x.html x.png 1600 900 300`.
+
 ## Traffic (day packs)
 
 `traffic.ts` bakes one real UTC day at an airport into `data/days/<ICAO>-<YYYY-MM-DD>.json` (a `DayPack`) and

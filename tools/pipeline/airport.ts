@@ -37,9 +37,21 @@ function link(a: GNode, b: GNode, name: string, runway?: string) {
 function unlink(a: GNode, b: GNode) { a.adj.delete(b.id); b.adj.delete(a.id); }
 const twName = (e: OsmEl) => (tag(e, 'ref') ?? tag(e, 'name') ?? '').replace(/^Taxiway\s+/i, '').trim();
 
+// Opt-in (corrections "inactiveRunways"): runways the configs never use (a standby runway) are drawn but routed as taxiways.
+const inactive = new Set<string>(corr.inactiveRunways ?? []);
+const refRunways = els.filter(e => e.type === 'way' && tag(e, 'aeroway') === 'runway' && tag(e, 'ref'));
+// Opt-in ("mergeDisplacedThresholds"): OSM often maps the runway threshold-to-threshold and the paved part behind a
+// displaced threshold as a separate unnamed runway=displaced_threshold way. Fold those into the runway.
+const displacedOf = new Map<OsmEl, OsmEl>();
+if (corr.mergeDisplacedThresholds) for (const w of els.filter(e => e.type === 'way' && tag(e, 'runway') === 'displaced_threshold')) {
+  const r = refRunways.find(r => r.nodes!.some(id => w.nodes!.includes(id)));
+  if (r) displacedOf.set(w, r);
+}
+
 const taxiWays = els.filter(e => e.type === 'way' && ['taxiway', 'taxilane', 'runway'].includes(tag(e, 'aeroway') ?? '') && tag(e, 'area') !== 'yes');
 for (const w of taxiWays) {
-  const rwy = tag(w, 'aeroway') === 'runway' ? tag(w, 'ref') : undefined;
+  let rwy = tag(w, 'aeroway') === 'runway' ? tag(w, 'ref') ?? (displacedOf.has(w) ? tag(displacedOf.get(w)!, 'ref') : undefined) : undefined;
+  if (rwy && inactive.has(rwy)) rwy = undefined; // closed/standby runway: crossed and taxied like a taxiway
   let prev: GNode | null = null;
   w.nodes!.forEach((id, i) => {
     let n = osmNode.get(id) ? G.get(osmNode.get(id)!)! : null;
@@ -79,7 +91,7 @@ for (const n of [...G.values()]) if (n.adj.size === 1) {
 // Holding points
 let holdsNamed = 0;
 for (const e of els.filter(e => e.type === 'node' && tag(e, 'aeroway') === 'holding_position')) {
-  const ref = tag(e, 'ref');
+  const ref = tag(e, 'ref')?.toUpperCase();
   if (!ref) continue;
   const id = osmNode.get(e.id);
   const n = id ? G.get(id)! : snap(P(e as LatLon), 30, undefined, x => !x.runway);
@@ -89,14 +101,20 @@ for (const e of els.filter(e => e.type === 'node' && tag(e, 'aeroway') === 'hold
 // Stands
 const stands: (Omit<Stand, 'node' | 'pushNode' | 'maxWake'> & { gn: GNode; push: GNode })[] = [];
 const seenStand = new Set<string>();
+const placed: { ref: string; p: XY }[] = [];
 function addStand(ref: string, spot: XY, push: GNode) {
+  // Opt-in ("dedupeStands"): OSM sometimes maps one stand twice (a node and a lead-in way): keep the first.
+  if (corr.dedupeStands && placed.some(q => q.ref === ref && dist(q.p, spot) < 150)) return;
+  placed.push({ ref, p: spot });
   let r = ref; for (let i = 2; seenStand.has(r); i++) r = `${ref}-${i}`;
   seenStand.add(r);
   const gn = add(spot);
   gn.stand = r; gn.keep = true; push.keep = true;
   link(push, gn, '');
-  const first = r[0];
-  stands.push({ ref: r, gn, push, terminal: corr.standTerminalByFirstDigit?.[first] ?? 'Remote', x: spot.x, y: spot.y, hdg: Math.round(bearing(push, spot)) });
+  // Terminal: first matching regex rule, else by the ref's first digit, else Remote.
+  const rule = (corr.standTerminalRules as { pattern: string; terminal: string }[] | undefined)?.find(x => new RegExp(x.pattern).test(ref));
+  const terminal = rule?.terminal ?? corr.standTerminalByFirstDigit?.[r[0]] ?? (corr.standTerminalNearest ? '?' : 'Remote');
+  stands.push({ ref: r, gn, push, terminal, x: spot.x, y: spot.y, hdg: Math.round(bearing(push, spot)) });
 }
 for (const e of els.filter(e => tag(e, 'aeroway') === 'parking_position' && tag(e, 'ref'))) {
   const ref = tag(e, 'ref')!;
@@ -150,16 +168,26 @@ for (let pass = 0; pass < 3; pass++) for (const n of [...G.values()]) {
 
 // ------------------------------------------------------------------ runways
 const runways: RunwayPack[] = [];
-for (const w of els.filter(e => e.type === 'way' && tag(e, 'aeroway') === 'runway' && tag(e, 'ref'))) {
+const standby: { a: XY; b: XY; widthM: number }[] = [];
+for (const w of refRunways) {
   const names = tag(w, 'ref')!.split('/');
-  const g = w.geometry!, p0 = P(g[0]), p1 = P(g[g.length - 1]);
+  const g = w.geometry!;
+  let p0 = P(g[0]), p1 = P(g[g.length - 1]);
+  // Physical ends: extend over any merged displaced-threshold ways (the extreme points along the runway axis).
+  const ext = [...displacedOf].filter(([, r]) => r === w).flatMap(([d]) => d.geometry!.map(q => P(q)));
+  if (ext.length) {
+    const L = dist(p0, p1), ux = (p1.x - p0.x) / L, uy = (p1.y - p0.y) / L, s = (q: XY) => (q.x - p0.x) * ux + (q.y - p0.y) * uy;
+    const all = [p0, p1, ...ext];
+    [p0, p1] = [all.reduce((a, b) => s(b) < s(a) ? b : a), all.reduce((a, b) => s(b) > s(a) ? b : a)];
+  }
+  if (inactive.has(tag(w, 'ref')!)) { standby.push({ a: p0, b: p1, widthM: +(tag(w, 'width') ?? 45) }); continue; }
   const ends = names.map(name => {
     const c = corr.runways[name];
     if (!c) throw new Error(`no AIP correction for runway ${name}`);
     const thr = P(ll(c.thr));
     // This direction's take-off run starts at the physical end nearest its threshold.
     const end = dist(p0, thr) < dist(p1, thr) ? p0 : p1;
-    return { name, thr, end, hdgTrue: c.hdgTrue, elevationFt: c.elevFt, ...(c.ils ? { ils: { freq: c.ils, gsDeg: 3 } } : {}) };
+    return { name, thr, end, hdgTrue: c.hdgTrue, elevationFt: c.elevFt, ...(c.ils ? { ils: { freq: c.ils, gsDeg: c.gsDeg ?? 3 } } : {}) };
   }) as RunwayPack['ends'];
   runways.push({ name: tag(w, 'ref')!, ends, widthM: +(tag(w, 'width') ?? 45), lengthM: Math.round(dist(p0, p1)) });
 }
@@ -181,7 +209,8 @@ const nodes: TaxiNode[] = [];
 for (const n of G.values()) {
   ids.set(n.id, nodes.length);
   const t: TaxiNode = { id: nodes.length, x: n.x, y: n.y };
-  if (n.hold) { t.hold = n.hold; const r = holdRunway(n); if (r) t.holdRunway = r; }
+  // Between close parallel runways the nearest one can be wrong: corrections "holdRunways" pins a hold ref to its runway end.
+  if (n.hold) { t.hold = n.hold; const r = corr.holdRunways?.[n.hold] ?? holdRunway(n); if (r) t.holdRunway = r; }
   if (n.stand) t.stand = n.stand;
   nodes.push(t);
 }
@@ -223,8 +252,8 @@ function outerRings(e: OsmEl): XY[][] {
 const surfaces: AirportPack['surfaces'] = [];
 for (const e of els.filter(e => tag(e, 'aeroway') === 'apron' && e.type !== 'node')) for (const r of outerRings(e)) if (r.length > 3) surfaces.push({ kind: 'apron', poly: r });
 for (const e of els.filter(e => tag(e, 'aeroway') === 'taxiway' && tag(e, 'area') === 'yes')) for (const r of outerRings(e)) if (r.length > 3) surfaces.push({ kind: 'taxiway', poly: r });
-for (const r of runways) {
-  const [a, b] = [r.ends[0].end, r.ends[1].end], h = bearing(a, b), w = r.widthM / 2;
+for (const r of [...runways.map(r => ({ a: r.ends[0].end, b: r.ends[1].end, widthM: r.widthM })), ...standby]) {
+  const { a, b } = r, h = bearing(a, b), w = r.widthM / 2;
   surfaces.push({ kind: 'runway', poly: [fromBearing(a, h - 90, w), fromBearing(b, h - 90, w), fromBearing(b, h + 90, w), fromBearing(a, h + 90, w)] });
 }
 
@@ -237,6 +266,14 @@ for (const e of els.filter(e => e.type !== 'node' && (tag(e, 'building') || ['te
   const h = parseFloat(tag(e, 'height') ?? '') || (levels ? +levels * 4 : { terminal: 24, hangar: 20, tower: 87, building: b === 'roof' ? 9 : 10 }[kind]);
   for (const poly of outerRings(e)) if (poly.length > 3 && area(poly) > 40)
     buildings.push({ kind, poly, heightM: Math.round(h), ...(tag(e, 'name') ? { name: tag(e, 'name') } : {}) });
+}
+
+// Stands no rule matched: nearest named terminal building (corrections "standTerminalNearest": OSM name -> terminal), Remote past 1.5 km.
+const nearestTerm = corr.standTerminalNearest as Record<string, string> | undefined;
+if (nearestTerm) for (const s of standOut) if (s.terminal === '?') {
+  let best = { d: 1500, t: 'Remote' };
+  for (const b of buildings) if (b.name && nearestTerm[b.name]) for (const q of b.poly) if (dist(q, s) < best.d) best = { d: dist(q, s), t: nearestTerm[b.name] };
+  s.terminal = best.t;
 }
 
 // ------------------------------------------------------------------ airspace
@@ -256,8 +293,8 @@ const pointRef = (ref: string): string => {
   fixes[name] = { name, x: Math.round(xy.x), y: Math.round(xy.y), lat: arp.lat + xy.y / 111195, lon: arp.lon + xy.x / (111195 * Math.cos(arp.lat * Math.PI / 180)) };
   return name;
 };
-const sids = (corr.sids as { name: string; designator: string; runway: string; fixes: string[] }[])
-  .map(s => ({ name: s.name, designator: s.designator, runway: s.runway, fixes: s.fixes.map(pointRef), initialAltFt: corr.sidAltFt }));
+const sids = (corr.sids as { name: string; designator: string; runway: string; fixes: string[]; altFt?: number }[])
+  .map(s => ({ name: s.name, designator: s.designator, runway: s.runway, fixes: s.fixes.map(pointRef), initialAltFt: s.altFt ?? corr.sidAltFt }));
 
 const map = await londonMap(arp, refresh);
 

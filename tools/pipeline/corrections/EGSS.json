@@ -1,0 +1,110 @@
+{
+  "icao": "EGSS",
+  "name": "London Stansted",
+  "rtName": "Stansted",
+  "city": "London",
+  "airac": "2610",
+  "notes": [
+    "ARP, elevation, magnetic variation, runway threshold coordinates, true bearings, threshold elevations, the 298 m displaced threshold on 04, ILS (I-SED/I-SX 110.500) and ATS frequencies: UK AIP AD 2.EGSS (AD 2.2, 2.12, 2.18, 2.19), AIRAC 2610 (effective 01 OCT 2026).",
+    "The AIP approach callsigns are 'Stansted Radar' (120.625, the DIR seat) and 'Stansted Director' (136.200, as directed); 'Essex Radar' is no longer the published callsign.",
+    "CTR polygon: AD 2.17 lateral limits with both 8 NM arcs densified every ~15 degrees.",
+    "LOREL and ABBOT stacks (inbound true track, turn, minimum level) from the RNAV hold coding table AD 2.EGSS-7-15. LOREL is shared with Luton traffic in reality; here it serves Stansted only (Luton's STARs end at ZAGZO).",
+    "SIDs: CLN 2E (22) and DET 2D (04) follow the RNP1 coding tables AD 2.EGSS-6-7/6-8 (SSxxx waypoints); UTAVA/NUGBO 1R/1S, CLN 5S, GASBA 1R/1S, DET 2R and JUGSE 1R/1S are simplified from the conventional SID chart descriptions (AD 2.EGSS-6-1 to 6-5) using NAV/radial/DME points; initial altitudes are the SID stop altitudes.",
+    "UTAVA and XIGAR positions are the chart's rounded coordinates (BKY R261.7/D5.0, CLN R265.4/D33.0).",
+    "STARs follow the STAR coding tables AD 2.EGSS-7-10 to 7-14, simplified to 3-4 waypoints; entry altitudes are approximate.",
+    "Fire station: centroid of the OSM 'Stansted Airport Fire Station' building (approx). Stand terminals come from the nearest named OSM terminal building (main terminal and satellites -> '1', business aviation terminals -> 'GA'). Airline table is approximate (not in the AIP).",
+    "LON frequency 118.825 is the London Control frequency on the CLN/GASBA SID charts (AD 2.EGSS-6-3/6-4)."
+  ],
+  "arp": ["515306N", "0001406E"],
+  "elevationFt": 348,
+  "transitionAltFt": 6000,
+  "magVar": 1.43,
+  "frequencies": [
+    { "seat": "DEL", "callsign": "Stansted Delivery", "freq": "121.955" },
+    { "seat": "GND", "callsign": "Stansted Ground", "freq": "121.730" },
+    { "seat": "TWR", "callsign": "Stansted Tower", "freq": "123.805" },
+    { "seat": "TWR", "sector": "2", "callsign": "Stansted Tower", "freq": "125.550" },
+    { "seat": "DIR", "callsign": "Stansted Radar", "freq": "120.625" },
+    { "seat": "DIR", "sector": "F", "callsign": "Stansted Director", "freq": "136.200" },
+    { "seat": "LON", "callsign": "London Control", "freq": "118.825" }
+  ],
+  "mergeDisplacedThresholds": true,
+  "dedupeStands": true,
+  "runways": {
+    "04": { "thr": ["515237.35N", "0001322.30E"], "hdgTrue": 42.87, "elevFt": 332.3, "ils": "110.500", "displacedM": 298 },
+    "22": { "thr": ["515342.57N", "0001500.16E"], "hdgTrue": 222.89, "elevFt": 347.7, "ils": "110.500" }
+  },
+  "fixes": {
+    "LOREL": ["520050.20N", "0000309.52W"],
+    "ABBOT": ["520058.00N", "0003558.49E"],
+    "BKY": ["515923.17N", "0000342.87E", "Barkway"],
+    "UTAVA": ["515847N", "0000419W"],
+    "NUGBO": ["515821.96N", "0000412.09W"],
+    "CLN": ["515054.50N", "0010851.32E", "Clacton"],
+    "XIGAR": ["514850N", "0001546E"],
+    "GASBA": ["515010.40N", "0004852.85E"],
+    "DET": ["511814.41N", "0003550.19E", "Detling"],
+    "NEPNA": ["512958.33N", "0002656.55E"],
+    "JUGSE": ["514047.47N", "0001839.89E"],
+    "LAM": ["513845.69N", "0000906.13E", "Lambourne"],
+    "SSS03": ["514938.12N", "0001213.68E"],
+    "SSE11": ["514910.19N", "0002348.04E"],
+    "SSE23": ["514957.00N", "0004306.08E"],
+    "SSE05": ["515229.73N", "0001924.75E"],
+    "SSS11": ["514654.90N", "0001512.38E"],
+    "TELTU": ["504839.92N", "0004517.69W"],
+    "VATON": ["512603.83N", "0002056.10W"],
+    "BPK": ["514459.05N", "0000624.25W", "Brookmans Park"],
+    "SIRIC": ["512036.17N", "0013358.89W"],
+    "FINMA": ["515947.21N", "0010313.34W"],
+    "BOMBO": ["515944.29N", "0002346.85W"],
+    "LOGAN": ["514451.32N", "0013642.58E"],
+    "LOFFO": ["515012.00N", "0003556.37E"],
+    "RINIS": ["515429.66N", "0021920.82E"],
+    "IDESI": ["515351.74N", "0015308.08E"],
+    "LAPRA": ["520707.18N", "0011236.45E"],
+    "BUSTA": ["520534.45N", "0000403.92E"]
+  },
+  "stacks": [
+    { "name": "LOREL", "fix": "LOREL", "inboundTrack": 187.2, "turn": "L", "minAltFt": 7000, "sector": "W" },
+    { "name": "ABBOT", "fix": "ABBOT", "inboundTrack": 265.3, "turn": "R", "minAltFt": 8000, "sector": "E" }
+  ],
+  "sids": [
+    { "name": "UTAVA", "designator": "1R", "runway": "22", "fixes": ["BKY/169/8", "BKY", "UTAVA"], "altFt": 4000 },
+    { "name": "NUGBO", "designator": "1R", "runway": "22", "fixes": ["BKY/169/8", "BKY", "NUGBO"], "altFt": 4000 },
+    { "name": "CLN", "designator": "2E", "runway": "22", "fixes": ["SSS03", "SSE11", "SSE23", "CLN"] },
+    { "name": "GASBA", "designator": "1R", "runway": "22", "fixes": ["XIGAR", "CLN/265/21", "GASBA"] },
+    { "name": "DET", "designator": "2R", "runway": "22", "fixes": ["DET/333/32", "NEPNA", "DET"], "altFt": 5000 },
+    { "name": "JUGSE", "designator": "1R", "runway": "22", "fixes": ["DET/333/32", "JUGSE"], "altFt": 5000 },
+    { "name": "UTAVA", "designator": "1S", "runway": "04", "fixes": ["BKY/099/7", "BKY", "UTAVA"], "altFt": 5000 },
+    { "name": "NUGBO", "designator": "1S", "runway": "04", "fixes": ["BKY/099/7", "BKY", "NUGBO"], "altFt": 5000 },
+    { "name": "CLN", "designator": "5S", "runway": "04", "fixes": ["BKY/121/14", "CLN/265/21", "CLN"] },
+    { "name": "GASBA", "designator": "1S", "runway": "04", "fixes": ["BKY/121/14", "CLN/265/21", "GASBA"] },
+    { "name": "DET", "designator": "2D", "runway": "04", "fixes": ["SSE05", "SSS11", "NEPNA", "DET"], "altFt": 5000 },
+    { "name": "JUGSE", "designator": "1S", "runway": "04", "fixes": ["LAM/024/9", "JUGSE"], "altFt": 5000 }
+  ],
+  "sidAltFt": 6000,
+  "stars": [
+    { "name": "TELTU1L", "stack": "LOREL", "fixes": ["VATON", "BPK", "BKY", "LOREL"], "entryAltFt": 16000 },
+    { "name": "SIRIC1L", "stack": "LOREL", "fixes": ["SIRIC", "VATON", "BPK", "LOREL"], "entryAltFt": 18000 },
+    { "name": "FINMA1L", "stack": "LOREL", "fixes": ["FINMA", "BOMBO", "BKY", "LOREL"], "entryAltFt": 15000 },
+    { "name": "LOGAN2A", "stack": "ABBOT", "fixes": ["LOGAN", "CLN", "ABBOT"], "entryAltFt": 10000 },
+    { "name": "DET2A", "stack": "ABBOT", "fixes": ["DET", "LOFFO", "ABBOT"], "entryAltFt": 17000 },
+    { "name": "RINIS1A", "stack": "ABBOT", "fixes": ["RINIS", "IDESI", "LAPRA", "ABBOT"], "entryAltFt": 18000 }
+  ],
+  "configs": [
+    { "name": "South-westerly — 22", "arrivals": ["22"], "departures": ["22"], "windDir": 220 },
+    { "name": "North-easterly — 04", "arrivals": ["04"], "departures": ["04"], "windDir": 40 }
+  ],
+  "standTerminalNearest": {
+    "Stansted Airport": "1", "Satellite 1": "1", "Satellite 2": "1", "Satellite 3": "1",
+    "Harrods Aviation": "GA", "Stansted Business Aviation Terminal": "GA"
+  },
+  "airlineTerminals": {
+    "RYR": "1", "EZY": "1", "EJU": "1", "EXS": "1", "TOM": "1", "WZZ": "1", "TRA": "1", "THY": "1", "SAS": "1"
+  },
+  "ctr": [["515416N","0002653E"],["514508N","0001309E"],["514527N","0001018E"],["514610N","0000738E"],["514714N","0000517E"],["514836N","0000324E"],["515011N","0000202E"],["515155N","0000120E"],["520104N","0001503E"],["520045N","0001755E"],["520002N","0002035E"],["515858N","0002255E"],["515736N","0002449E"],["515600N","0002610E"]],
+  "tmaRadiusNm": 40,
+  "areaRadiusNm": 110,
+  "fireStation": ["515315N", "0001452E"]
+}
