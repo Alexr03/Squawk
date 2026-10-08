@@ -18,3 +18,13 @@ Choices made where PLAN.md is silent, or where milestone 1 deliberately cuts a c
 - **Scoring weights and grade thresholds are first guesses.** They're in `debrief()` and are for tuning after play-testing.
 - **Sim in a Web Worker** posts the whole state after each batch of ticks. The main thread blends between the last two snapshots for smooth motion.
 - **Svelte components aren't type-checked yet** (`tsc` covers the `.ts` files). Add `svelte-check` when the UI grows.
+
+## Phraseology (`packages/phraseology`)
+
+- **Written numbers:** digits are plain words, except 9, which is written "niner" ("one one niner decimal seven three zero"). CAP 413's tree/fife/fower/ait are pronunciation guides, not spellings, but the voice parser accepts them. Digits are said one by one, except whole thousands and hundreds in levels ("four thousand feet", "flight level one hundred"). Frequencies drop the last two digits when both are zero ("one two zero decimal four"), as CAP 413 says.
+- **Levels:** the transition altitude itself is still an altitude ("climb altitude six thousand feet"). Above it, levels are flight levels. QNH is only given with altitudes.
+- **Clearance:** "cleared to Edinburgh via Brookmans Park seven Golf departure, squawk five two one four". At Heathrow the initial altitude is part of the SID, so it isn't said and doesn't survive a text round-trip.
+- **Taxi:** a runway taxi limit always means that runway's holding point ("taxi to holding point runway two seven left via Alpha, Bravo two") and implies holding short of the runway. So `TX 27L` and `TX 27L HS` produce the same command.
+- **Heathrow wording:** "push and start approved, face east"; "follow the greens to stand five one two"; "route direct Biggin"; "hold at Biggin as published"; "cleared ILS approach runway two seven right".
+- **Light signals (7600):** steady green for landing and take-off, steady red for go-around, hold, hold short and give way, flashing green for ground movement. Pilots rock their wings when airborne and move the ailerons on the ground.
+- **`ParseCtx.runways`** lists the runways the addressed aircraft can use. "27" only resolves when exactly one runway in that list matches.
