@@ -127,6 +127,8 @@ export interface RouteOpts {
   allowRunway?: (runway: string) => boolean;
   /** Restrict to taxiways with these names first (controller-given route), in order. */
   via?: string[];
+  /** Heading the aircraft is already pointing: the route must not start with a U-turn. */
+  hdg?: number;
 }
 
 /** A* over the taxi graph. Runway edges cost a lot so routes cross runways only where they must. */
@@ -135,7 +137,9 @@ export function route(apt: Apt, from: number, to: number, opts: RouteOpts = {}):
     const r = routeVia(apt, from, to, opts.via, opts);
     if (r) return r;
   }
-  return astar(apt, from, n => n === to, apt.nodes[to], opts);
+  const r = astar(apt, from, n => n === to, apt.nodes[to], opts);
+  // Boxed in (a dead end ahead): accept turning round rather than no route at all.
+  return r ?? (opts.hdg !== undefined ? route(apt, from, to, { ...opts, hdg: undefined }) : null);
 }
 
 function astar(apt: Apt, from: number, goal: (n: number) => boolean, target: XY, opts: RouteOpts, edgeOk?: (e: number) => boolean): number[] | null {
@@ -164,6 +168,8 @@ function astar(apt: Apt, from: number, goal: (n: number) => boolean, target: XY,
           cost += e.len * 40 + 4000;
         }
       }
+      // An aircraft already pointing somewhere can't start by reversing.
+      if (prev === undefined && cur === from && opts.hdg !== undefined && Math.abs(angleDiff(opts.hdg, bearing(apt.nodes[cur], apt.nodes[to]))) > 110) continue;
       // Discourage sharp turns (aircraft can't pivot on the spot).
       if (prev !== undefined) {
         const turn = Math.abs(angleDiff(bearing(apt.nodes[prev], apt.nodes[cur]), bearing(apt.nodes[cur], apt.nodes[to])));
@@ -194,9 +200,11 @@ function routeVia(apt: Apt, from: number, to: number, via: string[], opts: Route
     const reach = onIt ? [cur] : astar(apt, cur, n => apt.adj[n].some(a => apt.edges[a.edge].name === name), apt.nodes[to], opts);
     if (!reach) return null;
     path = path.concat(reach.slice(1));
+    if (path.length > 1) opts = { ...opts, hdg: undefined }; // the heading only constrains the first step
     const ride = astar(apt, path[path.length - 1], n => n === to || !apt.adj[n].some(a => apt.edges[a.edge].name === name) ? false : nearer(apt, n, to),
       apt.nodes[to], opts, e => apt.edges[e].name === name);
     if (ride) path = path.concat(ride.slice(1));
+    if (path.length > 1) opts = { ...opts, hdg: undefined };
   }
   const rest = astar(apt, path[path.length - 1], n => n === to, apt.nodes[to], opts);
   return rest ? dedupe(path.concat(rest.slice(1))) : null;

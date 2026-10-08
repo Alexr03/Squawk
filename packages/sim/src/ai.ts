@@ -2,7 +2,7 @@
 import { TYPES } from './aircraft.ts';
 import { angleDiff, bearing, dist, NM, segDist } from './geo.ts';
 import { aptOf, aptState, elevation, flowPenalty, lineupPath, lockedBy } from './physics.ts';
-import { find, issue, nextSeats, routeStart, runwayFree, taxiTarget } from './pilot.ts';
+import { find, issue, nextSeats, routeStart, runwayFree, startHdg, taxiTarget } from './pilot.ts';
 import { DT, seatId, seatRole, type Aircraft, type State } from './state.ts';
 import type { Command, Wake } from './types.ts';
 import { lateral, pathLength, route, runwayAt, transition, type Apt, type World } from './world.ts';
@@ -152,7 +152,7 @@ function taxiOut(world: World, st: State, ac: Aircraft) {
   const start = routeStart(world, ac);
   let best: number | undefined, bestCost = Infinity;
   for (const h of holds.slice(0, 5)) {
-    const r = route(apt, start, h, { penalty: flowPenalty(st, apt, ac) });
+    const r = route(apt, start, h, { penalty: flowPenalty(st, apt, ac), hdg: startHdg(ac) });
     if (!r) continue;
     const crosses = r.some((n, i) => i > 0 && apt.onRunway.has(n));
     const cost = pathLength(apt, r) + (crosses ? 20000 : 0) + busy(h) * 250 + holds.indexOf(h) * 150;

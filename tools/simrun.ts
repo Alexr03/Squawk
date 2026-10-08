@@ -13,9 +13,17 @@ const st = createShift(world, cfg);
 const t0 = performance.now();
 let maxAc = 0;
 const phaseLog: string[] = [];
+const hdgAgo = new Map<string, number[]>(); let uturns = 0; const uturnCs: string[] = [];
 while (!st.ended) {
   step(world, cfg, st);
   maxAc = Math.max(maxAc, st.aircraft.length);
+  // U-turn detector: a taxiing aircraft now heading >150° from where it pointed 3 s ago (a pivot, not a bend).
+  for (const a of st.aircraft) {
+    if (!a.onGround || !['taxi', 'pushed', 'taxiin'].includes(a.phase) || a.ghost) { hdgAgo.delete(a.cs); continue; }
+    const h = hdgAgo.get(a.cs) ?? []; h.push(a.hdg); if (h.length > 12) h.shift(); hdgAgo.set(a.cs, h);
+    const d = Math.abs(((a.hdg - h[0] + 540) % 360) - 180);
+    if (h.length === 12 && d > 150) { uturns++; uturnCs.push(a.cs); hdgAgo.delete(a.cs); }
+  }
   if (st.tick % (4 * 600) === 0) {
     const ph: Record<string, number> = {};
     for (const a of st.aircraft) ph[a.phase] = (ph[a.phase] ?? 0) + 1;
@@ -27,6 +35,7 @@ const d = debrief(st);
 console.log(phaseLog.join('\n'));
 console.log(`ended=${st.ended} ticks=${st.tick} ${ms.toFixed(0)}ms (${(ms / st.tick).toFixed(2)} ms/tick) maxAircraft=${maxAc}`);
 console.log(JSON.stringify(st.stats));
+console.log('uturns', uturns, [...new Set(uturnCs)].slice(0, 10).join(' '));
 console.log(`grade ${d.grade} score ${d.score} eff ${d.efficiency} perHour ${d.perHour}`);
 const stuck = st.aircraft.filter(a => a.onGround && a.stoppedS > 120);
 console.log('stuck>2min:', stuck.map(a => `${a.cs}:${a.phase}:${Math.round(a.stoppedS)}s blk=${a.blockedBy}`).join(' '));

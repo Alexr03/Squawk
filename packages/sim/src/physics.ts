@@ -323,17 +323,14 @@ export function moveGround(world: World, st: State, ac: Aircraft) {
 
 function faceHeading(apt: Apt, ac: Aircraft): number {
   if (ac.face) return { N: 0, E: 90, S: 180, W: 270 }[ac.face];
-  // Nose along whichever lane from the push point leads toward the departure runway.
+  // Nose along the first leg of the route the aircraft will actually taxi, so it never has to turn round.
   const n = ac.path[1];
   const end = ac.runway ? apt.ends[ac.runway] : null;
-  let best = ac.hdg, bd = Infinity;
-  for (const { to } of apt.adj[n]) {
-    if (apt.nodes[to].stand) continue;
-    const h = bearing(apt.nodes[n], apt.nodes[to]);
-    const d = end ? dist(apt.nodes[to], end.end) : 0;
-    if (d < bd) { bd = d; best = h; }
-  }
-  return best;
+  const goal = end ? end.front[0] ?? end.holds[0] : undefined;
+  const r = goal !== undefined ? route(apt, n, goal) : null;
+  if (r && r.length > 1) return bearing(apt.nodes[n], apt.nodes[r[1]]);
+  const lane = apt.adj[n].find(a => !apt.nodes[a.to].stand);
+  return lane ? bearing(apt.nodes[n], apt.nodes[lane.to]) : ac.hdg;
 }
 
 /** Penalty that keeps routes off taxiways other aircraft are using in the opposite direction. */

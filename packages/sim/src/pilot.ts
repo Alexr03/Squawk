@@ -42,6 +42,9 @@ export function taxiTarget(world: World, ac: Aircraft, to: string): number | nul
 }
 
 /** Current graph node for a ground aircraft (where a new route starts). */
+/** Heading that constrains a new taxi route: set once the aircraft is facing along a taxiway. */
+export const startHdg = (ac: Aircraft) => (ac.phase === 'pushed' || ac.phase === 'taxi' || ac.phase === 'taxiin' ? ac.hdg : undefined);
+
 export function routeStart(world: World, ac: Aircraft): number {
   const apt = aptOf(world, ac);
   if (ac.path.length && ac.pi < ac.path.length) return ac.path[Math.max(0, ac.pi - 1)] === undefined ? ac.path[ac.pi] : nearestOf(apt.nodes, ac, [ac.path[Math.max(0, ac.pi - 1)], ac.path[ac.pi]]);
@@ -69,7 +72,7 @@ export function validate(world: World, st: State, seat: SeatId, ac: Aircraft | u
       if (!TAXI.has(ac.phase) && ac.phase !== 'parked') return ac.phase === 'stand' ? `${ac.cs} needs pushback first` : `${ac.cs} isn't taxiing`;
       const tgt = taxiTarget(world, ac, c.to || (ac.kind === 'dep' ? ac.runway! : ac.stand ?? ''));
       if (tgt === null) return `Unknown taxi limit ${c.to}`;
-      const r = route(apt, routeStart(world, ac), tgt, { via: c.verb === 'taxi' ? c.via : [], penalty: flowPenalty(st, apt, ac) });
+      const r = route(apt, routeStart(world, ac), tgt, { via: c.verb === 'taxi' ? c.via : [], penalty: flowPenalty(st, apt, ac), hdg: startHdg(ac) });
       return r ? null : `No route to ${c.to}`;
     }
     case 'holdshort': case 'continue': case 'giveway': return ac.onGround && (TAXI.has(ac.phase) || ac.phase === 'pushing') ? null : `${ac.cs} isn't taxiing`;
@@ -145,7 +148,7 @@ function enrich(world: World, st: State, ac: Aircraft, c: Command): Command {
       const tgt = taxiTarget(world, ac, to)!;
       // A route drawn by the player on the map is used as given if it's continuous and ends at the limit.
       const given = c.nodes && c.nodes.length > 1 && c.nodes[c.nodes.length - 1] === tgt && c.nodes.every((n, i) => i === 0 || apt.adj[c.nodes![i - 1]]?.some(a => a.to === n)) ? c.nodes : null;
-      const nodes = given ?? route(apt, routeStart(world, ac), tgt, { via: c.verb === 'taxi' ? c.via : [], penalty: flowPenalty(st, apt, ac) })!;
+      const nodes = given ?? route(apt, routeStart(world, ac), tgt, { via: c.verb === 'taxi' ? c.via : [], penalty: flowPenalty(st, apt, ac), hdg: startHdg(ac) })!;
       const via = c.verb === 'taxi' && c.via.length ? c.via : viaNames(apt, nodes);
       return c.verb === 'taxi' ? { ...c, to, via, nodes } : { ...c, to, nodes };
     }
