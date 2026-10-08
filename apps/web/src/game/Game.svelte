@@ -64,6 +64,7 @@
       s = { ...s, coverage: client.seats };
       snap = s;
       sound.update(world, s);
+      sound.music.setIntensity(workload(s, queue));
       if (selected && !find(s, selected)) selected = null;
       // Auto-slow when the queue gets long.
       if (settings.autoSlow && !paused) {
@@ -307,6 +308,7 @@
         <button class="go" onclick={() => (menuOpen = false)}>Resume</button>
         <label>Pilot voices <input type="checkbox" bind:checked={settings.pilotVoices} onchange={() => { saveSettings(); sound.apply(); }} /></label>
         <label>Volume <input type="range" min="0" max="1" step="0.05" bind:value={settings.master} oninput={() => { saveSettings(); sound.apply(); }} /></label>
+        <label>Music <input type="range" min="0" max="1" step="0.05" bind:value={settings.music} oninput={() => { saveSettings(); sound.apply(); }} /></label>
         <label>Slow down when busy <input type="checkbox" bind:checked={settings.autoSlow} onchange={saveSettings} /></label>
         <label>Fast day and night (1 h = 2 min) <input type="checkbox" bind:checked={settings.fastDay} onchange={saveSettings} /></label>
         <label>Push-to-talk voice <input type="checkbox" bind:checked={settings.voiceInput} onchange={saveSettings} /></label>

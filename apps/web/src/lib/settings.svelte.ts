@@ -1,6 +1,6 @@
 // Player settings, kept in localStorage (a per-browser convenience; everything works without it).
 export interface Settings {
-  master: number; voice: number; fx: number; ambient: number;
+  master: number; voice: number; fx: number; ambient: number; music: number;
   pilotVoices: boolean;        // speak pilot transmissions
   atcVoice: boolean;           // speak your own transmissions too
   voiceInput: boolean;         // push-to-talk speech recognition
@@ -18,7 +18,7 @@ export interface Settings {
 }
 
 const DEFAULTS: Settings = {
-  master: 0.5, voice: 0.8, fx: 0.5, ambient: 0.2, pilotVoices: true, atcVoice: false,
+  master: 0.5, voice: 0.8, fx: 0.5, ambient: 0.2, music: 0.4, pilotVoices: true, atcVoice: false,
   voiceInput: false, voiceBackend: 'webspeech', pttKey: 'Backquote',
   pixelSize: 3, quality: 'high', uiScale: 1, highContrast: false, reducedMotion: false, colorblind: false,
   autoSlow: false, tutorialHints: true, callsign: '', audioV: 2, fastDay: true, depth: true, accents: 'light',

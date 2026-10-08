@@ -2,11 +2,13 @@
 import { speech, type PhraseCtx } from '@squawk/phraseology';
 import type { Radio, World } from '@squawk/sim';
 import { createRadioAudio, type RadioAudio } from '../audio/radio.ts';
+import { Music } from '../audio/music.ts';
 import { settings } from '../lib/settings.svelte.ts';
 import type { Snap } from './client.ts';
 
 export class Sound {
   radio: RadioAudio = createRadioAudio();
+  music = new Music();
   private lastRadio = 0;
   private lastAlert = 0;
   private alarm = false;
@@ -19,10 +21,12 @@ export class Sound {
     this.radio.unlock();
     this.apply();
     this.radio.ambient(true);
+    this.music.start();
   }
   apply() {
     this.radio.setVolumes({ master: settings.master, voice: settings.voice, fx: settings.fx, ambient: settings.ambient });
     this.radio.setVoiceEnabled(settings.pilotVoices);
+    this.music.setVolume(settings.master * settings.music);
   }
 
   update(world: World, snap: Snap) {
@@ -57,5 +61,5 @@ export class Sound {
     if (conflict && !this.alarm) { this.radio.chime('alarm'); this.alarm = true; }
     if (!conflict && this.alarm) { this.radio.stopAlarm(); this.alarm = false; }
   }
-  stop() { this.radio.clear(); this.radio.stopAlarm(); this.radio.ambient(false); }
+  stop() { this.radio.clear(); this.radio.stopAlarm(); this.radio.ambient(false); this.music.stop(); }
 }
