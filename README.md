@@ -98,8 +98,8 @@ Everything you see is built from real data: OpenStreetMap airport geometry check
 | **Drag** | From an aircraft onto a runway, holding point, stand, final approach, stack or fix — or anywhere for a heading |
 | **Type** | <kbd>Enter</kbd> then e.g. `BAW12 H270 A40 S210`, `LUW`, `CTO`, `TX 27L VIA A B`, `ILS27R` |
 | **Talk** | Turn on voice commands in Settings and hold <kbd>`</kbd> |
-| **Camera** | Drag to pan, scroll to zoom, <kbd>V</kbd> follow the selected aircraft, <kbd>Shift</kbd>+<kbd>V</kbd> auto camera, <kbd>1</kbd>–<kbd>5</kbd> jump to a position |
-| **Time** | <kbd>Space</kbd> pause, 1× / 2× / 4× at the top |
+| **Camera** | Drag to pan, scroll to zoom, <kbd>V</kbd> follow the selected aircraft, <kbd>Shift</kbd>+<kbd>V</kbd> auto camera, <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>5</kbd> jump to a position |
+| **Time** | <kbd>Space</kbd> pause, <kbd>1</kbd>–<kbd>5</kbd> for 1× to 5× speed |
 
 ## Getting started
 

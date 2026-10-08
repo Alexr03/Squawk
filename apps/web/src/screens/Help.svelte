@@ -35,7 +35,7 @@
         <h3>Scoring</h3>
         <p>Safety multiplies everything: a loss of separation costs a lot, a collision ends the shift. Efficiency (delays, holding), throughput and radio discipline (on-time handoffs, answered requests) rank a clean shift from D to S.</p>
         <h3>Time</h3>
-        <p><kbd>Space</kbd> pauses (not in the daily challenge or co-op). 1×, 2× and 4× at the top. <kbd>1</kbd>–<kbd>5</kbd> jump the view to Delivery, Ground, Tower, Director and London.</p>
+        <p><kbd>Space</kbd> pauses (not in the daily challenge or co-op). <kbd>1</kbd>–<kbd>5</kbd> set the speed from 1× to 5× (or use the buttons at the top). <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>5</kbd> jump the view to Delivery, Ground, Tower, Director and London.</p>
       </section>
     </div>
     <p class="start">New here? Start the <b>Career</b>: the first shifts coach you through each position.</p>

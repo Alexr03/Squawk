@@ -183,8 +183,11 @@
       return;
     }
     if (k === 'n' && queue.length) { selected = queue.find(q => q.cs !== selected)?.cs ?? queue[0].cs; return; }
-    if (e.code.startsWith('Digit') && !selected) {
-      const role = ['DEL', 'GND', 'TWR', 'DIR', 'LON'][+e.key - 1];
+    // 1-5 set the speed (1x to 5x); Shift+1-5 jump the view to Delivery, Ground, Tower, Director, London.
+    const digit = /^Digit[1-5]$/.test(e.code) ? +e.code.slice(5) : 0;
+    if (digit && !e.shiftKey) { e.preventDefault(); setSpeed(digit); toast(`${digit}× speed`, 'info'); return; }
+    if (digit && e.shiftKey) {
+      const role = ['DEL', 'GND', 'TWR', 'DIR', 'LON'][digit - 1];
       const seat = snap?.coverage.find(s => seatRole(s) === role) ?? (role ? (role === 'LON' ? 'LON' : `${world.primary.icao}:${role}`) : null);
       if (seat) jump(seat);
       return;

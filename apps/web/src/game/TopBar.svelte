@@ -37,10 +37,8 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12" /></svg>
         </button>
       {/if}
-      {#each [1, 2, 4] as v}
-        <button class:on={speed === v} onclick={() => onSpeed(v)} title="{v}× speed" aria-label="{v} times speed">
-          {#each Array(v === 4 ? 3 : v) as _}<svg class="chev" viewBox="0 0 12 24" aria-hidden="true"><path d="M3 7l6 5-6 5" /></svg>{/each}
-        </button>
+      {#each [1, 2, 3, 4, 5] as v}
+        <button class="num" class:on={speed === v} onclick={() => onSpeed(v)} title="{v}× speed (key {v})" aria-label="{v} times speed">{v}×</button>
       {/each}
     </div>
     <div class="clock" title={settings.fastDay ? 'Fast day: an hour passes every two minutes (traffic runs in real time)' : 'Local time'}><b>{clock}</b>{#if settings.fastDay}<span class="fast">30×</span>{:else}<span>{secs}</span>{/if}</div>
@@ -83,7 +81,7 @@
   .speeds { display: flex; gap: 2px; background: var(--knob); border-radius: 999px; padding: 2px; }
   .speeds button { height: 30px; min-width: 34px; padding: 0 8px; border: none; border-radius: 999px; background: transparent; color: var(--ink); cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .speeds button.on { background: var(--green); color: var(--bg); }
-  .speeds .chev { width: 7px; height: 16px; margin: 0 -1px; stroke-width: 2.4; }
+  .speeds .num { min-width: 30px; padding: 0 6px; font: 600 12px var(--mono); }
   .clock b { font: 600 22px/1 var(--mono); color: var(--ink-strong); letter-spacing: 0.5px; }
   .clock span { font: 500 13px var(--mono); color: var(--muted); margin-left: 2px; }
   .clock .fast { margin-left: 6px; font: 600 10px var(--ui); color: var(--amber); vertical-align: 3px; }
