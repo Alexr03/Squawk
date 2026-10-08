@@ -437,7 +437,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
         grade.uniforms.uDepthRange.value = camera.far - camera.near;
         const k = tiltK(view.mpp) * (1 - fade);
         depth.uniforms.uRes.value.set(renderer.domElement.width, renderer.domElement.height);
-        depth.uniforms.uBlur.value = 2.0 * k;
+        depth.uniforms.uBlur.value = 1.6 * k;
         depth.uniforms.uHaze.value = 0.14 * k;
         depth.uniforms.uHazeColor.value.copy(grade.uniforms.uFogColor.value);
         depth.uniforms.uVignette.value = 0.35 * (1 - fade);

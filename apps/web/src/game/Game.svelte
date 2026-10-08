@@ -10,6 +10,7 @@
   import AircraftCard from './AircraftCard.svelte';
   import RadialMenu from './RadialMenu.svelte';
   import Console from './Console.svelte';
+  import { viewFor } from './views.ts';
   import { versionLabel } from '../lib/version.ts';
   import Loading, { type Brief } from '../screens/Loading.svelte';
   import { radialFor, type RadialItem } from './radial.ts';
@@ -114,9 +115,8 @@
     const role = seatRole(seat);
     const icao = seat === 'LON' ? world.primary.icao : seat.split(':')[0];
     const apt = world.byIcao[icao];
-    const c = apt.offset;
-    const v = { DEL: { mpp: 1.1, dx: -900, dy: -700 }, GND: { mpp: 1.4, dx: -400, dy: -700 }, TWR: { mpp: 2.6, dx: 400, dy: -700 }, DIR: { mpp: 105, dx: 0, dy: 0 }, LON: { mpp: 260, dx: 0, dy: 0 } }[role];
-    viewRequest = { cx: c.x + v.dx, cy: c.y + v.dy, mpp: v.mpp, t: performance.now() };
+    const v = viewFor(apt, role === 'DEL' ? 'GND' : role);
+    viewRequest = { ...v, t: performance.now() };
   }
 
   /** Fly the camera to an aircraft: close in on the ground, radar view in the air. */

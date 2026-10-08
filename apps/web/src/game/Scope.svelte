@@ -4,6 +4,7 @@
   import { createScene, type Scene } from '@squawk/render';
   import { find, flowPenalty, geo, route, routeStart, startHdg, taxiTarget, viaNames, type Aircraft, type Command, type XY } from '@squawk/sim';
   import { flightPlan, withCommands, type FlightPlan } from './flightplan.ts';
+  import { viewFor } from './views.ts';
   import type { ShiftClient } from './client.ts';
   import { settings } from '../lib/settings.svelte.ts';
   import { dropAction, primaryAction, Feedback, type Action } from './assist.ts';
@@ -44,7 +45,8 @@
     scene = createScene(canvas, client.packs, { pixelSize: settings.pixelSize, quality: settings.quality, depth: settings.depth });
     const cov = client.seats;
     const roles = cov.map(s => s.split(':').pop());
-    const start = roles.includes('GND') || roles.includes('DEL') ? { mpp: 1.1, cx: -900, cy: -700 } : roles.includes('TWR') ? { mpp: 2.6, cx: 400, cy: -700 } : roles.includes('DIR') ? { mpp: 105, cx: 0, cy: 0 } : { mpp: 260, cx: 0, cy: 0 };
+    const v = viewFor(apt, roles.includes('GND') || roles.includes('DEL') ? 'GND' : roles.includes('TWR') ? 'TWR' : roles.includes('DIR') ? 'DIR' : 'LON');
+    const start = { cx: v.cx, cy: v.cy, mpp: v.mpp };
     scene.setView(start);
     const ro = new ResizeObserver(() => scene?.resize());
     ro.observe(wrap);

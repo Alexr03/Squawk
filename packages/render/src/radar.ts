@@ -35,7 +35,7 @@ export interface RadarFrame {
   cells: { x: number; y: number; r: number; intensity: number }[];
 }
 
-type Label = { x: number; y: number; text: string; kind: 'twy' | 'hold' | 'stand' };
+type Label = { x: number; y: number; text: string; kind: 'rwy' | 'twy' | 'hold' | 'stand' };
 interface PackPaths { pack: AirportPack; off: XY; aprons: Path2D; rwys: Path2D; bldgs: Path2D; twy: Path2D; labels: Label[] }
 
 function hash(n: number) { n = Math.imul(n ^ (n >>> 15), 0x2c1b3c6d); n = Math.imul(n ^ (n >>> 12), 0x297a2d39); return ((n ^ (n >>> 15)) >>> 0) / 4294967296; }
@@ -71,8 +71,13 @@ export class Radar {
         labels.push({ ...m, text: e.name, kind: 'twy' });
       }
       for (const n of pack.taxi.nodes) if (n.hold) labels.push({ x: n.x + off.x, y: n.y + off.y, text: n.hold, kind: 'hold' });
+      // Runway designators just beyond each threshold, on the runway, as painted.
+      for (const r of pack.runways) for (const [i, e] of r.ends.entries()) {
+        const o = r.ends[1 - i], dx = o.thr.x - e.thr.x, dy = o.thr.y - e.thr.y, l = Math.hypot(dx, dy) || 1;
+        labels.push({ x: e.thr.x + (dx / l) * 220 + off.x, y: e.thr.y + (dy / l) * 220 + off.y, text: e.name, kind: 'rwy' });
+      }
       for (const s of pack.stands) { const n = byId.get(s.node); if (n) labels.push({ x: n.x + off.x, y: n.y + off.y, text: s.ref, kind: 'stand' }); }
-      const order = { hold: 0, twy: 1, stand: 2 }; // drawing priority when labels collide
+      const order = { rwy: 0, hold: 1, twy: 2, stand: 3 }; // drawing priority when labels collide
       labels.sort((a, b) => order[a.kind] - order[b.kind]);
       return { pack, off, aprons, rwys, bldgs, twy, labels };
     });
@@ -104,14 +109,17 @@ export class Radar {
     for (const ac of F.aircraft) { const q = F.screenOf(ac), r = Math.max(10, F.sizeOf(ac)); if (q.x > -40 && q.y > -40 && q.x < F.w + 40 && q.y < F.h + 40) placed.push({ x: q.x - r, y: q.y - r, w: 2 * r, h: 2 * r + 16 }); }
     for (const pk of this.packs) for (const l of pk.labels) {
       if (l.kind === 'stand' && !stands) continue;
+      if (l.kind !== 'rwy' && F.mpp >= 2.2) continue;
       const p = F.groundOf(l);
       if (p.x < -20 || p.y < -20 || p.x > F.w + 20 || p.y > F.h + 20) continue;
-      ctx.font = l.kind === 'stand' ? "500 9px 'IBM Plex Mono', monospace" : "700 11px 'IBM Plex Sans', system-ui, sans-serif";
-      const w = Math.ceil(ctx.measureText(l.text).width) + 8, h = l.kind === 'stand' ? 13 : 16;
+      ctx.font = l.kind === 'rwy' ? "700 15px 'IBM Plex Sans', system-ui, sans-serif" : l.kind === 'stand' ? "500 9px 'IBM Plex Mono', monospace" : "700 11px 'IBM Plex Sans', system-ui, sans-serif";
+      const w = Math.ceil(ctx.measureText(l.text).width) + (l.kind === 'rwy' ? 14 : 8), h = l.kind === 'rwy' ? 22 : l.kind === 'stand' ? 13 : 16;
       const x = Math.round(p.x - w / 2), y = Math.round(p.y - h / 2);
       if (placed.some(b => x < b.x + b.w + 2 && b.x < x + w + 2 && y < b.y + b.h + 2 && b.y < y + h + 2)) continue;
       placed.push({ x, y, w, h });
       // Airfield sign colours: location (taxiway) black on yellow, mandatory (holding point) white on red.
+      // Runways: white designator on a dark plate with a white outline.
+      if (l.kind === 'rwy') { ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(8,12,20,0.85)'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(x + 0.75, y + 0.75, w - 1.5, h - 1.5); ctx.fillStyle = '#fff'; ctx.fillText(l.text, Math.round(p.x), Math.round(p.y) + 1); continue; }
       ctx.fillStyle = l.kind === 'twy' ? '#f5c518' : l.kind === 'hold' ? '#c8102e' : 'rgba(10,18,32,0.7)';
       ctx.globalAlpha = a0 * (l.kind === 'stand' ? 0.85 : 0.95);
       ctx.fillRect(x, y, w, h);
@@ -288,7 +296,7 @@ export class Radar {
     if (fade < 1) { // airport tier: small callsign labels and selection brackets
       ctx.globalAlpha = Math.max(0, 1 - fade * 2.5);
       ctx.font = SMALL_FONT; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
-      if (F.mpp < 2.2) this.drawGroundLabels(F);
+      if (F.mpp < 9) this.drawGroundLabels(F);
       ctx.font = SMALL_FONT; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
       for (const ac of list) {
         if (ac.cs.startsWith("~")) continue; // parked scenery, no label
