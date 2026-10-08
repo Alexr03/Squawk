@@ -1,0 +1,101 @@
+{
+  "icao": "EGGW",
+  "name": "London Luton",
+  "rtName": "Luton",
+  "city": "London",
+  "airac": "2610",
+  "notes": [
+    "ARP, elevation, magnetic variation, runway threshold coordinates, true bearings, threshold elevations, the 82 m displaced threshold on 25, ILS (I-LTN/I-LJ 109.150) and ATS frequencies: UK AIP AD 2.EGGW (AD 2.2, 2.12, 2.18, 2.19), AIRAC 2610 (effective 01 OCT 2026).",
+    "The AIP approach callsigns are 'Luton Radar' (129.550, the DIR seat) and 'Luton Director' (128.750, when directed). SID charts note Luton Radar is known as 'Essex Radar' 0001-0600.",
+    "CTR polygon: AD 2.17 lateral limits with the 8 NM arc densified every ~15 degrees.",
+    "Stacks from the RNAV hold coding tables AD 2.EGGW-7-12/7-13: Luton's own STARs now end at ZAGZO (FL080 min); ABBOT is shared with Stansted (LOGAN 2A / DET 2A). LOREL is no longer on Luton's STARs.",
+    "SIDs: MATCH 3Y and DET 3Y (25) follow the RNAV1 coding tables AD 2.EGGW-6-10/6-11 (GWxxx waypoints); MATCH 2C, DET 7C, RODNI 1B/1C and OLNEY 2B/2C are simplified from the conventional SID chart descriptions (AD 2.EGGW-6-1, 6-4 to 6-6) with NAV/radial/DME points. RODNI 1C's turn back through the south is approximate. Initial altitudes are the SID stop altitudes.",
+    "STARs follow the coding tables AD 2.EGGW-7-7 to 7-11, simplified to 3-4 waypoints; entry altitudes are approximate.",
+    "Fire station: centroid of the OSM 'Luton Airport Fire Station' building (approx; the AIP places a WDI beside it at 515232.48N 0002231.51W). All stands are terminal '1' (single terminal). Airline table is approximate (not in the AIP).",
+    "LON frequency 118.825 is the London Control frequency on the MATCH/DET SID chart (AD 2.EGGW-6-1)."
+  ],
+  "arp": ["515229N", "0002206W"],
+  "elevationFt": 527,
+  "transitionAltFt": 6000,
+  "magVar": 1.23,
+  "frequencies": [
+    { "seat": "DEL", "callsign": "Luton Delivery", "freq": "121.885" },
+    { "seat": "GND", "callsign": "Luton Ground", "freq": "121.755" },
+    { "seat": "TWR", "callsign": "Luton Tower", "freq": "132.555" },
+    { "seat": "TWR", "sector": "2", "callsign": "Luton Tower", "freq": "126.730" },
+    { "seat": "DIR", "callsign": "Luton Radar", "freq": "129.550" },
+    { "seat": "DIR", "sector": "F", "callsign": "Luton Director", "freq": "128.750" },
+    { "seat": "LON", "callsign": "London Control", "freq": "118.825" }
+  ],
+  "mergeDisplacedThresholds": true,
+  "dedupeStands": true,
+  "runways": {
+    "07": { "thr": ["515219.25N", "0002300.91W"], "hdgTrue": 74.38, "elevFt": 515.2, "ils": "109.150" },
+    "25": { "thr": ["515237.36N", "0002116.15W"], "hdgTrue": 254.40, "elevFt": 508.5, "ils": "109.150", "displacedM": 82 }
+  },
+  "fixes": {
+    "ZAGZO": ["521812.97N", "0001352.54W"],
+    "ABBOT": ["520058.00N", "0003558.49E"],
+    "GWS06": ["514705.83N", "0002928.41W"],
+    "GWS12": ["514656.85N", "0001944.38W"],
+    "GWE37": ["514259.91N", "0001658.25E"],
+    "BPK": ["514459.05N", "0000624.25W", "Brookmans Park"],
+    "MATCH": ["514645.20N", "0001500.00E"],
+    "NEPNA": ["512958.33N", "0002656.55E"],
+    "DET": ["511814.41N", "0003550.19E", "Detling"],
+    "BNN": ["514334.19N", "0003259.10W", "Bovingdon"],
+    "HEN": ["514535.07N", "0004725.05W", "Henton"],
+    "RODNI": ["514256.50N", "0005141.83W"],
+    "OLNEY": ["520740.22N", "0004403.32W"],
+    "LUT": ["515340.69N", "0001509.02W", "Luton"],
+    "SIRIC": ["512036.17N", "0013358.89W"],
+    "VATON": ["512603.83N", "0002056.10W"],
+    "TELTU": ["504839.92N", "0004517.69W"],
+    "RINIS": ["515429.66N", "0021920.82E"],
+    "IDESI": ["515351.74N", "0015308.08E"],
+    "MUCTE": ["521031.13N", "0011225.43E"],
+    "OFJES": ["521302.03N", "0003929.77E"],
+    "FINMA": ["515947.21N", "0010313.34W"],
+    "WOBUN": ["520110.27N", "0004400.00W"],
+    "EDCOX": ["521259.68N", "0002419.92W"],
+    "JUMZI": ["521943.58N", "0002430.31W"],
+    "LOGAN": ["514451.32N", "0013642.58E"],
+    "CLN": ["515054.50N", "0010851.32E", "Clacton"],
+    "LOFFO": ["515012.00N", "0003556.37E"]
+  },
+  "stacks": [
+    { "name": "ZAGZO", "fix": "ZAGZO", "inboundTrack": 149.3, "turn": "R", "minAltFt": 8000, "sector": "N" },
+    { "name": "ABBOT", "fix": "ABBOT", "inboundTrack": 265.3, "turn": "R", "minAltFt": 8000, "sector": "E" }
+  ],
+  "sids": [
+    { "name": "MATCH", "designator": "3Y", "runway": "25", "fixes": ["GWS06", "GWS12", "BPK", "MATCH"] },
+    { "name": "DET", "designator": "3Y", "runway": "25", "fixes": ["GWS06", "BPK", "GWE37", "DET"] },
+    { "name": "RODNI", "designator": "1B", "runway": "25", "fixes": ["BNN/031/7", "HEN", "RODNI"] },
+    { "name": "OLNEY", "designator": "2B", "runway": "25", "fixes": ["BNN/031/7", "BNN/343/9", "OLNEY"], "altFt": 6000 },
+    { "name": "MATCH", "designator": "2C", "runway": "07", "fixes": ["LUT", "BPK/335/6", "BPK", "MATCH"] },
+    { "name": "DET", "designator": "7C", "runway": "07", "fixes": ["LUT", "BPK", "NEPNA", "DET"] },
+    { "name": "RODNI", "designator": "1C", "runway": "07", "fixes": ["LUT", "BNN/037/7", "HEN", "RODNI"] },
+    { "name": "OLNEY", "designator": "2C", "runway": "07", "fixes": ["LUT", "BPK/313/21", "OLNEY"], "altFt": 6000 }
+  ],
+  "sidAltFt": 5000,
+  "stars": [
+    { "name": "SIRIC1N", "stack": "ZAGZO", "fixes": ["SIRIC", "VATON", "BPK", "ZAGZO"], "entryAltFt": 18000 },
+    { "name": "TELTU1N", "stack": "ZAGZO", "fixes": ["TELTU", "VATON", "BPK", "ZAGZO"], "entryAltFt": 19000 },
+    { "name": "RINIS1N", "stack": "ZAGZO", "fixes": ["IDESI", "MUCTE", "OFJES", "ZAGZO"], "entryAltFt": 18000 },
+    { "name": "FINMA1N", "stack": "ZAGZO", "fixes": ["FINMA", "WOBUN", "EDCOX", "ZAGZO"], "entryAltFt": 15000 },
+    { "name": "LOGAN2A", "stack": "ABBOT", "fixes": ["LOGAN", "CLN", "ABBOT"], "entryAltFt": 10000 },
+    { "name": "DET2A", "stack": "ABBOT", "fixes": ["DET", "LOFFO", "ABBOT"], "entryAltFt": 17000 }
+  ],
+  "configs": [
+    { "name": "Westerly — 25", "arrivals": ["25"], "departures": ["25"], "windDir": 250 },
+    { "name": "Easterly — 07", "arrivals": ["07"], "departures": ["07"], "windDir": 70 }
+  ],
+  "standTerminalRules": [{ "pattern": "", "terminal": "1" }],
+  "airlineTerminals": {
+    "EZY": "1", "EJU": "1", "WZZ": "1", "WUK": "1", "RYR": "1", "TOM": "1", "ELY": "1"
+  },
+  "ctr": [["515244N","0003828W"],["515511N","0002426W"],["515743N","0002145W"],["515857N","0001434W"],["515743N","0001218W"],["515610N","0001036W"],["515425N","0000931W"],["515233N","0000909W"],["515042N","0000931W"],["514830N","0001506W"],["514503N","0003457W"]],
+  "tmaRadiusNm": 45,
+  "areaRadiusNm": 110,
+  "fireStation": ["515233N", "0002233W"]
+}

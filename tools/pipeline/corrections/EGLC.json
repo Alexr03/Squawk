@@ -1,0 +1,110 @@
+{
+  "icao": "EGLC",
+  "name": "London City",
+  "rtName": "City",
+  "city": "London",
+  "airac": "2610",
+  "notes": [
+    "ARP, elevation, magnetic variation, runway threshold coordinates, true bearings, threshold elevations, ILS (I-LST/I-LSR 111.150, 5.5 degree glidepath) and ATS frequencies: UK AIP AD 2.EGLC (AD 2.2, 2.12, 2.18, 2.19), AIRAC 2610 (effective 01 OCT 2026).",
+    "Approach is 'Thames Director' 132.700 in the AIP (AD 2.18 and AD 2.22), used for the DIR seat. The AIP lists no Delivery position: the DEL seat maps to City Ground 121.830.",
+    "CTR polygon: AD 2.17 lateral limits (the 5 NM arc round City and the 12 NM arc round Heathrow) densified every ~15 degrees.",
+    "GODLU and JACKO stacks (inbound true track, turn, FL080 minimum) from the RNAV hold coding table AD 2.EGLC-7-19.",
+    "SIDs follow the RNAV1 SID coding tables AD 2.EGLC-6-5 to 6-8 (LCxxx waypoints) with 3-4 waypoints each; all stop at 3000 FT.",
+    "STARs follow the STAR coding tables AD 2.EGLC-7-9 to 7-14, simplified to 2-4 waypoints; entry altitudes are approximate.",
+    "OSM maps the runway between two inset points with unnamed displaced-threshold ways at both ends; mergeDisplacedThresholds restores the full 1508 m strip, whose ends match the AIP thresholds.",
+    "Fire station: centroid of the OSM 'LCY Airfield Fire Station' building (approx). All stands are terminal '1'. Airline table is approximate (not in the AIP).",
+    "LON frequency 118.825 is London Control as shown for the City SIDs."
+  ],
+  "arp": ["513019N", "0000319E"],
+  "elevationFt": 20,
+  "transitionAltFt": 6000,
+  "magVar": 1.39,
+  "frequencies": [
+    { "seat": "DEL", "callsign": "City Ground", "freq": "121.830" },
+    { "seat": "GND", "callsign": "City Ground", "freq": "121.830" },
+    { "seat": "TWR", "callsign": "City Tower", "freq": "118.080" },
+    { "seat": "TWR", "sector": "2", "callsign": "City Tower", "freq": "129.455" },
+    { "seat": "DIR", "callsign": "Thames Director", "freq": "132.700" },
+    { "seat": "DIR", "sector": "2", "callsign": "Thames Director", "freq": "128.025" },
+    { "seat": "LON", "callsign": "London Control", "freq": "118.825" }
+  ],
+  "mergeDisplacedThresholds": true,
+  "dedupeStands": true,
+  "runways": {
+    "09": { "thr": ["513020.06N", "0000239.58E"], "hdgTrue": 92.87, "elevFt": 19.5, "ils": "111.150", "gsDeg": 5.5 },
+    "27": { "thr": ["513017.60N", "0000357.68E"], "hdgTrue": 272.89, "elevFt": 20.0, "ils": "111.150", "gsDeg": 5.5 }
+  },
+  "fixes": {
+    "GODLU": ["510958.44N", "0011704.26E"],
+    "JACKO": ["514408.65N", "0012536.00E"],
+    "LCW01": ["513024.40N", "0000020.78E"],
+    "LCN01": ["513332.44N", "0000109.21W"],
+    "LCN02": ["513408.09N", "0000016.11W"],
+    "LCN03": ["513448.85N", "0000347.24E"],
+    "LCN05": ["513538.42N", "0000257.77E"],
+    "LCN06": ["513608.68N", "0001118.82E"],
+    "LCE01": ["513014.67N", "0000529.91E"],
+    "LCE02": ["513316.42N", "0000950.44E"],
+    "LCE03": ["513346.90N", "0001436.66E"],
+    "LCE04": ["513619.70N", "0001222.73E"],
+    "SOQQA": ["513623.75N", "0002328.43E"],
+    "ODUKU": ["513531.78N", "0001715.47E"],
+    "BPK": ["514459.05N", "0000624.25W", "Brookmans Park"],
+    "SAXBI": ["514504.03N", "0001113.77W"],
+    "SUMUM": ["513814.25N", "0020627.77E"],
+    "XAMAN": ["514704.77N", "0021326.94E"],
+    "LOGAN": ["514451.32N", "0013642.58E"],
+    "BKY": ["515923.17N", "0000342.87E", "Barkway"],
+    "BRAIN": ["514839.91N", "0003906.00E"],
+    "CLN": ["515054.50N", "0010851.32E", "Clacton"],
+    "ROGBI": ["521746.63N", "0012006.37W"],
+    "TIXEX": ["520748.00N", "0010043.20W"],
+    "INLIM": ["515422.98N", "0011912.90E"],
+    "KONAN": ["510750.75N", "0020000.00E"],
+    "SOVAT": ["504645.67N", "0012800.00E"],
+    "ERKEX": ["505240.62N", "0011936.96E"],
+    "OKVAP": ["505748.96N", "0011955.98E"],
+    "SIRIC": ["512036.17N", "0013358.89W"],
+    "BIG": ["511951.15N", "0000205.32E", "Biggin"],
+    "UMTUM": ["511227.30N", "0010102.78E"],
+    "NETVU": ["502445.00N", "0002854.00E"],
+    "SOXUX": ["503546.32N", "0005545.48E"]
+  },
+  "stacks": [
+    { "name": "GODLU", "fix": "GODLU", "inboundTrack": 310.0, "turn": "R", "minAltFt": 8000, "sector": "S" },
+    { "name": "JACKO", "fix": "JACKO", "inboundTrack": 264.3, "turn": "L", "minAltFt": 8000, "sector": "E" }
+  ],
+  "sids": [
+    { "name": "SOQQA", "designator": "1A", "runway": "27", "fixes": ["LCW01", "LCN02", "LCN06", "SOQQA"] },
+    { "name": "BPK", "designator": "1A", "runway": "27", "fixes": ["LCW01", "LCN01", "LCN05", "BPK"] },
+    { "name": "SAXBI", "designator": "1A", "runway": "27", "fixes": ["LCW01", "LCN05", "BPK", "SAXBI"] },
+    { "name": "ODUKU", "designator": "1A", "runway": "27", "fixes": ["LCW01", "LCN02", "LCE04", "ODUKU"] },
+    { "name": "SOQQA", "designator": "1H", "runway": "09", "fixes": ["LCE01", "LCE02", "LCE03", "SOQQA"] },
+    { "name": "BPK", "designator": "1H", "runway": "09", "fixes": ["LCE01", "LCN03", "BPK"] },
+    { "name": "SAXBI", "designator": "1H", "runway": "09", "fixes": ["LCE01", "LCN03", "BPK", "SAXBI"] },
+    { "name": "ODUKU", "designator": "1H", "runway": "09", "fixes": ["LCE01", "LCE02", "ODUKU"] }
+  ],
+  "sidAltFt": 3000,
+  "stars": [
+    { "name": "SUMUM1C", "stack": "JACKO", "fixes": ["SUMUM", "LOGAN", "JACKO"], "entryAltFt": 15000 },
+    { "name": "XAMAN1C", "stack": "JACKO", "fixes": ["XAMAN", "LOGAN", "JACKO"], "entryAltFt": 16000 },
+    { "name": "HON1C", "stack": "JACKO", "fixes": ["ROGBI", "TIXEX", "INLIM", "JACKO"], "entryAltFt": 20000 },
+    { "name": "SILVA1C", "stack": "JACKO", "fixes": ["BKY", "BRAIN", "CLN", "JACKO"], "entryAltFt": 12000 },
+    { "name": "KONAN1C", "stack": "GODLU", "fixes": ["KONAN", "GODLU"], "entryAltFt": 14000 },
+    { "name": "SOVAT1C", "stack": "GODLU", "fixes": ["SOVAT", "ERKEX", "OKVAP", "GODLU"], "entryAltFt": 15000 },
+    { "name": "SIRIC1C", "stack": "GODLU", "fixes": ["SIRIC", "BIG", "UMTUM", "GODLU"], "entryAltFt": 16000 },
+    { "name": "NEVIL1C", "stack": "GODLU", "fixes": ["NETVU", "SOXUX", "OKVAP", "GODLU"], "entryAltFt": 14000 }
+  ],
+  "configs": [
+    { "name": "Westerly — 27", "arrivals": ["27"], "departures": ["27"], "windDir": 270 },
+    { "name": "Easterly — 09", "arrivals": ["09"], "departures": ["09"], "windDir": 90 }
+  ],
+  "standTerminalRules": [{ "pattern": "", "terminal": "1" }],
+  "airlineTerminals": {
+    "CFE": "1", "KLC": "1", "SWR": "1", "ITY": "1", "LOG": "1", "EAI": "1", "LGL": "1"
+  },
+  "ctr": [["513445N","0001108W"],["513409N","0000826E"],["513319N","0000944E"],["513219N","0001040E"],["513113N","0001113E"],["513004N","0001120E"],["512855N","0001102E"],["512751N","0001018E"],["512655N","0000912E"],["512610N","0000747E"],["512640N","0000811W"],["512929N","0000804W"],["513214N","0000905W"]],
+  "tmaRadiusNm": 60,
+  "areaRadiusNm": 110,
+  "fireStation": ["513016N", "0000239E"]
+}
