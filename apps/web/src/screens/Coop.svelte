@@ -7,7 +7,7 @@
   import type { Launch } from '../lib/launch.ts';
   import type { ShiftClient } from '../game/client.ts';
   import { coop, Guest, Host } from '../net/coop.svelte.ts';
-  import { autoSignal } from '../net/signal.ts';
+  import { autoSignal, codeLength } from '../net/signal.ts';
   import CoopSeats from './CoopSeats.svelte';
 
   interface Props { onBack: () => void; onPlay: (c: ShiftClient, l: Launch) => void }
@@ -84,8 +84,8 @@
       <section>
         <h2>Join a friend</h2>
         {#if autoSignal}
-          <label class="row">Room code <input class="room" maxlength="6" bind:value={roomInput} placeholder="ABCDEF" /></label>
-          <button class="go" disabled={roomInput.trim().length !== 6 || busy} onclick={join}>Join</button>
+          <label class="row">Room code <input class="room" maxlength={codeLength} inputmode={codeLength === 8 ? 'numeric' : 'text'} bind:value={roomInput} placeholder={codeLength === 8 ? '12345678' : 'ABCDEF'} /></label>
+          <button class="go" disabled={roomInput.trim().length !== codeLength || busy} onclick={join}>Join</button>
           <h3>…or with an invite code</h3>
         {/if}
         <textarea bind:value={inviteIn} placeholder="Paste the host's invite code"></textarea>
@@ -171,7 +171,7 @@
   .row b { font-weight: 400; color: var(--ink-strong); }
   input[type=range] { flex: 1; min-width: 140px; accent-color: var(--green); }
   select, .name, .room, textarea { background: var(--btn); color: var(--ink-strong); border: 1px solid var(--line); font: 13px var(--ui); padding: 2px 6px; }
-  .room { width: 90px; text-transform: uppercase; letter-spacing: 2px; }
+  .room { width: 110px; text-transform: uppercase; letter-spacing: 2px; }
   textarea { width: 100%; box-sizing: border-box; height: 64px; resize: vertical; font-size: 11px; word-break: break-all; }
   .chips { display: flex; flex-wrap: wrap; gap: 5px; }
   .chips button { background: var(--btn); border: 1px solid var(--line); color: var(--ink); font: 13px var(--ui); padding: 3px 10px; cursor: pointer; text-transform: capitalize; }

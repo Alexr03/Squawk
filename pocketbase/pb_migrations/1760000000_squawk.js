@@ -17,7 +17,7 @@ migrate((app) => {
     fields: [
       { name: 'user', type: 'relation', collectionId: users.id, maxSelect: 1, cascadeDelete: true, required: true },
       { name: 'name', type: 'text', max: 20 },
-      { name: 'day', type: 'text', required: true, pattern: '^\d{4}-\d{2}-\d{2}$' },
+      { name: 'day', type: 'text', required: true, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
       { name: 'score', type: 'number', min: 0, max: 100000, onlyInt: true, required: true },
       { name: 'grade', type: 'text', pattern: '^[SABCD]$' },
       { name: 'created', type: 'autodate', onCreate: true },
