@@ -92,7 +92,7 @@ export function buildSchedule(world: World, cfg: ShiftConfig, st: State, mixes?:
   st.schedule.sort((a, b) => a.at - b.at);
   // Nothing floods in at once: spawns stacked at the start (or bunched anywhere) join at least 45 s apart per airport.
   const nextFree: Record<string, number> = {};
-  for (const sp of st.schedule) { const t = Math.max(sp.at, nextFree[sp.apt] ?? 0); if (t > sp.at) { sp.sched += (t - sp.at) * DT; sp.at = t; } nextFree[sp.apt] = t + ticks(45); }
+  for (const sp of st.schedule) { const t = Math.max(sp.at, nextFree[sp.apt] ?? 0); if (t > sp.at) { sp.sched += (t - sp.at) * DT; sp.at = t; } nextFree[sp.apt] = t + ticks(t < ticks(600) ? 45 : 15); } // a gentle start, then real traffic density
   st.schedule.sort((a, b) => a.at - b.at);
 }
 
@@ -147,9 +147,9 @@ function freeStand(world: World, st: State, apt: Apt, operator: string, wake: st
 }
 
 export function newSquawk(st: State): string {
-  for (;;) {
+  for (let tries = 0; ; tries++) {
     const c = [3, 4, 5, 6].map(() => 0).map((_, i) => (i === 0 ? 2 + Math.floor(rand(st) * 5) : Math.floor(rand(st) * 8))).join('');
-    if (!['7500', '7600', '7700', '7000', '2000'].includes(c) && !st.squawks.includes(c)) { st.squawks.push(c); return c; }
+    if (!['7500', '7600', '7700', '7000', '2000'].includes(c) && (!st.squawks.includes(c) || tries > 5000)) { st.squawks.push(c); return c; } // never loop forever
   }
 }
 
@@ -170,7 +170,16 @@ function base(sp: Spawn, st: State): Aircraft {
 }
 
 /** Put a scheduled flight into the world. Returns null if it can't appear yet (no stand). */
+/** Bring a scheduled flight into the shift, or null if there is no room for it yet (it is retried every tick). */
 export function spawn(world: World, st: State, sp: Spawn): Aircraft | null {
+  // A failed attempt gives back the squawk it took: otherwise retries leak codes until none are left.
+  const codes = st.squawks.length;
+  const ac = spawnOne(world, st, sp);
+  if (!ac) st.squawks.length = codes;
+  return ac;
+}
+
+function spawnOne(world: World, st: State, sp: Spawn): Aircraft | null {
   const apt = world.byIcao[sp.apt];
   const as = st.apts.find(a => a.icao === sp.apt)!;
   const ac = base(sp, st);

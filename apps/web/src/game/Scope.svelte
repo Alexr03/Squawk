@@ -69,6 +69,7 @@
       const snap = client.snap;
       scene.setAircraft([...client.views(now), ...client.fillerViews()]);
       scene.setVehicles(snap.vehicles.map(v => ({ id: v.id, kind: v.kind, x: v.x, y: v.y, hdg: v.hdg, lights: v.lights })));
+      scene.setIncidents((snap.incidents ?? []).map(i => ({ id: i.id, x: i.x, y: i.y, fire: i.fire, kind: i.kind, resolved: i.resolved })));
       scene.setTime(dayClock(client.time(now), client.cfg.start));
       const w = snap.weather;
       scene.setWeather({ rain: w.wx.some(x => x.includes('RA') || x.includes('DZ')) ? (w.wx.some(x => x.startsWith('+')) ? 1 : 0.55) : 0, visM: w.visM, cloud: w.ceilingFt !== null ? Math.max(0.2, Math.min(1, 1 - w.ceilingFt / 5000)) : 0.1, cells: w.cells });

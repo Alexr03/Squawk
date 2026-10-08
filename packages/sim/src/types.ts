@@ -228,6 +228,7 @@ export interface AircraftView {
   lights: { beacon: boolean; nav: boolean; strobe: boolean; landing: boolean; taxi: boolean };
   tug: boolean;               // pushback tug attached
   mine: boolean;              // on one of the player's frequencies (radar colour)
+  wreck?: boolean;            // burnt-out after a collision
   onRunway?: boolean;         // lining up, rolling, landing or vacating: always labelled on the airport view
   alert: 'none' | 'caution' | 'conflict' | 'emergency';
   squawk: string;

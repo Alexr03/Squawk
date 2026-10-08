@@ -31,6 +31,7 @@ export interface RadarFrame {
   arr: string[]; dep: string[];
   /** Aircraft waiting on the player, and how badly. */
   underlay?: (ctx: CanvasRenderingContext2D) => void;
+  incidents?: { id: string; x: number; y: number; fire: number; kind: 'crash' | 'emergency'; resolved: boolean }[];
   attention: Record<string, 'routine' | 'urgent' | 'emergency'>;
   cells: { x: number; y: number; r: number; intensity: number }[];
 }
@@ -283,6 +284,21 @@ export class Radar {
     screen();
     // The game's route lines go here: over the map, under the aircraft and their tags.
     if (F.underlay) { ctx.save(); F.underlay(ctx); ctx.restore(); screen(); }
+    // Crash and emergency sites: a pulsing red cross, readable at any zoom.
+    for (const inc of F.incidents ?? []) {
+      if (inc.resolved) continue;
+      const q = F.fade > 0.5 ? S(inc) : F.groundOf(inc);
+      const pulse = 0.6 + 0.4 * Math.sin(F.now / 180);
+      ctx.strokeStyle = '#ff4d4d'; ctx.lineWidth = 3; ctx.globalAlpha = pulse;
+      ctx.beginPath(); ctx.moveTo(q.x - 9, q.y - 9); ctx.lineTo(q.x + 9, q.y + 9); ctx.moveTo(q.x + 9, q.y - 9); ctx.lineTo(q.x - 9, q.y + 9); ctx.stroke();
+      ctx.beginPath(); ctx.arc(q.x, q.y, 16 + 6 * pulse, 0, Math.PI * 2); ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.globalAlpha = 1;
+      const label = inc.kind === 'crash' ? (inc.fire > 0 ? 'CRASH · FIRE' : 'CRASH') : inc.fire > 0 ? 'EMERGENCY · FIRE' : 'EMERGENCY';
+      ctx.font = "700 11px 'IBM Plex Sans', system-ui, sans-serif"; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      const w = ctx.measureText(label).width;
+      ctx.fillStyle = '#ff4d4d'; ctx.fillRect(q.x + 22, q.y - 9, w + 10, 18);
+      ctx.fillStyle = '#fff'; ctx.fillText(label, q.x + 27, q.y);
+    }
     const boxes: { x: number; y: number; w: number; h: number }[] = [];
     const colOf = (ac: AircraftView) => {
       if (ac.alert === 'emergency') return flash ? P.red : P.sel;

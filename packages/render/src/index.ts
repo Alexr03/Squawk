@@ -16,10 +16,13 @@ export { decodeScenery, type SceneryFile } from './sceneryData.ts';
 
 export interface SceneOptions { pixelSize?: number; quality?: 'low' | 'high'; /** tilt-shift depth of field, haze and vignette */ depth?: boolean }
 export interface Weather { rain: number; visM: number; cloud: number; cells?: { x: number; y: number; r: number; intensity: number }[] }
+export interface IncidentView { id: string; x: number; y: number; fire: number; kind: 'crash' | 'emergency'; resolved: boolean }
 export interface Overlays { sids?: boolean; stars?: boolean; weather?: boolean; ctr?: boolean; rings?: boolean }
 export interface Scene {
   setAircraft(views: AircraftView[]): void;
   setVehicles(v: VehicleView[]): void;
+  /** Crash and emergency sites: fire (0..1) and smoke. */
+  setIncidents(i: IncidentView[]): void;
   setTime(unix: number): void;
   setWeather(w: Weather): void;
   setView(v: { cx: number; cy: number; mpp: number }): void;
@@ -87,6 +90,17 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
   const vehMat = acMat;
   const acMeshes = new Map<string, { mesh: THREE.Mesh; key: string; tug?: THREE.Mesh }>();
   const vehMeshes = new Map<string, THREE.Mesh>();
+  let incidents: IncidentView[] = [];
+  // Smoke: soft grey sprites rising from each fire, drifting with the wind.
+  const smokeTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 32;
+    const g = c.getContext('2d')!, r = g.createRadialGradient(16, 16, 2, 16, 16, 16);
+    r.addColorStop(0, 'rgba(255,255,255,0.9)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = r; g.fillRect(0, 0, 32, 32);
+    const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; return t;
+  })();
+  const smoke = new Map<string, THREE.Sprite[]>();
+  const wreckMat = new THREE.MeshLambertMaterial({ color: '#2a2622', flatShading: true });
 
   const dynGeo = new THREE.BufferGeometry();
   const dPos = new Float32Array(MAX_LIGHTS * 3), dCol = new Float32Array(MAX_LIGHTS * 3), dSize = new Float32Array(MAX_LIGHTS);
@@ -296,7 +310,9 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
       const h = heightOf(ac);
       const m = e.mesh;
       m.position.set(ac.x, h, -ac.y);
-      m.rotation.y = Math.PI - ac.hdg * RAD;
+      m.rotation.y = Math.PI - ac.hdg * RAD + (ac.wreck ? (hashStr(ac.cs) - 0.5) * 0.9 : 0);
+      m.material = ac.wreck ? wreckMat : acMat;
+      if (ac.wreck) m.rotation.z = (hashStr(ac.cs + 'r') - 0.5) * 0.5;
       const pitch = ac.onGround || ac.gs < 30 ? 0 : Math.atan2((ac.vs * FT) / 60, ac.gs * 0.5144);
       m.rotation.x = -Math.min(0.25, Math.max(-0.1, pitch + (ac.onGround ? 0 : 0.04)));
       m.updateMatrixWorld();
@@ -350,6 +366,37 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
       }
     }
     for (const [id, m] of vehMeshes) if (!vseen.has(id)) { scene.remove(m); vehMeshes.delete(id); }
+    // Fires: a cluster of flickering flames, an orange glow on the ground, and a smoke column that thins as it goes out.
+    const live = new Set<string>();
+    for (const inc of incidents) {
+      live.add(inc.id);
+      if (inc.fire > 0) {
+        for (let k = 0; k < 14; k++) {
+          const ph = hashStr(inc.id + k), fl = 0.55 + 0.45 * Math.sin(t * (7 + ph * 9) + ph * 40);
+          const r = 6 + ph * 22, a = ph * 40 + t * 0.4;
+          light(tmp.set(inc.x + Math.cos(a) * r, 1 + fl * 6 * inc.fire, -(inc.y + Math.sin(a) * r)), k % 3 ? LC.amber : LC.red, (1.6 + fl * 2.2) * inc.fire, 2.4 + fl * 1.6);
+        }
+        if (nr < MAX_POOLS) pool(roundPools, nr++, inc.x, -inc.y, 0, 110 * inc.fire + 30, 110 * inc.fire + 30, LC.amber, 0.9 * inc.fire * (0.8 + 0.2 * Math.sin(t * 9)));
+      }
+      let puffs = smoke.get(inc.id);
+      if (!puffs) {
+        puffs = Array.from({ length: 26 }, () => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, color: '#3a3836', transparent: true, depthWrite: false })); scene.add(sp); return sp; });
+        smoke.set(inc.id, puffs);
+      }
+      const strength = inc.resolved ? 0 : Math.max(inc.fire, inc.kind === 'crash' ? 0.25 : 0.08);
+      const wind = weather.cells ? 1 : 1;
+      puffs.forEach((sp, k) => {
+        const life = ((t * 0.12 + k / puffs!.length) % 1), ph = hashStr(inc.id + 's' + k);
+        const h = life * 260, drift = life * 120 * wind;
+        sp.position.set(inc.x + drift + (ph - 0.5) * 30 * (1 + life), 8 + h, -(inc.y + drift * 0.4 + (ph - 0.5) * 30));
+        const size = 22 + life * 90;
+        sp.scale.set(size, size, 1);
+        sp.material.opacity = strength * 0.55 * (1 - life) * Math.min(1, life * 6);
+        sp.material.color.set(inc.fire > 0.3 && life < 0.2 ? '#5a3a20' : '#3a3836');
+        sp.visible = sp.material.opacity > 0.01;
+      });
+    }
+    for (const [id, puffs] of smoke) if (!live.has(id)) { for (const sp of puffs) { scene.remove(sp); sp.material.dispose(); } smoke.delete(id); }
 
     dynGeo.setDrawRange(0, nl);
     for (const k of ['position', 'aColor', 'aSize']) (dynGeo.getAttribute(k) as THREE.BufferAttribute).needsUpdate = true;
@@ -360,6 +407,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
   const api: Scene = {
     setAircraft(v) { aircraft = v; },
     setVehicles(v) { vehicles = v; },
+    setIncidents(i) { incidents = i; },
     setTime(unix) { const s = sunPosition(unix, primary.arp.lat, primary.arp.lon); sunEl = s.el; sunAz = s.az; applyLighting(); },
     setWeather(w) { weather = w; applyLighting(); },
     setView(v) { view = { ...v, mpp: Math.min(2000, Math.max(0.05, v.mpp)) }; updateCamera(); },
@@ -446,7 +494,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
       }
       radar.draw({
         w: W, h: H, dpr, M: affine(), mpp: view.mpp, fade, night: nightOverride ?? sunEl < -4, now,
-        aircraft, screenOf, groundOf: p => worldToScreen(p), sizeOf, selected, attention, underlay: underlay ?? undefined, overlays, arr, dep, cells: weather.cells ?? [],
+        aircraft, screenOf, groundOf: p => worldToScreen(p), sizeOf, selected, attention, underlay: underlay ?? undefined, incidents, overlays, arr, dep, cells: weather.cells ?? [],
       });
     },
     dispose() {
