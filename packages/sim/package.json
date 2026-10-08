@@ -2,5 +2,11 @@
   "name": "@squawk/sim",
   "private": true,
   "type": "module",
-  "exports": "./src/index.ts"
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./aircraft": "./src/aircraft.ts",
+    "./airlines": "./src/airlines.ts",
+    "./geo": "./src/geo.ts"
+  }
 }

@@ -16,7 +16,7 @@ export default defineConfig({
   ],
   build: {
     rolldownOptions: {
-      input: { main: 'index.html', 'audio-test': 'audio-test.html' },
+      input: { main: 'index.html', 'audio-test': 'audio-test.html', 'render-test': 'render-test.html' },
     },
   },
 });
