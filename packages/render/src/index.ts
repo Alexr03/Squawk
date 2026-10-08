@@ -15,7 +15,7 @@ import { sunPosition } from './sun.ts';
 export { decodeScenery, type SceneryFile } from './sceneryData.ts';
 
 export interface SceneOptions { pixelSize?: number; quality?: 'low' | 'high'; /** tilt-shift depth of field, haze and vignette */ depth?: boolean }
-export interface Weather { rain: number; visM: number; cloud: number; cells?: { x: number; y: number; r: number; intensity: number }[] }
+export interface Weather { rain: number; visM: number; cloud: number; windKt?: number; cells?: { x: number; y: number; r: number; intensity: number }[] }
 export interface IncidentView { id: string; x: number; y: number; fire: number; kind: 'crash' | 'emergency'; resolved: boolean }
 export interface Overlays { sids?: boolean; stars?: boolean; weather?: boolean; ctr?: boolean; rings?: boolean }
 export interface Scene {
@@ -494,7 +494,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
       }
       radar.draw({
         w: W, h: H, dpr, M: affine(), mpp: view.mpp, fade, night: nightOverride ?? sunEl < -4, now,
-        aircraft, screenOf, groundOf: p => worldToScreen(p), sizeOf, selected, attention, underlay: underlay ?? undefined, incidents, overlays, arr, dep, cells: weather.cells ?? [],
+        aircraft, screenOf, groundOf: p => worldToScreen(p), sizeOf, selected, attention, underlay: underlay ?? undefined, incidents, overlays, arr, dep, cells: weather.cells ?? [], windKt: weather.windKt ?? 0,
       });
     },
     dispose() {

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { buildWorld, createShift, debrief, depGap, DIFFICULTY, hashState, issue, replay, step, find, type AirportPack, type DayPack, type ShiftConfig, type State } from './index.ts';
+import { buildWorld, createShift, debrief, depGap, DIFFICULTY, geo, hashState, issue, replay, step, find, type AirportPack, type DayPack, type ShiftConfig, type State } from './index.ts';
 
 const pack: AirportPack = JSON.parse(readFileSync(new URL('../../../data/airports/EGLL/airport.json', import.meta.url), 'utf8'));
 const day: DayPack = JSON.parse(readFileSync(new URL('../../../data/days/EGLL-2026-08-28.json', import.meta.url), 'utf8'));
@@ -79,5 +79,32 @@ describe('rules', () => {
     for (let i = 0; i < 8; i++) step(world, c, st);
     expect(st.stats.sepLoss).toBeGreaterThan(0);
     expect(debrief(st).safety).toBeLessThan(1);
+  });
+});
+
+describe('holding', () => {
+  test('from any direction the entry (direct, teardrop, parallel) settles onto the racetrack the scope draws', () => {
+    const c = cfg({ coverage: ['LON', 'EGLL:DIR', 'EGLL:TWR', 'EGLL:GND', 'EGLL:DEL'], durationS: 3600 });
+    const sk = pack.airspace.stacks.find(s => s.name === 'BNN')!, fix = world.primary.fixes[sk.fix];
+    const entries = new Set<string>();
+    for (const from of [0, 90, 180]) {
+      const st = createShift(world, c);
+      while (!st.aircraft.some(a => !a.onGround && a.kind === 'arr')) step(world, c, st);
+      const ac = st.aircraft.find(a => !a.onGround && a.kind === 'arr')!;
+      st.aircraft = [ac];
+      const p = geo.fromBearing(fix, from, 12 * geo.NM);
+      Object.assign(ac, { x: p.x, y: p.y, hdg: geo.bearing(p, fix), alt: 8000, tgtAlt: 8000, ias: 220, tgtSpd: 220, phase: 'stack', owner: 'EGLL:DIR', freq: 'EGLL:DIR', checkedIn: true, turn: null, tgtHdg: null });
+      ac.nav = { ...ac.nav, mode: 'hold', route: [], ils: undefined, established: false, hold: { fix: sk.fix, inbound: sk.inboundTrack, turn: sk.turn, leg: 'entry', t: 0 } };
+      let worst = 0, first = '';
+      for (let i = 0; i < 4 * 900; i++) {
+        step(world, c, st);
+        if (!first && ac.nav.hold!.leg !== 'entry') entries.add(first = ac.nav.hold!.leg);
+        if (i < 4 * 660) continue;
+        const h = ac.nav.hold!, loop = geo.racetrack(fix, h.inbound, h.turn, { r: h.r!, leg: h.len! }, 64);
+        worst = Math.max(worst, Math.min(...loop.map((q, k) => geo.segDist(ac, q, loop[(k + 1) % loop.length]).d)));
+      }
+      expect(worst / geo.NM).toBeLessThan(0.25);
+    }
+    expect([...entries].sort()).toEqual(['outbound', 'parallel', 'teardrop']);
   });
 });

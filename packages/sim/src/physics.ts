@@ -1,6 +1,6 @@
 // Aircraft movement: ground (pushback, taxi, line-up, take-off roll, rollout, exits) and air (turns, climb, wind, nav, ILS).
 import { TYPES } from './aircraft.ts';
-import { angleDiff, bearing, dist, KT, NM, norm360, segDist } from './geo.ts';
+import { angleDiff, bearing, dist, holdShape, KT, NM, norm360, segDist, tas, turnRate, windKtAt } from './geo.ts';
 import { DT, rand, ticks, type Aircraft, type State } from './state.ts';
 import { along, lateral, pointOnEnd, route, routeToRunway, runwayAt, type Apt, type EndInfo, type World } from './world.ts';
 import { emergencyStop } from './incidents.ts';
@@ -16,7 +16,7 @@ export const elevation = (apt: Apt) => apt.pack.elevationFt;
 /** Wind vector (m/s, toward) at an altitude. */
 export function windAt(st: State, alt: number) {
   const w = st.weather.wind;
-  const kt = w.kt * Math.min(3, 1 + alt / 8000);
+  const kt = windKtAt(w.kt, alt);
   const from = w.dir + Math.min(30, alt / 1000 * 2);
   const to = (from + 180) * Math.PI / 180;
   return { x: Math.sin(to) * MS(kt), y: Math.cos(to) * MS(kt) };
@@ -453,7 +453,7 @@ export function moveAir(world: World, st: State, ac: Aircraft) {
     const toThr = end.thrS - along(end, ac);
     if (!nav.established && toThr > 0 && toThr < 25 * NM) {
       const intercept = Math.abs(angleDiff(ac.trk, course));
-      const lead = MS(ac.gs) * (intercept / 3) * 0.55 + 120;
+      const lead = MS(ac.gs) * (intercept / turnRate(tas(ac.ias, ac.alt))) * 0.55 + 120;
       const closing = Math.sign(xt) * Math.sin((ac.trk - course) * Math.PI / 180) < 0 || Math.abs(xt) < 150;
       if (intercept < 95 && closing && Math.abs(xt) < lead + 200 && Math.abs(xt) < 3 * NM) {
         nav.established = true; nav.mode = 'hdg'; ac.tgtHdg = null; ac.turn = null;
@@ -468,7 +468,7 @@ export function moveAir(world: World, st: State, ac: Aircraft) {
   }
 
   // ---- turn
-  const rate = t.wake === 'M' ? 3 : 2.5;
+  const rate = nav.mode === 'hold' ? turnRate(tas(ac.ias, ac.alt)) : t.wake === 'M' ? 3 : 2.5; // ponytail: rate-one/25° bank only in holds; vectoring keeps the rates the AI approach is tuned for
   if (wantHdg !== null) {
     ac.hdg = turnToward(ac.hdg, wantHdg, rate * DT, nav.established || nav.mode === 'route' ? null : ac.turn);
     if (ac.turn && Math.abs(angleDiff(ac.hdg, wantHdg)) < 5) ac.turn = null;
@@ -494,9 +494,9 @@ export function moveAir(world: World, st: State, ac: Aircraft) {
   }
 
   // ---- position (TAS + wind)
-  const tas = ac.ias * (1 + ac.alt / 1000 * 0.018);
+  const v = MS(tas(ac.ias, ac.alt));
   const h = ac.hdg * Math.PI / 180, w = windAt(st, ac.alt);
-  const vx = Math.sin(h) * MS(tas) + w.x, vy = Math.cos(h) * MS(tas) + w.y;
+  const vx = Math.sin(h) * v + w.x, vy = Math.cos(h) * v + w.y;
   ac.x += vx * DT; ac.y += vy * DT;
   ac.gs = Math.hypot(vx, vy) / KT;
   ac.trk = norm360(Math.atan2(vx, vy) * 180 / Math.PI);
@@ -507,10 +507,10 @@ export function moveAir(world: World, st: State, ac: Aircraft) {
 /** Heading that makes good the desired track given the wind at the aircraft's level. */
 export function crab(st: State, ac: Aircraft, track: number): number {
   const w = windAt(st, ac.alt);
-  const tas = Math.max(80, ac.ias * (1 + ac.alt / 1000 * 0.018)) * KT;
+  const v = Math.max(80, tas(ac.ias, ac.alt)) * KT;
   const tr = track * Math.PI / 180;
   const cross = w.x * Math.cos(tr) - w.y * Math.sin(tr); // wind component to the right of track
-  const wca = Math.asin(Math.max(-0.5, Math.min(0.5, -cross / tas))) * 180 / Math.PI;
+  const wca = Math.asin(Math.max(-0.5, Math.min(0.5, -cross / v))) * 180 / Math.PI;
   return norm360(track + wca);
 }
 
@@ -526,28 +526,51 @@ function holdHeading(world: World, st: State, ac: Aircraft): number {
   const apt = aptOf(world, ac);
   const h = ac.nav.hold!;
   const fix = apt.fixes[h.fix];
-  const d = dist(ac, fix);
   ac.holdS += DT;
-  const legT = ac.alt > 14000 ? 90 : 60;
-  switch (h.leg) {
-    case 'entry':
-      if (d < 900) { h.leg = 'outbound'; h.t = 0; }
-      return crab(st, ac, bearing(ac, fix));
-    case 'outbound': {
-      const out = norm360(h.inbound + 180);
-      ac.turn = h.turn;
-      if (Math.abs(angleDiff(ac.hdg, out)) < 8) { h.t += DT; ac.turn = null; }
-      if (h.t > legT) { h.leg = 'inbound'; }
-      return out;
-    }
-    case 'inbound': {
-      ac.turn = h.turn;
-      const want = bearing(ac, fix);
-      if (Math.abs(angleDiff(ac.hdg, want)) < 15) ac.turn = null;
-      if (d < 900) { h.leg = 'outbound'; h.t = 0; }
-      return crab(st, ac, want);
-    }
+  const { r, leg } = holdShape(ac.ias, ac.alt, windKtAt(st.weather.wind.kt, ac.alt));
+  h.r = r; h.len = leg; // what the scope draws for it
+  const dir = h.turn === 'R' ? 1 : -1, out = norm360(h.inbound + 180), legT = ac.alt > 14000 ? 90 : 60;
+  // Hold frame: u along the inbound course (0 at the fix, negative before it), v toward the holding side.
+  const ci = h.inbound * Math.PI / 180, dx = ac.x - fix.x, dy = ac.y - fix.y;
+  const u = dx * Math.sin(ci) + dy * Math.cos(ci), v = dir * (dx * Math.cos(ci) - dy * Math.sin(ci));
+  // Onto a leg: its course, cutting back toward it by how far off it is (offset positive to the right of the course).
+  const steer = (course: number, off: number) => crab(st, ac, norm360(course - Math.max(-45, Math.min(45, Math.atan(off / r) * 180 / Math.PI))));
+  const release = (want: number) => { if (ac.turn && Math.abs(angleDiff(ac.hdg, want)) < 60) ac.turn = null; return want; };
+
+  if (h.leg === 'entry') {
+    if (dist(ac, fix) > Math.max(900, MS(ac.gs) * 4)) return crab(st, ac, bearing(ac, fix));
+    // Over the fix: the entry follows from the heading (sectors relative to the inbound course, mirrored for left-hand holds).
+    const rel = norm360(dir * angleDiff(h.inbound, ac.hdg));
+    h.leg = rel > 110 && rel <= 180 ? 'teardrop' : rel > 180 && rel < 290 ? 'parallel' : 'outbound';
+    h.t = 0;
+    ac.turn = h.leg === 'outbound' ? h.turn : null;
   }
+  if (h.leg === 'teardrop') {
+    // 30� into the holding side, until a turn in the hold direction will roll out on the inbound leg.
+    h.t += DT;
+    if (v < r * 1.87 && h.t < 3 * legT) return crab(st, ac, norm360(out - dir * 30));
+    h.leg = 'inbound'; ac.turn = h.turn;
+  }
+  if (h.leg === 'parallel') {
+    // Outbound on the non-holding side, then turn back the other way to the inbound leg.
+    h.t += DT;
+    if (h.t < legT) return crab(st, ac, out);
+    h.leg = 'inbound'; ac.turn = h.turn === 'R' ? 'L' : 'R';
+  }
+  // Round the pattern: each turn follows its drawn arc and each leg its line, so the wind can't push it off either.
+  // (centre of the turn at the fix end, or at the far end)
+  const arc = (along: number) => {
+    const cx = fix.x + Math.sin(ci) * along + dir * Math.cos(ci) * r, cy = fix.y + Math.cos(ci) * along - dir * Math.sin(ci) * r;
+    const rho = Math.hypot(ac.x - cx, ac.y - cy);
+    return release(steer(norm360(bearing({ x: cx, y: cy }, ac) + dir * 90), -dir * (rho - r)));
+  };
+  if (h.leg === 'outbound') {
+    if (u > 0) return arc(0);
+    if (u > -leg) return release(steer(out, -dir * (v - 2 * r)));
+    h.leg = 'inbound';
+  }
+  if (u >= 0) { h.leg = 'outbound'; return arc(0); } // over the fix: round again
+  return u < -leg ? arc(-leg) : release(steer(h.inbound, dir * v));
 }
 
 /** Path from the holding point onto the runway centreline for line-up. */

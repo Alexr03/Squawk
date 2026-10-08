@@ -1,6 +1,6 @@
 // Crisp 2D radar scope drawn on an overlay canvas: map underlay, scope symbology, blips and data tags.
 import type { AircraftView, AirportPack, XY } from '@squawk/sim/types';
-import { NM } from '@squawk/sim/geo';
+import { holdShape, NM, racetrack, windKtAt } from '@squawk/sim/geo';
 
 export const TAG_FONT = "500 11.5px 'IBM Plex Mono', ui-monospace, Consolas, monospace";
 export const SMALL_FONT = "500 10px 'IBM Plex Mono', ui-monospace, Consolas, monospace";
@@ -34,6 +34,7 @@ export interface RadarFrame {
   incidents?: { id: string; x: number; y: number; fire: number; kind: 'crash' | 'emergency'; resolved: boolean }[];
   attention: Record<string, 'routine' | 'urgent' | 'emergency'>;
   cells: { x: number; y: number; r: number; intensity: number }[];
+  windKt: number;        // surface wind: holding patterns are sized for it
 }
 
 type Label = { x: number; y: number; text: string; kind: 'rwy' | 'twy' | 'hold' | 'stand' };
@@ -232,24 +233,14 @@ export class Radar {
         ctx.globalAlpha = fade * 0.5; ctx.beginPath(); ctx.moveTo(other.thr.x, other.thr.y);
         ctx.lineTo(other.thr.x + Math.sin(b) * 3 * NM, other.thr.y + Math.cos(b) * 3 * NM); ctx.stroke(); ctx.globalAlpha = fade;
       }
-      // holding stacks: racetrack with inbound leg ending at the fix
+      // holding stacks: racetrack with inbound leg ending at the fix, the size flown at the bottom of the stack in today's wind
       ctx.strokeStyle = P.stack; ctx.lineWidth = 1.2 * px;
       for (const s of prim.airspace.stacks) {
         const f = fixes[s.fix]; if (!f) continue;
-        const t = (s.inboundTrack * Math.PI) / 180, ux = Math.sin(t), uy = Math.cos(t);
-        const sx = s.turn === 'R' ? uy : -uy, sy = s.turn === 'R' ? -ux : ux; // unit toward the turn side
-        const leg = 4 * NM, r = 1.2 * NM;
-        const a0 = { x: f.x - ux * leg, y: f.y - uy * leg };
-        ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(f.x, f.y);
-        const turnArc = (c: XY, from: XY) => {
-          const ang0 = Math.atan2(from.y - c.y, from.x - c.x);
-          for (let i = 1; i <= 16; i++) { const a = ang0 + (s.turn === 'R' ? -1 : 1) * Math.PI * (i / 16); ctx.lineTo(c.x + Math.cos(a) * r, c.y + Math.sin(a) * r); }
-        };
-        turnArc({ x: f.x + sx * r, y: f.y + sy * r }, f);
-        const b0 = { x: f.x + sx * 2 * r - ux * leg, y: f.y + sy * 2 * r - uy * leg };
-        ctx.lineTo(b0.x, b0.y);
-        turnArc({ x: a0.x + sx * r, y: a0.y + sy * r }, b0);
-        ctx.stroke();
+        const pts = racetrack(f, s.inboundTrack, s.turn, holdShape(220, s.minAltFt, windKtAt(F.windKt, s.minAltFt)));
+        ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+        for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y);
+        ctx.closePath(); ctx.stroke();
       }
       // fixes
       screen();

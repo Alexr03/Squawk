@@ -59,7 +59,7 @@ export type Phase =
 export interface Nav {
   mode: 'hdg' | 'route' | 'hold' | 'climbout';
   route: string[];             // remaining fixes (route mode)
-  hold?: { fix: string; inbound: number; turn: 'L' | 'R'; leg: 'entry' | 'outbound' | 'inbound'; t: number };
+  hold?: { fix: string; inbound: number; turn: 'L' | 'R'; leg: 'entry' | 'teardrop' | 'parallel' | 'outbound' | 'inbound'; t: number; r?: number; len?: number };
   ils?: string;                // runway end cleared for the ILS
   established: boolean;
   gs: boolean;                 // glidepath captured

@@ -401,18 +401,24 @@ function sequence(world: World, st: State, apt: Apt) {
     // Emergencies first, then go-arounds, then whoever has waited longest.
     candidates.sort((a, b) => (b.emergency ? 1 : 0) - (a.emergency ? 1 : 0) || (b.phase === 'goaround' ? 1 : 0) - (a.phase === 'goaround' ? 1 : 0) || a.spawnedAt - b.spawnedAt);
     const lowestInStack = (a: Aircraft) => a.phase !== 'stack' || !candidates.some(o => o !== a && o.phase === 'stack' && o.stack === a.stack && o.alt < a.alt - 200);
-    // Of those free to leave, priority first, then the one that costs the least wake spacing, then whoever waited longest.
-    const free = candidates.filter(lowestInStack);
-    const prio = (a: Aircraft) => (a.emergency ? -1e6 : 0) + (a.phase === 'goaround' ? -1e5 : 0) + appSpacing(lastWake, a.wake, st.weather.lvp) * 120 - (st.tick - a.spawnedAt) * DT * 0.15;
-    free.sort((x, y) => prio(x) - prio(y));
-    const next = free[0];
-    if (!next) continue;
-    const pts = transition(apt, next.phase === 'stack' || next.phase === 'arrival' ? apt.fixes[next.stack!] : next, end);
-    const eta = st.tick * DT + pathTime(next, pts, end);
     const mixed = as.dep.some(d => apt.ends[d]?.runway === end.runway);
     const deps = mixed ? st.aircraft.filter(a => a.apt === apt.icao && a.kind === 'dep' && (a.phase === 'holding' || (a.phase === 'taxi' && a.runway && apt.ends[a.runway]?.runway === end.runway))).length : 0;
-    const need = appSpacing(lastWake, next.wake, st.weather.lvp) + 0.45 + (deps ? 3.5 : mixed ? 1 : 0);
-    const gapS = need * NM / (140 * NM / 3600);
+    // Of those free to leave: priority first, then the one that costs the least wake spacing, fills the slot behind the last
+    // release best (not one at the far end of its holding pattern), and has waited longest.
+    const opts = candidates.filter(lowestInStack).map(a => {
+      const pts = transition(apt, a.phase === 'stack' || a.phase === 'arrival' ? apt.fixes[a.stack!] : a, end);
+      const eta = st.tick * DT + pathTime(a, pts, end);
+      const gapS = (appSpacing(lastWake, a.wake, st.weather.lvp) + 0.45 + (deps ? 3.5 : mixed ? 1 : 0)) * NM / (140 * NM / 3600);
+      const late = eta - lastEta - gapS;
+      // Too high to get down on that track (about 300 ft a mile) would mean an unstable approach.
+      const trackNm = pts.reduce((s, p, i) => s + dist(i ? pts[i - 1] : a, p), dist(pts[pts.length - 1], end.thr)) / NM;
+      const tooHigh = a.alt - elevation(apt) - 1500 > trackNm * 300;
+      const prio = (a.emergency ? -1e6 : 0) + (a.phase === 'goaround' ? -1e5 : 0) + appSpacing(lastWake, a.wake, st.weather.lvp) * 120 - (st.tick - a.spawnedAt) * DT * 0.15
+        + (late < 0 || tooHigh ? 1e4 : late);
+      return { a, pts, eta, gapS, prio };
+    }).sort((x, y) => x.prio - y.prio);
+    if (!opts.length) continue;
+    const { a: next, pts, eta, gapS } = opts[0];
     // Steady flow: one release per spacing interval, ordered by arrival time.
     const since = (st.tick - (as.lastRelease[endName] ?? -1e9)) * DT;
     if ((eta >= lastEta + gapS * 0.75 && since >= gapS * 0.9) || next.emergency) {

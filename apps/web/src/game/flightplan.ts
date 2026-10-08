@@ -45,8 +45,10 @@ export function flightPlan(world: World, ac: Aircraft): FlightPlan | null {
 
   // Holding: the racetrack itself (as drawn on the scope): straight to the fix if not there yet, then round the pattern.
   if (ac.nav.mode === 'hold' && ac.nav.hold) {
-    const loop = racetrack(apt, ac.nav.hold.fix, ac.nav.hold.inbound, ac.nav.hold.turn);
-    if (loop) return { plan, fixes, end, ...followLoop(ac, loop, fx(ac.nav.hold.fix)!) };
+    const h = ac.nav.hold, f = fx(h.fix), sk = apt.pack.airspace.stacks.find(s => s.fix === h.fix);
+    // The pattern exactly as the sim flies it (sized for its speed, level and the wind), once it has worked that out.
+    const loop = f && geo.racetrack(f, sk?.inboundTrack ?? h.inbound, sk?.turn ?? h.turn, h.r && h.len ? { r: h.r, leg: h.len } : geo.holdShape(ac.ias, ac.alt));
+    if (loop) return { plan, fixes, end, ...followLoop(ac, loop, f) };
   }
   // Projection: fly the aircraft's current instructions forward for four minutes, turning at rate one.
   const track: XY[] = [];
@@ -104,28 +106,6 @@ export function withCommands(ac: Aircraft, cmds: Command[]): Aircraft {
     else if (c.verb === 'alt') a.tgtAlt = c.alt;
   }
   return a;
-}
-
-/** The holding pattern at a fix as a closed polyline in flying order: inbound leg to the fix, turn, outbound leg, turn. */
-function racetrack(apt: { pack: { airspace: { stacks: { fix: string; inboundTrack: number; turn: 'L' | 'R' }[] } }; fixes: Record<string, XY> }, fix: string, inbound: number, turn: 'L' | 'R'): XY[] | null {
-  const f = apt.fixes[fix];
-  if (!f) return null;
-  const sk = apt.pack.airspace.stacks.find(s => s.fix === fix);
-  const trk = sk?.inboundTrack ?? inbound, dir = sk?.turn ?? turn;
-  const t = (trk * Math.PI) / 180, ux = Math.sin(t), uy = Math.cos(t);
-  const sx = dir === 'R' ? uy : -uy, sy = dir === 'R' ? -ux : ux; // toward the turn side
-  const leg = 4 * NM, r = 1.2 * NM;
-  const a0 = { x: f.x - ux * leg, y: f.y - uy * leg };
-  const pts: XY[] = [a0, { x: f.x, y: f.y }];
-  const arc = (c: XY, from: XY) => {
-    const ang0 = Math.atan2(from.y - c.y, from.x - c.x);
-    for (let i = 1; i <= 12; i++) { const a = ang0 + (dir === 'R' ? -1 : 1) * Math.PI * (i / 12); pts.push({ x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r }); }
-  };
-  arc({ x: f.x + sx * r, y: f.y + sy * r }, f);
-  const b0 = { x: f.x + sx * 2 * r - ux * leg, y: f.y + sy * 2 * r - uy * leg };
-  pts.push(b0);
-  arc({ x: a0.x + sx * r, y: a0.y + sy * r }, b0);
-  return pts;
 }
 
 /** Four minutes along: to the fix first if still on the way in, then round the loop from the nearest point, ticks by distance. */
