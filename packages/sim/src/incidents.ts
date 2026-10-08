@@ -5,7 +5,8 @@ import { aptOf, aptState } from './physics.ts';
 import { event } from './rules.ts';
 import { CLOSED_UNTIL_REOPENED, DT, seatId, ticks, type Aircraft, type Incident, type State } from './state.ts';
 import type { Command } from './types.ts';
-import { runwayAt, type World } from './world.ts';
+import { route, runwayAt, type Apt, type World } from './world.ts';
+import type { XY } from './types.ts';
 
 const EXTINGUISH_S = 75;      // a fully burning wreck, once crews are on scene
 const BURN_OUT_S = 600;       // with nobody there, a fire dies down by itself (the wreck stays)
@@ -88,10 +89,23 @@ function dispatch(world: World, st: State, inc: Incident) {
   inc.dispatched = st.tick;
   for (let k = 0; k < 3; k++) {
     const a = (k / 3) * Math.PI * 2;
-    st.vehicles.push({ id: `fire-${inc.id}-${k}`, kind: 'fire', x: apt.fire.x + k * 10, y: apt.fire.y, hdg: 0, lights: true,
-      target: { x: inc.x + Math.cos(a) * 32, y: inc.y + Math.sin(a) * 32 }, home: { ...apt.fire }, until: CLOSED_UNTIL_REOPENED });
+    const target = { x: inc.x + Math.cos(a) * 32, y: inc.y + Math.sin(a) * 32 };
+    st.vehicles.push({ id: `fire-${inc.id}-${k}`, kind: 'fire', x: apt.fire.x, y: apt.fire.y, hdg: 0, lights: true,
+      target, home: { ...apt.fire }, until: CLOSED_UNTIL_REOPENED, path: roads(apt, apt.fire, target, inc.runway), leave: st.tick + ticks(k * 4) });
   }
   st.alerts.push({ tick: st.tick, level: 'info', text: `Fire service on its way to ${inc.cs.join(' / ')}` });
+}
+
+/** Waypoints along the taxi graph from a to b (crossing runways where it must, along the incident's own runway if quicker). */
+function roads(apt: Apt, a: XY, b: XY, runway: string | null): XY[] {
+  const p = route(apt, junction(apt, a), junction(apt, b), { allowRunway: r => r === runway }) ?? [];
+  return [...p.map(n => ({ x: apt.nodes[n].x, y: apt.nodes[n].y })), b];
+}
+/** Nearest node on a through taxiway (not a stand's dead-end lead-in). */
+function junction(apt: Apt, p: XY) {
+  let best = 0, bd = Infinity;
+  for (const n of apt.nodes) { const d = dist(n, p); if (d < bd && !n.stand && apt.adj[n.id].length > 1) { bd = d; best = n.id; } }
+  return best;
 }
 
 // ------------------------------------------------------------------ runway closures
@@ -147,9 +161,19 @@ export function updateIncidents(world: World, st: State) {
   }
   // Vehicles drive to the scene, stay until it is cleared, then go home.
   for (const v of st.vehicles) {
-    const tgt = st.tick < v.until ? v.target ?? v.home : v.home;
-    const d = dist(v, tgt);
-    if (d > 3) { const sp = 18 * DT; v.hdg = Math.atan2(tgt.x - v.x, tgt.y - v.y) * 180 / Math.PI; v.x += (tgt.x - v.x) / d * Math.min(sp, d); v.y += (tgt.y - v.y) / d * Math.min(sp, d); }
+    if (st.tick < (v.leave ?? 0)) continue;
+    // Called home: back the way it came.
+    if (st.tick >= v.until && v.target) { v.target = null; v.path = [...(v.path ?? [])].reverse().slice(1).concat(v.home); v.pi = 0; }
+    const path = v.path ?? [v.target ?? v.home];
+    let sp = 18 * DT, i = v.pi ?? 0;
+    while (sp > 0 && i < path.length) {
+      const tgt = path[i], d = dist(v, tgt), k = Math.min(sp, d);
+      if (d > 0.5) v.hdg = Math.atan2(tgt.x - v.x, tgt.y - v.y) * 180 / Math.PI;
+      if (d > 0) { v.x += (tgt.x - v.x) / d * k; v.y += (tgt.y - v.y) / d * k; }
+      sp -= k;
+      if (k === d) i++;
+    }
+    v.pi = i;
   }
   st.vehicles = st.vehicles.filter(v => st.tick < v.until || dist(v, v.home) > 3);
   st.incidents = st.incidents.filter(i => !i.resolved || st.tick - (i.clearAt ?? i.since) < ticks(60)); // resolved ones linger a minute (smoke clearing)

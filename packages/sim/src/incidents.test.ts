@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import { buildWorld, crash, createShift, declareEmergency, DIFFICULTY, isClosed, issue, step, type AirportPack, type DayPack, type ShiftConfig, type State } from './index.ts';
 import { runwayAt } from './world.ts';
+import { segDist } from './geo.ts';
 
 const pack: AirportPack = JSON.parse(readFileSync(new URL('../../../data/airports/EGLL/airport.json', import.meta.url), 'utf8'));
 const day: DayPack = JSON.parse(readFileSync(new URL('../../../data/days/EGLL-2026-08-28.json', import.meta.url), 'utf8'));
@@ -42,7 +43,14 @@ describe('crashes', () => {
     expect(issue(world, st, [{ cs: '', verb: 'openrwy', runway: pair, apt: 'EGLL' }])).toMatch(/still on it/);
     expect(issue(world, st, [{ cs: a.cs, verb: 'rescue' }])).toBeNull();
     expect(st.vehicles.filter(v => v.kind === 'fire')).toHaveLength(3);
-    expect(until(st, c, () => st.incidents[0].onScene !== null)).toBe(true);
+    // They drive the taxiways (and the runway itself), not straight across the grass.
+    const offRoad = (v: State['vehicles'][number]) => Math.min(...apt.edges.map(e => segDist(v, apt.nodes[e.a], apt.nodes[e.b]).d));
+    let worst = 0;
+    // Off the graph only on the station's own access (to its first waypoint) and the last few metres onto the scene.
+    const access = Math.hypot(st.vehicles[0].path![0].x - apt.fire.x, st.vehicles[0].path![0].y - apt.fire.y) + 10;
+    const watch = () => { for (const v of st.vehicles) if (Math.hypot(v.x - apt.fire.x, v.y - apt.fire.y) > access && Math.hypot(v.x - st.incidents[0].x, v.y - st.incidents[0].y) > 120) worst = Math.max(worst, offRoad(v)); };
+    expect(until(st, c, () => st.incidents[0].onScene !== null, undefined, watch)).toBe(true);
+    expect(worst).toBeLessThan(15);
     expect(until(st, c, () => st.incidents[0].fire === 0, 4 * 120)).toBe(true);
     expect(until(st, c, () => st.incidents[0].resolved, 4 * 420)).toBe(true);
     expect(st.aircraft.some(x => x.cs === a.cs && x.phase !== 'gone')).toBe(false);

@@ -188,7 +188,8 @@ export interface State {
   stats: Stats;
   incidents: Incident[];
   debugUsed?: boolean;         // the dev panel staged something: kept off the leaderboard
-  vehicles: { id: string; kind: 'fire' | 'followme' | 'tug'; x: number; y: number; hdg: number; lights: boolean; target: XY | null; home: XY; until: number }[];
+  vehicles: { id: string; kind: 'fire' | 'followme' | 'tug'; x: number; y: number; hdg: number; lights: boolean; target: XY | null; home: XY; until: number;
+    path?: XY[]; pi?: number; leave?: number }[]; // path: waypoints along the taxi graph, pi the next one; leave: tick it sets off
   ended: null | 'time' | 'incident' | 'endless-over';
   cmdLog: { tick: number; seat: SeatId; cmds: Command[]; voice?: boolean }[];
   squawks: string[];           // in use
