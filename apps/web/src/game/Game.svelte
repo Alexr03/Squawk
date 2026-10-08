@@ -14,6 +14,7 @@
   import { Sound } from './sound.ts';
   import { settings, saveSettings } from '../lib/settings.svelte.ts';
   import { createVoiceInput, type VoiceInput } from '../audio/voice.ts';
+  import Help from '../screens/Help.svelte';
 
   interface Props {
     client: GameClient; title: string; canPause: boolean;
@@ -31,6 +32,7 @@
   let speed = $state(1);
   let paused = $state(false);
   let menuOpen = $state(false);
+  let helpOpen = $state(false);
   let toasts = $state<{ id: number; text: string; level: string }[]>([]);
   let viewRequest = $state<{ cx: number; cy: number; mpp: number; t: number } | null>(null);
   let cmdInput = $state<HTMLInputElement>();
@@ -232,10 +234,12 @@
         <label>Auto-slow when busy <input type="checkbox" bind:checked={settings.autoSlow} onchange={saveSettings} /></label>
         <label>Push-to-talk voice <input type="checkbox" bind:checked={settings.voiceInput} onchange={saveSettings} /></label>
         <div class="keys">Keys: Tab next aircraft · N most urgent · L/T/G/C/X/K/H/A/S/D/I instructions · Enter command line · right-click radial menu · drag a radar blip to vector · 1–5 views · O routes · W weather · Space pause · ` push-to-talk</div>
+        <button onclick={() => (helpOpen = true)}>How to play</button>
         <button class="quit" onclick={onQuit}>End shift</button>
       </div>
     </div>
   {/if}
+{#if helpOpen}<Help onClose={() => (helpOpen = false)} />{/if}
 {:else}
   <div class="loading">Opening the frequency…</div>
 {/if}

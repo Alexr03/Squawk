@@ -1,11 +1,14 @@
 <script lang="ts">
   import Attract from './Attract.svelte';
+  import Help from './Help.svelte';
   import { loadProgress } from '../lib/progress.ts';
   import { RATINGS } from '../lib/career.ts';
 
   interface Props { onNav: (s: string) => void; error?: string }
   let { onNav, error = '' }: Props = $props();
   const p = loadProgress();
+  let help = $state(p.shifts === 0 && !sessionStorage.getItem('squawk.helpSeen'));
+  const closeHelp = () => { help = false; try { sessionStorage.setItem('squawk.helpSeen', '1'); } catch { /* ignore */ } };
   const earned = RATINGS.filter(r => r.shifts.every(s => p.passed[s.id])).length;
   const items = [
     { s: 'career', label: 'Career', sub: earned ? `${RATINGS[Math.min(earned, RATINGS.length - 1)].name} · ${earned}/${RATINGS.length} ratings` : 'Start as a trainee on Delivery' },
@@ -14,6 +17,7 @@
     { s: 'setup:endless', label: 'Endless', sub: 'Traffic keeps ramping until something breaks' },
     { s: 'coop', label: 'Co-op', sub: 'Work the airport with friends (2–10 seats)' },
     { s: 'settings', label: 'Settings', sub: 'Audio, voice, display, accessibility' },
+    { s: 'help', label: 'How to play', sub: 'Controls, rules and scoring' },
   ];
 </script>
 
@@ -25,7 +29,7 @@
     <p class="tag">Air traffic control at London Heathrow — real data, real radio.</p>
     <nav>
       {#each items as it}
-        <button onclick={() => onNav(it.s)}>
+        <button onclick={() => (it.s === 'help' ? (help = true) : onNav(it.s))}>
           <b>{it.label}</b><span>{it.sub}</span>
         </button>
       {/each}
@@ -37,6 +41,7 @@
     </footer>
   </main>
 </div>
+{#if help}<Help onClose={closeHelp} />{/if}
 
 <style>
   .menu { position: relative; height: 100vh; overflow: hidden; }

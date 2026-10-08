@@ -60,7 +60,10 @@ export function buildSchedule(world: World, cfg: ShiftConfig, st: State) {
     const apt = world.byIcao[icao];
     const day = cfg.days[i] ?? synthDay(apt, cfg.start, end, st);
     const seen = new Set<string>();
-    for (const f of day.flights) {
+    // A day pack from another date is replayed on the shift's date (multi-airport shifts mix days).
+    const shift = day.date ? Math.floor(cfg.start / 86400) * 86400 - Date.parse(day.date + 'T00:00:00Z') / 1000 : 0;
+    for (const f0 of day.flights) {
+      const f = shift ? { ...f0, time: f0.time + shift } : f0;
       if (!TYPES[f.type]) continue;
       // Sample the day deterministically to the requested traffic share.
       if (rand(st) > cfg.traffic) continue;
