@@ -63,7 +63,7 @@
     <div class="ctl"><input type="range" min="0" max="1" step="0.05" bind:value={settings[key]} aria-label={label} /><output>{pct(settings[key])}</output></div>
   </div>
 {/snippet}
-{#snippet toggle(label: string, desc: string, key: 'pilotVoices' | 'atcVoice' | 'voiceInput' | 'highContrast' | 'colorblind' | 'reducedMotion' | 'tutorialHints' | 'autoSlow' | 'fastDay')}
+{#snippet toggle(label: string, desc: string, key: 'pilotVoices' | 'atcVoice' | 'voiceInput' | 'highContrast' | 'colorblind' | 'reducedMotion' | 'tutorialHints' | 'autoSlow' | 'fastDay' | 'uiSounds')}
   <label class="row">
     <div class="lab"><b>{label}</b><span>{desc}</span></div>
     <div class="ctl"><input class="switch" type="checkbox" bind:checked={settings[key]} /></div>
@@ -119,6 +119,7 @@
           <h2>Who speaks</h2>
           {@render toggle('Pilot voices', 'Read pilot transmissions aloud', 'pilotVoices')}
           {@render toggle('Your transmissions', 'Also read out what you say to pilots', 'atcVoice')}
+          {@render toggle('Interface sounds', 'Soft clicks on buttons, switches and menus', 'uiSounds')}
           <div class="row">
             <div class="lab"><b>Pilot accents</b><span>Crews sound like their airline's country. Light keeps every call easy to follow.</span></div>
             <div class="ctl seg">{#each [['off', 'Off'], ['light', 'Light'], ['strong', 'Strong']] as [v, n]}<button class:on={settings.accents === v} onclick={() => { settings.accents = v as 'off' | 'light' | 'strong'; saveSettings(); }}>{n}</button>{/each}</div>

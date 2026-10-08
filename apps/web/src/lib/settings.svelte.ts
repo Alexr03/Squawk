@@ -16,13 +16,14 @@ export interface Settings {
   depth: boolean;              // depth of field, horizon haze and vignette on the 3D view
   accents: 'off' | 'light' | 'strong'; // how strongly pilots sound like their airline's country
   blockedVoices: string[];     // speech voices the player switched off
+  uiSounds: boolean;           // clicks and chimes on buttons and switches
 }
 
 const DEFAULTS: Settings = {
   master: 0.5, voice: 0.8, fx: 0.5, ambient: 0.2, music: 0.4, pilotVoices: true, atcVoice: false,
   voiceInput: false, voiceBackend: 'webspeech', pttKey: 'Backquote',
   pixelSize: 3, quality: 'high', uiScale: 1, highContrast: false, reducedMotion: false, colorblind: false,
-  autoSlow: false, tutorialHints: true, callsign: '', audioV: 2, fastDay: true, depth: true, accents: 'light', blockedVoices: [],
+  autoSlow: false, tutorialHints: true, callsign: '', audioV: 2, fastDay: true, depth: true, accents: 'light', blockedVoices: [], uiSounds: true,
 };
 
 function read(): Settings {
