@@ -126,7 +126,7 @@ node tools/careercheck.ts                     # every career shift and a week of
 
 ## Versioning
 
-Squawk follows [Semantic Versioning](https://semver.org). The version lives in the root `package.json`; the build number after the `+` (as in `0.9.0+123`) is the commit count, so it goes up automatically with every commit. Both are and is shown on the home screen, in **Settings → About** (with the commit it was built from) and in the pause menu.
+Squawk follows [Semantic Versioning](https://semver.org). The version lives in the root `package.json`; the build number after the `+` (as in `0.9.0+123`) is the commit count, so it goes up automatically with every commit. Both are shown on the home screen, in **Settings → About** (with the commit it was built from) and in the pause menu.
 
 - **MAJOR** — changes that break saved progress or shared replays
 - **MINOR** — new features, airports, positions or content
