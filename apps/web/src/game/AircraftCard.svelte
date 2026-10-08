@@ -4,8 +4,8 @@
   import type { Snap } from './client.ts';
   import type { RadialItem } from './radial.ts';
 
-  interface Props { world: World; snap: Snap; ac: Aircraft; actions: RadialItem[]; onPick: (it: RadialItem) => void; onClose: () => void }
-  let { world, snap, ac, actions, onPick, onClose }: Props = $props();
+  interface Props { world: World; snap: Snap; ac: Aircraft; actions: RadialItem[]; onPick: (it: RadialItem) => void; onClose: () => void; following?: boolean; onFollow?: () => void }
+  let { world, snap, ac, actions, onPick, onClose, following = false, onFollow }: Props = $props();
   const t = $derived(TYPES[ac.type]);
   const al = $derived(airline(ac.operator));
   const apt = $derived(world.byIcao[ac.apt]);
@@ -19,7 +19,12 @@
       <h2>{ac.cs}</h2>
       <div class="tel" title="Say this on the radio (or spell the letters: {ac.cs.split('').join(' ')})">On the radio: <b>{callsign(ac.cs)}</b></div>
     </div>
-    <button class="x" onclick={onClose} aria-label="Close">×</button>
+    <div class="hb">
+      {#if onFollow}<button class="follow" class:on={following} onclick={onFollow} title="Keep the camera on this aircraft (V)" aria-pressed={following}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" /><circle cx="12" cy="12" r="2.6" /></svg>{following ? 'Following' : 'Follow'}
+      </button>{/if}
+      <button class="x" onclick={onClose} aria-label="Close">×</button>
+    </div>
   </header>
   <div class="livery" style="--body:{al.body}; --tail:{al.tail}; --accent:{al.accent}"><span></span></div>
   <dl>
@@ -71,6 +76,11 @@
   .acts button:hover { border-color: var(--green); color: var(--green); }
   .acts button.danger { color: var(--red); border-color: var(--red); }
   kbd { font: 600 11px var(--mono); color: var(--muted); background: rgba(0, 0, 0, 0.25); border-radius: 4px; padding: 1px 5px; }
+  .hb { display: flex; align-items: center; gap: 6px; }
+  .follow { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px 4px 8px; border-radius: 999px; border: 1px solid var(--glass-line); background: var(--knob); color: var(--ink); font: 600 12px var(--ui); cursor: pointer; }
+  .follow svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
+  .follow:hover { color: var(--ink-strong); border-color: var(--accent); }
+  .follow.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
   .foot { margin-top: 10px; color: var(--dim); }
   .rb { display: flex; gap: 8px; align-items: center; margin: 0 0 8px; padding: 7px 10px; border-radius: 10px; background: rgba(108, 183, 255, 0.12); color: var(--accent); font: 500 13px var(--ui); }
   .acts.waiting { opacity: 0.45; }

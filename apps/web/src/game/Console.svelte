@@ -7,11 +7,11 @@
   interface Props {
     world: World; snap: Snap; queue: Need[]; filter: string | null;
     overlays: { sids: boolean; stars: boolean; weather: boolean };
-    stripsOpen: boolean; logOpen: boolean;
+    stripsOpen: boolean; logOpen: boolean; autoCam?: boolean; onAutoCam?: () => void;
     onSeat: (seat: string) => void; onFilter: (s: string | null) => void;
     onOverlay: (k: 'routes' | 'weather') => void; onStrips: () => void; onLog: () => void; onHelp: () => void;
   }
-  let { world, snap, queue, filter, overlays, stripsOpen, logOpen, onSeat, onFilter, onOverlay, onStrips, onLog, onHelp }: Props = $props();
+  let { world, snap, queue, filter, overlays, stripsOpen, logOpen, autoCam = false, onAutoCam, onSeat, onFilter, onOverlay, onStrips, onLog, onHelp }: Props = $props();
 
   const NAME: Record<string, string> = { DEL: 'Delivery', GND: 'Ground', TWR: 'Tower', DIR: 'Director', LON: 'London' };
   const freq = (seat: string) => { const icao = seat === 'LON' ? world.primary.icao : seat.split(':')[0]; return world.byIcao[icao]?.freq[seatRole(seat)]?.freq ?? ''; };
@@ -44,6 +44,9 @@
     <button class="tool" class:on={overlays.weather} onclick={() => onOverlay('weather')} title="Weather radar (W)">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17h10a4 4 0 0 0 0-8 6 6 0 0 0-11.5 1.5A3.3 3.3 0 0 0 7 17z" /></svg>
     </button>
+    {#if onAutoCam}<button class="tool" class:on={autoCam} onclick={onAutoCam} title="Auto camera: show me whatever needs me (Shift+V)" aria-pressed={autoCam}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="13" height="10" rx="2" /><path d="M16 11l5-3v8l-5-3z" /><path d="M7 4h2M11 4h2" /></svg>
+    </button>{/if}
     <button class="tool" onclick={onHelp} title="How to play">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7M12 17.2v.1" /></svg>
     </button>

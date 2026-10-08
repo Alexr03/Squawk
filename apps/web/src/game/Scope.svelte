@@ -21,8 +21,12 @@
     viewRequest: { cx: number; cy: number; mpp: number; t: number } | null;
     queue: Need[];
     onAction: (cs: string, a: Action) => void;
+    /** Keep the camera on this aircraft. */
+    follow?: string | null;
+    /** The player moved the camera by hand (pan or zoom). */
+    onUserCamera?: (how: 'pan' | 'zoom') => void;
   }
-  let { client, selected, taxiEdit = $bindable(), overlays, onSelect, onRadial, onIssue, onTaxiDone, viewRequest, queue, onAction }: Props = $props();
+  let { client, selected, taxiEdit = $bindable(), overlays, onSelect, onRadial, onIssue, onTaxiDone, viewRequest, queue, onAction, follow = null, onUserCamera }: Props = $props();
   const feedback = new Feedback();
   let bubbles = $state<{ cs: string; x: number; y: number; oy: number; a: Action | null; level: string }[]>([]);
 
@@ -54,6 +58,10 @@
         const lm = Math.log(anim.from.mpp) + (Math.log(anim.to.mpp) - Math.log(anim.from.mpp)) * e;
         scene.setView({ cx: anim.from.cx + (anim.to.cx - anim.from.cx) * e, cy: anim.from.cy + (anim.to.cy - anim.from.cy) * e, mpp: Math.exp(lm) });
         if (k >= 1) anim = null;
+      } else if (follow) {
+        // Ease the camera after the followed aircraft, keeping the player's zoom.
+        const t = client.views(now).find(v => v.cs === follow);
+        if (t) { const v = scene.getView(); scene.setView({ ...v, cx: v.cx + (t.x - v.cx) * 0.12, cy: v.cy + (t.y - v.cy) * 0.12 }); }
       }
       const snap = client.snap;
       scene.setAircraft([...client.views(now), ...client.fillerViews()]);
@@ -194,6 +202,7 @@
     // The selected aircraft's filed route (dashed) and where it is really going (solid, a tick a minute).
     const selAc = selected && !(drag?.vector && drag.moved) ? find(client.snap!, selected) : undefined;
     if (selAc && !selAc.onGround) drawPlan(ctx, selAc, flightPlan(world, selAc), '#eef3f8', true);
+    if (selAc?.onGround && !taxiEdit) drawGround(ctx, selAc);
     // Drag-to-target: preview exactly what letting go will do (the new path in the air, the taxi route on the ground).
     if (drag?.vector && drag.cur && drag.moved) {
       const ac = find(client.snap!, drag.vector);
@@ -268,6 +277,45 @@
     }
     ctx.restore();
   }
+  /** On the ground: the route it is cleared along (solid), or the route it wants and where to (dashed), so the next instruction is obvious. */
+  function drawGround(ctx: CanvasRenderingContext2D, ac: Aircraft) {
+    const tapt = world.byIcao[ac.apt] ?? apt;
+    const S = (p: XY) => scene!.worldToScreen(p);
+    const moving = ['taxi', 'taxiin', 'vacating', 'lineup'].includes(ac.phase) && ac.pi < ac.path.length;
+    const wants = ac.kind === 'dep' ? (['stand', 'pushing', 'pushed'].includes(ac.phase) ? ac.runway : null) : (ac.phase === 'taxiin' || ac.phase === 'vacating') && !moving ? ac.stand : null;
+    let path: number[] | null = null, label = '', cleared = false;
+    if (moving) {
+      path = [...ac.path.slice(ac.pi)]; cleared = true;
+      const last = tapt.nodes[ac.path[ac.path.length - 1]];
+      const to = last?.hold ? `holding point ${last.hold}` : last?.stand ? `stand ${last.stand}` : ac.runway ?? '';
+      label = `Taxiing to ${to}${ac.holdAt !== null && ac.holdAt !== ac.path[ac.path.length - 1] ? ' · holding short on the way' : ''}`;
+    } else if (wants) {
+      path = taxiPreview(ac, wants);
+      const last = path ? tapt.nodes[path[path.length - 1]] : null;
+      const where = ac.kind === 'dep' ? `runway ${wants}${last?.hold ? ` (holding point ${last.hold})` : ''}` : `stand ${wants}`;
+      label = ac.phase === 'stand' ? `After pushback: ${where}` : `Wants to taxi to ${where}${path ? ` via ${viaNames(tapt, path).join(' ') || 'the apron'}` : ''}`;
+    }
+    if (!path || path.length < 2) return;
+    const col = ac.cleared.greens ? '#5dff8a' : cleared ? '#ffd84a' : '#6cb7ff';
+    ctx.save();
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    const a = S(ac);
+    const line = () => { ctx.beginPath(); ctx.moveTo(a.x, a.y); for (const n of path!) { const q = S(tapt.nodes[n]); ctx.lineTo(q.x, q.y); } };
+    // Dark casing under the line so it reads over grass, concrete and taxiway paint alike.
+    ctx.strokeStyle = 'rgba(5,10,20,0.75)'; ctx.lineWidth = 7; line(); ctx.stroke();
+    ctx.strokeStyle = col; ctx.lineWidth = 3.5; ctx.globalAlpha = ac.phase === 'stand' ? 0.8 : 1;
+    if (!cleared) ctx.setLineDash([10, 7]);
+    line(); ctx.stroke(); ctx.setLineDash([]);
+    const end = S(tapt.nodes[path[path.length - 1]]);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(end.x, end.y, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.font = "600 12px 'IBM Plex Sans', system-ui, sans-serif"; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(label).width;
+    const lx = Math.min(end.x + 10, wrap.clientWidth - w - 20), ly = end.y - 18;
+    ctx.fillStyle = 'rgba(7,14,28,0.88)'; ctx.fillRect(lx, ly - 11, w + 14, 22);
+    ctx.fillStyle = col; ctx.fillText(label, lx + 7, ly);
+    ctx.restore();
+  }
   /** The taxi route a drop would give (same routing as the sim), cached while the drag stays on one target. */
   let taxiMemo: { key: string; path: number[] | null } | null = null;
   function taxiPreview(ac: Aircraft, to: string): number[] | null {
@@ -302,6 +350,7 @@
     if (Math.abs(p.x - drag.x) + Math.abs(p.y - drag.y) > 4) drag.moved = true;
     if (drag.vector) { drag.cur = scene.screenToWorld(p.x, p.y); return; }
     if (drag.moved && drag.button === 0) {
+      onUserCamera?.('pan');
       const v = scene.getView();
       scene.setView({ ...v, cx: v.cx - (p.x - drag.x) * v.mpp, cy: v.cy + (p.y - drag.y) * v.mpp });
       drag.x = p.x; drag.y = p.y;
@@ -335,6 +384,7 @@
     e.preventDefault();
     if (!scene) return;
     anim = null;
+    onUserCamera?.('zoom');
     const p = local(e);
     const v = scene.getView();
     const before = scene.screenToWorld(p.x, p.y);

@@ -118,6 +118,42 @@
   }
 
   /** Fly the camera to an aircraft: close in on the ground, radar view in the air. */
+  // ---------------------------------------------------------------- camera: follow and auto
+  let following = $state<string | null>(null);
+  let autoCam = $state(false);
+  let autoTarget: string | null = null, autoSince = 0, autoPauseUntil = 0, autoHome = false; // plain: the effect below writes them
+  function toggleFollow(cs: string | null) {
+    following = following === cs ? null : cs;
+    if (following) { focus(following); toast(`Following ${following}`, 'info'); }
+  }
+  function toggleAuto() {
+    autoCam = !autoCam; autoTarget = null; autoPauseUntil = 0; autoHome = false;
+    if (!autoCam) following = null;
+    toast(autoCam ? 'Auto camera on: it will show you whatever needs you' : 'Auto camera off', 'info');
+  }
+  function userCamera(how: 'pan' | 'zoom') {
+    if (autoCam) { autoPauseUntil = performance.now() + 15000; if (how === 'pan') following = null; return; }
+    if (how === 'pan' && following) following = null;
+  }
+  // Auto camera: go to the most pressing aircraft and follow it; stay a few seconds so you can act; home when it's quiet.
+  $effect(() => {
+    void snap?.tick;
+    if (!autoCam || !snap) return;
+    const now = performance.now();
+    if (now < autoPauseUntil) return;
+    const top = queue.find(n => n.level === 'emergency') ?? queue.find(n => n.level === 'urgent') ?? queue[0];
+    const current = autoTarget ? queue.find(n => n.cs === autoTarget) : undefined;
+    const outranked = current && top && top.cs !== current.cs && (top.level === 'emergency' || (top.level === 'urgent' && current.level === 'routine'));
+    if (current && !outranked) return; // still needs you: stay on it
+    if (autoTarget && now - autoSince < 3000) return; // just handled: let the player see it happen
+    if (top) {
+      autoTarget = top.cs; autoSince = now; autoHome = false;
+      focus(top.cs); following = top.cs;
+    } else if (!autoHome) {
+      autoTarget = null; autoHome = true; following = null;
+      const seat = client.seats[0]; if (seat) jump(seat);
+    }
+  });
   function focus(cs: string) {
     const a = snap && find(snap, cs);
     if (!a) return;
@@ -152,6 +188,7 @@
       if (seat) jump(seat);
       return;
     }
+    if (k === 'v') { if (e.shiftKey) toggleAuto(); else if (selected) toggleFollow(selected); return; }
     if (k === 'o') { overlays = { ...overlays, sids: !overlays.sids, stars: !overlays.stars }; return; }
     if (k === 'w') { overlays = { ...overlays, weather: !overlays.weather }; return; }
     if (!selected || !actions.length) return;
@@ -206,7 +243,7 @@
 {#if snap}
   <div class="game" class:radial-open={!!radial} style="--scale:{settings.uiScale}">
     <div class="world">
-      <Scope bind:this={scope} {client} {selected} bind:taxiEdit {overlays} {viewRequest}
+      <Scope bind:this={scope} {client} {selected} bind:taxiEdit {overlays} {viewRequest} follow={following} onUserCamera={userCamera}
         onSelect={(cs) => (selected = cs)} onRadial={(cs, x, y) => (radial = { cs, x, y })} onIssue={(c) => send(c)} onTaxiDone={taxiDone}
         {queue} onAction={(cs, a) => { selected = cs; if (a.cmds) send(a.cmds); else if (a.taxi) send([a.taxi.greens ? { cs, verb: 'greens', to: a.taxi.to } : { cs, verb: 'taxi', to: a.taxi.to, via: [] }]); }} />
     </div>
@@ -233,7 +270,7 @@
         </div>
       {/if}
       {#if selAc}
-        <AircraftCard {world} {snap} ac={selAc} {actions} onPick={(it) => (it.sub && !it.cmd && !it.taxi ? (radial = { cs: selAc!.cs, x: innerWidth - 300, y: innerHeight / 2, items: it.sub(), title: it.label }) : pick(it))} onClose={() => (selected = null)} />
+        <AircraftCard {world} {snap} ac={selAc} {actions} following={following === selAc.cs} onFollow={() => toggleFollow(selAc!.cs)} onPick={(it) => (it.sub && !it.cmd && !it.taxi ? (radial = { cs: selAc!.cs, x: innerWidth - 300, y: innerHeight / 2, items: it.sub(), title: it.label }) : pick(it))} onClose={() => (selected = null)} />
       {/if}
     </div>
 
@@ -241,7 +278,7 @@
       <Comms {world} snap={client.monitor ? { ...snap, coverage: client.cfg.coverage } : snap} {selected} {filter} onSend={(c) => send(c)} onSelect={(cs) => (selected = cs)} bind:inputEl={cmdInput} />
     </div>
 
-    <Console {world} {snap} {queue} {filter} {overlays} {stripsOpen} {logOpen}
+    <Console {world} {snap} {queue} {filter} {overlays} {stripsOpen} {logOpen} {autoCam} onAutoCam={toggleAuto}
       onSeat={(s) => { jump(s); }} onFilter={(s) => (filter = s)}
       onOverlay={(k) => (k === 'routes' ? (overlays = { ...overlays, sids: !overlays.sids, stars: !overlays.stars }) : (overlays = { ...overlays, weather: !overlays.weather }))}
       onStrips={() => (stripsOpen = !stripsOpen)} onLog={() => (logOpen = !logOpen)} onHelp={() => (helpOpen = true)} />
