@@ -8,6 +8,7 @@ const airportUrls = import.meta.glob('../../../../data/airports/*/airport.json',
 const sceneryUrls = import.meta.glob('../../../../data/airports/*/scenery.json', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
 const dayUrls = import.meta.glob('../../../../data/days/*-*.json', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
 
+const ORDER = ['EGLL', 'EGKK', 'EGSS', 'EGGW', 'EGLC']; // busiest first
 const AIRPORT_NAMES: Record<string, string> = { EGLL: 'London Heathrow', EGKK: 'London Gatwick', EGSS: 'London Stansted', EGGW: 'London Luton', EGLC: 'London City' };
 
 export interface DayInfo { id: string; airport: string; date: string; label: string; tags: string[]; flights: number }
@@ -23,7 +24,8 @@ export const isMadeUp = (id: string | null | undefined) => !!id?.endsWith('-made
 
 export const AIRPORTS: { icao: string; name: string }[] = Object.keys(airportUrls)
   .map(p => p.match(/airports\/(\w{4})\//)![1])
-  .map(icao => ({ icao, name: AIRPORT_NAMES[icao] ?? icao }));
+  .map(icao => ({ icao, name: AIRPORT_NAMES[icao] ?? icao }))
+  .sort((a, b) => (ORDER.indexOf(a.icao) + 1 || 99) - (ORDER.indexOf(b.icao) + 1 || 99));
 
 const cache = new Map<string, Promise<unknown>>();
 function load<T>(url: string): Promise<T> {
