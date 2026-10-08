@@ -7,6 +7,7 @@
   import { AIRPORTS, DAYS } from '../lib/data.ts';
   import { REPO, versionLabel } from '../lib/version.ts';
   import { music } from '../audio/music.ts';
+  import { account, pb } from '../lib/pb.svelte.ts';
   import { settings } from '../lib/settings.svelte.ts';
 
   interface Props { onNav: (s: string) => void; error?: string }
@@ -84,6 +85,7 @@
     <nav class="aux">
       <button onclick={() => onNav('settings')}>Settings</button>
       <button onclick={() => (help = true)}>How to play</button>
+      {#if pb}<button onclick={() => onNav('settings')}>{account.user ? `Signed in as ${account.user.name}` : 'Sign in with Discord'}</button>{/if}
       {#if p.shifts}<span>{p.shifts} {p.shifts === 1 ? 'shift' : 'shifts'} worked</span>{/if}
     </nav>
     {#if error}<p class="err">{error}</p>{/if}

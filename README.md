@@ -140,7 +140,8 @@ The game is a static site; nothing runs on a server for single-player.
 
 1. **Cloudflare Pages** → create a project from this repo. Build command `pnpm build`, output directory `apps/web/dist`, Node 24.
 2. **Custom domain** → add it to the Pages project.
-3. **Optional**, for the daily leaderboard and co-op room codes: deploy the Worker in `apps/leaderboard` (see its README) and set `VITE_LEADERBOARD_URL` in the Pages build environment. Without it the leaderboard is per-device and co-op uses copy-paste invite codes.
+3. **Optional, accounts and the leaderboard:** run PocketBase with the migrations in [](pocketbase/README.md), enable Discord sign-in there, and set . Players then sign in with Discord, scores go on a shared daily board and career progress follows them between devices.
+4. **Optional**, for co-op room codes (and the older leaderboard): deploy the Worker in `apps/leaderboard` (see its README) and set `VITE_LEADERBOARD_URL` in the Pages build environment. Without it the leaderboard is per-device and co-op uses copy-paste invite codes.
 
 ## Project layout
 

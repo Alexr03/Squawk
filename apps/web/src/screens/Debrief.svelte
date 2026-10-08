@@ -1,6 +1,7 @@
 <script lang="ts">
   import { localHour, type Debrief, type State } from '@squawk/sim';
   import { submitScore } from '../lib/leaderboard.ts';
+  import { account } from '../lib/pb.svelte.ts';
   import { settings } from '../lib/settings.svelte.ts';
 
   interface Props { d: Debrief; st: State; title: string; outcome: string | null; dailyKey: string | null; onReplay: (tick: number) => void; onAgain: () => void; onMenu: () => void }
@@ -13,7 +14,7 @@
   async function submit() {
     if (!dailyKey) return;
     submitted = 'Sending…';
-    submitted = await submitScore(dailyKey, settings.callsign || 'Anonymous', d.score, d.grade);
+    submitted = await submitScore(dailyKey, account.user?.name || settings.callsign || 'Anonymous', d.score, d.grade);
   }
   const bars = $derived([
     { name: 'Safety', v: d.safety, label: `×${d.safety.toFixed(2)}`, note: 'Multiplies everything' },

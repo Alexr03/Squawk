@@ -15,6 +15,8 @@
   import Daily from './screens/Daily.svelte';
   import Coop from './screens/Coop.svelte';
   import { prepare, type Launch } from './lib/launch.ts';
+  import { pushProgress, syncProgress } from './lib/pb.svelte.ts';
+  void syncProgress(); // signed in from an earlier visit: pull this account's progress
   import Loading, { type Brief } from './screens/Loading.svelte';
   import { DAYS } from './lib/data.ts';
 
@@ -66,6 +68,7 @@
     const key = `${launch?.mode}:${launch?.coverage.join('+')}`;
     p.bests[key] = Math.max(p.bests[key] ?? 0, d.score);
     saveProgress(p);
+    void pushProgress();
     result = { d, st, outcome };
     screen = 'debrief';
   }

@@ -3,6 +3,10 @@
   import { createRadioAudio } from '../audio/radio.ts';
   import { music } from '../audio/music.ts';
   import { BUILT, COMMIT, REPO, VERSION } from '../lib/version.ts';
+  import { account, pb, rename, signInWithDiscord, signOut } from '../lib/pb.svelte.ts';
+  let authMsg = $state('');
+  let newName = $state(account.user?.name ?? '');
+  async function discord() { authMsg = 'Opening Discord…'; authMsg = (await signInWithDiscord()) ?? ''; newName = account.user?.name ?? ''; }
   interface Props { onBack: () => void }
   let { onBack }: Props = $props();
 
@@ -12,6 +16,7 @@
     { id: 'display', name: 'Display', hint: 'Graphics and interface size' },
     { id: 'access', name: 'Accessibility', hint: 'Contrast, colour and motion' },
     { id: 'play', name: 'Gameplay', hint: 'Hints, pacing and your name' },
+    { id: 'account', name: 'Account', hint: account.user ? `Signed in as ${account.user.name}` : 'Sign in with Discord' },
     { id: 'about', name: 'About', hint: `Version ${VERSION}` },
   ] as const;
   let tab = $state<(typeof SECTIONS)[number]['id']>('audio');
@@ -192,6 +197,22 @@
           {@render toggle('Colour-blind safe palette', 'Blue instead of green, magenta instead of red', 'colorblind')}
           {@render toggle('Reduce motion', 'No pulses, sweeps or animated transitions', 'reducedMotion')}
         </section>
+      {:else if tab === 'account'}
+        <section>
+          <h2>Account</h2>
+          {#if !pb}
+            <p class="note">Accounts aren't set up on this server, so your progress and scores stay on this device.</p>
+          {:else if account.user}
+            <div class="row"><div class="lab"><b>{account.user.name}</b><span>Signed in with Discord. Your career progress and daily scores follow you to any device.</span></div>
+              <div class="ctl"><button class="act" onclick={() => { signOut(); authMsg = ''; }}>Sign out</button></div></div>
+            <div class="row"><div class="lab"><b>Leaderboard name</b><span>How you appear on the daily board</span></div>
+              <div class="ctl"><input class="txt" bind:value={newName} maxlength="20" aria-label="Leaderboard name" /><button class="act" onclick={async () => (authMsg = (await rename(newName)) ?? 'Saved')}>Save</button></div></div>
+          {:else}
+            <div class="row"><div class="lab"><b>Sign in with Discord</b><span>Join the daily leaderboard and keep your career progress across devices. Nothing is posted to Discord.</span></div>
+              <div class="ctl"><button class="act discord" onclick={discord}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.3 5.4A17 17 0 0 0 15 4l-.5 1a15 15 0 0 0-5 0L9 4a17 17 0 0 0-4.3 1.4C2 9.5 1.3 13.5 1.6 17.4A17 17 0 0 0 6.9 20l1.1-1.7c-.6-.2-1.2-.5-1.7-.9l.4-.3a12 12 0 0 0 10.6 0l.4.3c-.5.4-1.1.7-1.7.9L17 20a17 17 0 0 0 5.3-2.6c.4-4.5-.7-8.5-3-12zM8.5 15c-1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2S9.6 15 8.5 15zm7 0c-1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2-.8 2.2-1.9 2.2z" /></svg>Sign in with Discord</button></div></div>
+          {/if}
+          {#if authMsg}<p class="note">{authMsg}</p>{/if}
+        </section>
       {:else if tab === 'about'}
         <section>
           <h2>Squawk</h2>
@@ -255,6 +276,9 @@
   input[type=range] { width: 200px; accent-color: var(--green); }
   output.wide { width: auto; }
   a.act { text-decoration: none; }
+  .act.discord { background: #5865f2; color: #fff; box-shadow: none; }
+  .act.discord:hover { filter: brightness(1.1); box-shadow: none; }
+  .act.discord svg { width: 18px; height: 18px; fill: currentColor; stroke: none; }
   output { width: 42px; text-align: right; font: 600 13px var(--mono); color: var(--ink-strong); }
 
   /* Switches made from the native checkbox. */

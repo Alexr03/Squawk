@@ -12,9 +12,13 @@ function saveLocal(key: string, list: Entry[]) {
   try { const all = JSON.parse(localStorage.getItem(LOCAL) ?? '{}'); all[key] = list; localStorage.setItem(LOCAL, JSON.stringify(all)); } catch { /* ignore */ }
 }
 
-export const online = !!BASE;
+import { boardFromServer, pb, scoreToServer } from './pb.svelte.ts';
+
+export const online = !!BASE || !!pb;
 
 export async function fetchBoard(key: string): Promise<{ entries: Entry[]; online: boolean }> {
+  const fromPb = await boardFromServer(key);
+  if (fromPb) return { entries: fromPb, online: true };
   if (BASE) {
     try {
       const r = await fetch(`${BASE}/daily/${key}`);
@@ -28,6 +32,7 @@ export async function submitScore(key: string, name: string, score: number, grad
   const entry: Entry = { name: name.slice(0, 20), score, grade, at: Date.now() };
   const local = [...localBoard(key), entry].sort((a, b) => b.score - a.score).slice(0, 50);
   saveLocal(key, local);
+  if (pb) return (await scoreToServer(key, score, grade)) ?? 'Sign in with Discord to join the leaderboard (saved on this device)';
   if (!BASE) return 'Saved to your local board';
   try {
     const r = await fetch(`${BASE}/daily/${key}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(entry) });
