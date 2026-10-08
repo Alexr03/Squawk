@@ -109,7 +109,7 @@ function ground(world: World, st: State, ac: Aircraft) {
     }
     if (ac.phase === 'pushed' && !ac.cleared.taxi) { taxiOut(world, st, ac); return; }
     if (ac.phase === 'taxi') {
-      if (remaining(apt, ac) < 450 || ac.pi >= ac.path.length) { handTo(world, st, ac); return; }
+      if (remaining(apt, ac) < 160 || ac.pi >= ac.path.length) { handTo(world, st, ac); return; }
       if (atRunwayEntry(world, ac)) { handTo(world, st, ac); return; } // crossings are Tower's
       unjam(world, st, ac);
     }

@@ -236,6 +236,7 @@ export class Radar {
       ctx.globalAlpha = Math.max(0, 1 - fade * 2.5);
       ctx.font = SMALL_FONT; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
       for (const ac of list) {
+        if (ac.cs.startsWith("~")) continue; // parked scenery, no label
         const q = F.screenOf(ac), r = F.sizeOf(ac);
         if (q.x < -40 || q.y < -40 || q.x > F.w + 40 || q.y > F.h + 40) continue;
         const col = colOf(ac);

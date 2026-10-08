@@ -185,7 +185,7 @@ export function domain(world: World, st: State, ac: Aircraft): Seat {
   if (ac.kind === 'dep') {
     if (ac.phase === 'stand' && !ac.cleared.dl) return 'DEL';
     if (['stand', 'pushing', 'pushed'].includes(ac.phase)) return 'GND';
-    if (ac.phase === 'taxi') return remainingTaxi(world, ac) < 450 ? 'TWR' : 'GND';
+    if (ac.phase === 'taxi') return remainingTaxi(world, ac) < 160 ? 'TWR' : 'GND';
     if (ac.phase === 'climb') return ac.alt - elev < 1500 && dist(ac, apt.offset) < 8 * NM ? 'TWR' : 'LON';
     return 'TWR';
   }

@@ -1,210 +1,122 @@
 <script lang="ts">
-  import { debrief, depGap, SHIFT_S, SHIFT_START_S, TICK_HZ, validVerbs, type Aircraft, type State, type Verb } from '@squawk/sim';
-  import { text } from '@squawk/phraseology';
-  import { blend, draw, toScreen, type View } from './scope';
+  import { debrief, type Debrief, type ShiftConfig, type State } from '@squawk/sim';
+  import Game from './game/Game.svelte';
+  import { GameClient, type Snap } from './game/client.ts';
+  import { loadAirport, loadDay } from './lib/data.ts';
+  import { coach as careerCoach } from './lib/career.ts';
+  import { loadProgress, saveProgress, gradeAtLeast } from './lib/progress.ts';
+  import { settings } from './lib/settings.svelte.ts';
+  import Menu from './screens/Menu.svelte';
+  import Setup from './screens/Setup.svelte';
+  import DebriefScreen from './screens/Debrief.svelte';
+  import Settings from './screens/Settings.svelte';
+  import Career from './screens/Career.svelte';
+  import Daily from './screens/Daily.svelte';
+  import Coop from './screens/Coop.svelte';
+  import type { Launch } from './lib/launch.ts';
 
-  const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
-  let snap: State | null = $state.raw(null);
-  let prev: State | null = null, prevAt = 0, curAt = 0;
-  let selected: string | null = $state(null);
-  let speed = $state(1);
-  let canvas: HTMLCanvasElement;
-  let logEl: HTMLDivElement;
-  const view: View = { cx: 4500, cy: -500, scale: 0.07 };
+  type Screen = 'menu' | 'setup' | 'loading' | 'game' | 'debrief' | 'settings' | 'career' | 'daily' | 'coop';
+  let screen = $state<Screen>('menu');
+  let client = $state<GameClient | null>(null);
+  let launch = $state<Launch | null>(null);
+  let result = $state<{ d: Debrief; st: State; outcome: string | null } | null>(null);
+  let replaying = $state(false);
+  let error = $state('');
+  let setupMode = $state<'free' | 'endless'>('free');
 
-  worker.onmessage = (e: MessageEvent<State>) => {
-    if (snap && e.data.tick !== snap.tick) { prev = snap; prevAt = curAt; }
-    snap = e.data;
-    curAt = performance.now();
-  };
-  function start() {
-    prev = null; selected = null;
-    worker.postMessage({ t: 'start', seed: (Math.random() * 2 ** 31) | 0 });
-    setSpeed(1);
-  }
-  function setSpeed(v: number) { speed = v; worker.postMessage({ t: 'speed', v }); }
-  function cmd(callsign: string, verb: Verb) { worker.postMessage({ t: 'cmd', cmd: { callsign, verb } }); }
-  start();
-
-  const LABEL: Record<Verb, string> = { luw: 'Line up', cto: 'Take-off', land: 'Land', goaround: 'Go around' };
-  const clock = (tick: number) => {
-    const s = SHIFT_START_S + Math.floor(tick / TICK_HZ);
-    return [s / 3600, (s / 60) % 60, s % 60].map(n => String(Math.floor(n)).padStart(2, '0')).join(':');
-  };
-  const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-
-  const arrivals = $derived(snap ? snap.aircraft.filter(a => a.kind === 'arr' && a.phase === 'final').sort((a, b) => b.s - a.s) : []);
-  const departures = $derived(snap ? snap.aircraft.filter(a => ['holding', 'lining', 'lined', 'rolling'].includes(a.phase)) : []);
-  const strips = $derived([...arrivals, ...departures]);
-  const log = $derived(snap ? [
-    ...snap.radio.map(r => ({ tick: r.tick, who: r.from === 'atc' ? 'TWR' : r.callsign, cls: r.auto ? 'auto' : r.from, text: text(r) })),
-    ...snap.alerts.map(a => ({ tick: a.tick, who: '!!', cls: a.level, text: a.text })),
-  ].sort((a, b) => a.tick - b.tick).slice(-150) : []);
-  const result = $derived(snap?.ended ? debrief(snap) : null);
-
-  function status(ac: Aircraft) {
-    if (ac.kind === 'arr') return `${(-ac.s / 1852).toFixed(1)} nm${ac.ga ? ' · GA' : ac.cleared ? ' · cleared' : ''}`;
-    const wait = (snap!.tick - ac.ready) / TICK_HZ;
-    if (ac.phase === 'rolling') return 'rolling';
-    const gap = depGap(snap!, ac);
-    return `${ac.phase} ${mmss(wait)} · gap ${gap === Infinity ? 'roll' : gap === 0 ? 'OK' : mmss(gap)}`;
+  async function start(l: Launch) {
+    screen = 'loading'; error = ''; launch = l; replaying = false;
+    try {
+      const packs = await Promise.all(l.airports.map(loadAirport));
+      const days = await Promise.all(l.days.map(d => (d ? loadDay(d) : Promise.resolve(null))));
+      const cfg: ShiftConfig = { seed: l.seed, airports: l.airports, days, start: l.start, durationS: l.mode === 'endless' ? 0 : l.minutes * 60, traffic: l.traffic, coverage: l.coverage, difficulty: l.difficulty, mode: l.mode, ...(l.weather ? { weather: l.weather } : {}) };
+      client?.dispose();
+      client = new GameClient(packs, cfg);
+      screen = 'game';
+    } catch (e) { error = String(e); screen = 'menu'; }
   }
 
-  $effect(() => { log.length; logEl?.scrollTo(0, logEl.scrollHeight); });
-
-  $effect(() => {
-    let raf = 0;
-    const frame = () => {
-      raf = requestAnimationFrame(frame);
-      if (!snap || !canvas) return;
-      const r = canvas.getBoundingClientRect();
-      if (canvas.width !== Math.round(r.width) || canvas.height !== Math.round(r.height)) { canvas.width = r.width; canvas.height = r.height; }
-      const a = curAt > prevAt ? Math.min(1, (performance.now() - curAt) / (curAt - prevAt)) : 1;
-      draw(canvas.getContext('2d')!, view, snap, blend(prev, snap, a), selected);
-    };
-    frame();
-    return () => cancelAnimationFrame(raf);
-  });
-
-  let drag: { x: number; y: number; moved: boolean } | null = null;
-  function down(e: PointerEvent) { drag = { x: e.clientX, y: e.clientY, moved: false }; }
-  function moveP(e: PointerEvent) {
-    if (!drag) return;
-    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-    if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
-    if (drag.moved) { view.cx -= dx / view.scale; view.cy += dy / view.scale; drag.x = e.clientX; drag.y = e.clientY; }
-  }
-  function up(e: PointerEvent) {
-    if (drag && !drag.moved && snap) {
-      const r = canvas.getBoundingClientRect();
-      let best: string | null = null, bd = 20;
-      for (const ac of snap.aircraft) {
-        const [x, y] = toScreen(view, canvas.width, canvas.height, ac.x, ac.y);
-        const d = Math.hypot(x - (e.clientX - r.left), y - (e.clientY - r.top));
-        if (d < bd) { bd = d; best = ac.callsign; }
-      }
-      selected = best;
+  function ended(st: State) {
+    client?.setSpeed(0);
+    const d = debrief(st);
+    let outcome: string | null = null;
+    const p = loadProgress();
+    p.shifts++;
+    if (launch?.career) {
+      const c = launch.career;
+      const prev = p.passed[c.id];
+      const passed = !c.checkride || (gradeAtLeast(d.grade, c.checkride.minGrade) && d.stats.sepLoss + d.stats.runwayLoss + d.stats.collisions === 0 && !d.incident);
+      if (passed && (!prev || prev.score < d.score)) p.passed[c.id] = { grade: d.grade, score: d.score, at: Date.now() };
+      outcome = c.checkride ? (passed ? 'Checkride passed — rating earned!' : `Checkride not passed (needs ${c.checkride.minGrade} and no safety events). Try again.`) : passed ? 'Shift complete.' : null;
     }
-    drag = null;
-  }
-  function wheel(e: WheelEvent) {
-    e.preventDefault();
-    const r = canvas.getBoundingClientRect();
-    const mx = e.clientX - r.left - canvas.width / 2, my = e.clientY - r.top - canvas.height / 2;
-    const k = Math.exp(-e.deltaY * 0.0015);
-    view.cx += mx / view.scale - mx / (view.scale * k);
-    view.cy -= my / view.scale - my / (view.scale * k);
-    view.scale = Math.min(2, Math.max(0.01, view.scale * k));
+    if (launch?.dailyKey) p.daily[launch.dailyKey] = { score: Math.max(d.score, p.daily[launch.dailyKey]?.score ?? 0), grade: d.grade };
+    const key = `${launch?.mode}:${launch?.coverage.join('+')}`;
+    p.bests[key] = Math.max(p.bests[key] ?? 0, d.score);
+    saveProgress(p);
+    result = { d, st, outcome };
+    screen = 'debrief';
   }
 
-  function key(e: KeyboardEvent) {
-    if (!snap) return;
-    if (e.key === ' ') { e.preventDefault(); setSpeed(speed ? 0 : 1); return; }
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const i = strips.findIndex(a => a.callsign === selected);
-      selected = strips.length ? strips[(i + (e.shiftKey ? -1 : 1) + strips.length) % strips.length].callsign : null;
-      return;
-    }
-    const ac = snap.aircraft.find(a => a.callsign === selected);
-    if (!ac) return;
-    const verbs = validVerbs(ac);
-    const want: Verb[] = { l: ['land', 'luw'], t: ['cto'], g: ['goaround'] }[e.key.toLowerCase()] as Verb[] ?? [];
-    const v = want.find(v => verbs.includes(v));
-    if (v) cmd(ac.callsign, v);
+  function replayMoment(tick: number) {
+    if (!client || !result) return;
+    replaying = true;
+    client.replay(result.st.cmdLog, Math.max(0, tick - 4 * 40), tick + 4 * 30);
+    screen = 'game';
   }
+  function quit() { client?.dispose(); client = null; screen = launch?.career ? 'career' : 'menu'; }
 </script>
 
-<svelte:window onkeydown={key} />
-
-<div class="app">
-  <header>
-    <b>SQUAWK</b>
-    <span class="freq">TWR 118.505</span>
-    {#if snap}
-      <span>{clock(snap.tick)}</span>
-      <span>ARR {snap.arrRwy} · DEP {snap.depRwy}</span>
-      <span>Wind {String(snap.wind.dir).padStart(3, '0')}/{snap.wind.kt}</span>
-      <span>Left {mmss(Math.max(0, SHIFT_S - snap.tick / TICK_HZ))}</span>
-      <span>Moves {snap.stats.landed + snap.stats.departed}</span>
-    {/if}
-    <span class="speed">
-      {#each [0, 1, 2, 4] as v}
-        <button class:on={speed === v} onclick={() => setSpeed(v)}>{v ? `${v}×` : '❚❚'}</button>
-      {/each}
-    </span>
-  </header>
-
-  <aside>
-    {#each strips as ac (ac.callsign)}
-      <div class="strip {ac.kind}" class:sel={ac.callsign === selected} onclick={() => (selected = ac.callsign)} role="button" tabindex="-1" onkeydown={() => {}}>
-        <div><b>{ac.callsign}</b> {ac.type}/{ac.wake} {ac.sid ?? ''}</div>
-        <div class="st">{status(ac)}</div>
-        <div class="btns">
-          {#each validVerbs(ac) as v}
-            <button onclick={(e) => { e.stopPropagation(); cmd(ac.callsign, v); }}>{LABEL[v]}</button>
-          {/each}
-        </div>
-      </div>
-    {/each}
-    <p class="help">Click an aircraft or strip · Tab cycles · L land / line up · T take-off · G go around · Space pause · drag to pan, wheel to zoom</p>
-  </aside>
-
-  <main>
-    <canvas bind:this={canvas} onpointerdown={down} onpointermove={moveP} onpointerup={up} onwheel={wheel}></canvas>
-  </main>
-
-  <footer bind:this={logEl}>
-    {#each log as l}
-      <div class={l.cls}><span class="t">{clock(l.tick)}</span> <span class="who">{l.who}</span> {l.text}</div>
-    {/each}
-  </footer>
-
-  {#if result}
-    <div class="debrief">
-      <h2>{snap?.ended === 'collision' ? 'Incident: shift ended' : 'Shift complete'} — grade {result.grade}</h2>
-      <table>
-        <tbody>
-          <tr><td>Score</td><td>{result.score}</td></tr>
-          <tr><td>Landings / departures</td><td>{result.landed} / {result.departed}</td></tr>
-          <tr><td>Go-arounds (no clearance)</td><td>{result.goArounds} ({result.pilotGoArounds})</td></tr>
-          <tr><td>Runway separation losses</td><td>{result.sepLoss}</td></tr>
-          <tr><td>Departure gap infringements</td><td>{result.wakeInf}</td></tr>
-          <tr><td>Clearances onto an occupied runway</td><td>{result.clrOccupied}</td></tr>
-          <tr><td>Departure delay</td><td>{mmss(result.depDelayS)}</td></tr>
-          <tr><td>Safety multiplier</td><td>×{result.safety.toFixed(2)}</td></tr>
-        </tbody>
-      </table>
-      <button onclick={start}>New shift</button>
-    </div>
+<div class="app" class:hc={settings.highContrast} class:cb={settings.colorblind} class:rm={settings.reducedMotion}>
+  {#if screen === 'menu'}
+    <Menu onNav={(s) => { setupMode = s === 'setup:endless' ? 'endless' : 'free'; screen = (s.startsWith('setup') ? 'setup' : s) as Screen; }} {error} />
+  {:else if screen === 'setup'}
+    <Setup mode={setupMode} onStart={start} onBack={() => (screen = 'menu')} />
+  {:else if screen === 'career'}
+    <Career onStart={start} onBack={() => (screen = 'menu')} />
+  {:else if screen === 'daily'}
+    <Daily onStart={start} onBack={() => (screen = 'menu')} />
+  {:else if screen === 'coop'}
+    <Coop onBack={() => (screen = 'menu')} />
+  {:else if screen === 'settings'}
+    <Settings onBack={() => (screen = 'menu')} />
+  {:else if screen === 'loading'}
+    <div class="loading"><div class="spin"></div>Loading {launch?.title}…</div>
+  {:else if screen === 'game' && client && launch}
+    {#key client}
+      <Game {client} title={replaying ? `REPLAY — ${launch.title}` : launch.title} canPause={launch.difficulty.pause && launch.mode !== 'daily' || replaying}
+        coach={launch.hints && settings.tutorialHints ? (s: Snap, sel: string | null) => careerCoach(client!.world, s, sel) : undefined}
+        onEnd={(st) => (replaying ? (screen = 'debrief') : ended(st))} onQuit={() => (replaying ? (screen = 'debrief') : client && ended((client.final ?? client.snap) as State))} />
+    {/key}
+  {:else if screen === 'debrief' && result && launch}
+    <DebriefScreen d={result.d} st={result.st} title={launch.title} outcome={result.outcome} dailyKey={launch.dailyKey ?? null}
+      onReplay={replayMoment} onAgain={() => start({ ...launch!, seed: launch!.mode === 'free' ? (Math.random() * 2 ** 31) | 0 : launch!.seed })} onMenu={quit} />
   {/if}
 </div>
 
 <style>
-  :global(body) { margin: 0; background: #0b1426; color: #c8d6e8; font: 13px ui-monospace, Consolas, monospace; }
-  .app { display: grid; grid-template: 'h h' auto 'a m' 1fr 'a f' 200px / 300px 1fr; height: 100vh; }
-  header { grid-area: h; display: flex; gap: 18px; align-items: center; padding: 6px 12px; background: #101c33; border-bottom: 1px solid #24324d; }
-  .freq { color: #4ff0b4; }
-  .speed { margin-left: auto; display: flex; gap: 4px; }
-  button { background: #1a2947; color: #c8d6e8; border: 1px solid #2f4268; font: inherit; padding: 3px 8px; cursor: pointer; }
-  button:hover { border-color: #4ff0b4; }
-  button.on { background: #4ff0b4; color: #0b1426; }
-  aside { grid-area: a; overflow-y: auto; padding: 6px; background: #0e1830; border-right: 1px solid #24324d; }
-  .strip { padding: 6px 8px; margin-bottom: 6px; background: #13213d; border-left: 4px solid #4ff0b4; cursor: pointer; }
-  .strip.dep { border-left-color: #6aa6ff; }
-  .strip.sel { outline: 1px solid #fff; }
-  .st { color: #8fa3bf; margin: 2px 0 4px; }
-  .btns { display: flex; gap: 4px; flex-wrap: wrap; }
-  .help { color: #5d6f8c; font-size: 11px; }
-  main { grid-area: m; position: relative; min-height: 0; }
-  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
-  footer { grid-area: f; overflow-y: auto; padding: 6px 12px; background: #0e1830; border-top: 1px solid #24324d; }
-  footer .t { color: #5d6f8c; }
-  footer .who { display: inline-block; width: 7ch; color: #8fa3bf; }
-  footer .atc { color: #4ff0b4; }
-  footer .auto { color: #3f8f75; }
-  footer .caution { color: #ffb020; }
-  footer .conflict { color: #ff4d4d; font-weight: bold; }
-  .debrief { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #101c33; border: 1px solid #4ff0b4; padding: 16px 24px; }
-  .debrief td { padding: 2px 12px 2px 0; }
+  :global(:root) {
+    --bg: #070e1c; --panel: #0d1628; --panel-2: #111d34; --btn: #16243f; --line: #22324f; --line-strong: #34496f;
+    --ink: #b9c8de; --ink-strong: #e8f0fb; --muted: #7d90ae; --dim: #4f6080;
+    --green: #4ff0b4; --green-dim: #2f8f72; --accent: #8fc7ff; --amber: #ffb547; --red: #ff5a5a; --sel: #ffffff; --sel-bg: rgba(143, 199, 255, 0.09);
+    --strip-bg: #e9e2cc; --strip-hover: #f3ecd7; --strip-emg: #f6d5cf; --strip-dep: #4a8be0; --strip-arr: #d9a441;
+    --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    color-scheme: dark;
+  }
+  :global(body) { margin: 0; background: var(--bg); color: var(--ink); font-family: VT323, var(--mono); overflow: hidden; }
+  :global(button) { font-family: inherit; }
+  :global(.app.hc) { --ink: #ffffff; --muted: #c7d3e6; --dim: #9fb0cb; --line: #4a6290; --green: #7dffcf; }
+  :global(.app.cb) { --green: #5cc8ff; --green-dim: #3a7fa6; --amber: #ffd23f; --red: #ff6ad5; }
+  :global(.app.rm *) { animation: none !important; transition: none !important; }
+  /* Strips are paper: dark ink on buff. */
+  :global(.strip) { color: #1f2633 !important; }
+  :global(.strip b) { color: #0b0f17 !important; }
+  :global(.strip .type), :global(.strip .sq), :global(.strip .rwy) { color: #5c6577 !important; }
+  :global(.strip .route) { color: #1d4f9a !important; }
+  :global(.strip .st) { color: #1f2633 !important; }
+  :global(.strip .need.routine) { color: #5c6577 !important; }
+  :global(.strip .need.urgent) { color: #a8650a !important; }
+  :global(.strip .need.emergency) { color: #c0262d !important; }
+  .loading { height: 100vh; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center; font: 14px Silkscreen, var(--mono); color: var(--green); }
+  .spin { width: 18px; height: 18px; border: 2px solid var(--green); border-right-color: transparent; border-radius: 50%; animation: s 0.8s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
 </style>

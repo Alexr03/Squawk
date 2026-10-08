@@ -22,8 +22,8 @@ export const find = (st: State, cs: string) => st.aircraft.find(a => a.cs === cs
 /** Seats this aircraft may be handed to from its current owner. */
 export function nextSeats(ac: Aircraft): Seat[] {
   const r = seatRole(ac.owner);
-  if (ac.kind === 'dep') return { DEL: ['GND'], GND: ['TWR'], TWR: ['LON', 'GND'], DIR: ['LON'], LON: [] }[r] as Seat[];
-  return { LON: ['DIR'], DIR: ['TWR'], TWR: ['GND', 'DIR'], GND: [], DEL: [] }[r] as Seat[];
+  if (ac.kind === 'dep') return { DEL: ['GND'], GND: ['TWR'], TWR: ac.onGround ? ['GND'] : ['LON'], DIR: ['LON'], LON: [] }[r] as Seat[];
+  return { LON: ['DIR'], DIR: ['TWR'], TWR: ac.onGround ? ['GND'] : ['DIR'], GND: [], DEL: [] }[r] as Seat[];
 }
 
 /** Resolve a taxi limit ("27L", "A1", "512") to a node, for this aircraft. */
@@ -143,7 +143,9 @@ function enrich(world: World, st: State, ac: Aircraft, c: Command): Command {
     case 'taxi': case 'greens': {
       const to = c.to || (ac.kind === 'dep' ? ac.runway! : ac.stand ?? '');
       const tgt = taxiTarget(world, ac, to)!;
-      const nodes = route(apt, routeStart(world, ac), tgt, { via: c.verb === 'taxi' ? c.via : [], penalty: flowPenalty(st, apt, ac) })!;
+      // A route drawn by the player on the map is used as given if it's continuous and ends at the limit.
+      const given = c.nodes && c.nodes.length > 1 && c.nodes[c.nodes.length - 1] === tgt && c.nodes.every((n, i) => i === 0 || apt.adj[c.nodes![i - 1]]?.some(a => a.to === n)) ? c.nodes : null;
+      const nodes = given ?? route(apt, routeStart(world, ac), tgt, { via: c.verb === 'taxi' ? c.via : [], penalty: flowPenalty(st, apt, ac) })!;
       const via = c.verb === 'taxi' && c.via.length ? c.via : viaNames(apt, nodes);
       return c.verb === 'taxi' ? { ...c, to, via, nodes } : { ...c, to, nodes };
     }
