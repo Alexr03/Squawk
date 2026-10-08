@@ -1,6 +1,7 @@
 <script lang="ts">
   import { settings, saveSettings } from '../lib/settings.svelte.ts';
   import { createRadioAudio } from '../audio/radio.ts';
+  import { BUILT, COMMIT, REPO, VERSION } from '../lib/version.ts';
   interface Props { onBack: () => void }
   let { onBack }: Props = $props();
 
@@ -10,6 +11,7 @@
     { id: 'display', name: 'Display', hint: 'Graphics and interface size' },
     { id: 'access', name: 'Accessibility', hint: 'Contrast, colour and motion' },
     { id: 'play', name: 'Gameplay', hint: 'Hints, pacing and your name' },
+    { id: 'about', name: 'About', hint: `Version ${VERSION}` },
   ] as const;
   let tab = $state<(typeof SECTIONS)[number]['id']>('audio');
 
@@ -144,6 +146,18 @@
           {@render toggle('Colour-blind safe palette', 'Blue instead of green, magenta instead of red', 'colorblind')}
           {@render toggle('Reduce motion', 'No pulses, sweeps or animated transitions', 'reducedMotion')}
         </section>
+      {:else if tab === 'about'}
+        <section>
+          <h2>Squawk</h2>
+          <div class="row"><div class="lab"><b>Version</b><span>Semantic versioning: major.minor.patch</span></div><div class="ctl"><output class="wide">{VERSION}</output></div></div>
+          <div class="row"><div class="lab"><b>Build</b><span>{BUILT ? `Built ${BUILT}` : 'Development build'}</span></div>
+            <div class="ctl">{#if /^[0-9a-f]{7}$/.test(COMMIT)}<a class="act" href="{REPO}/commit/{COMMIT}" target="_blank" rel="noopener">{COMMIT}</a>{:else}<output class="wide">{COMMIT}</output>{/if}</div></div>
+          <div class="row"><div class="lab"><b>Source and release notes</b><span>github.com/Alexr03/Squawk</span></div><div class="ctl"><a class="act" href={REPO} target="_blank" rel="noopener">Open on GitHub</a></div></div>
+        </section>
+        <section>
+          <h2>Data</h2>
+          <p class="note">Airport layouts © OpenStreetMap contributors (ODbL). Procedures from the UK AIP via NATS AIS. Traffic from The OpenSky Network. Weather from the Iowa Environmental Mesonet. Not for real-world navigation or air traffic control.</p>
+        </section>
       {:else}
         <section>
           <h2>Pacing</h2>
@@ -193,6 +207,8 @@
   .lab span { font: 400 12.5px var(--ui); color: var(--muted); }
   .ctl { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
   input[type=range] { width: 200px; accent-color: var(--green); }
+  output.wide { width: auto; }
+  a.act { text-decoration: none; }
   output { width: 42px; text-align: right; font: 600 13px var(--mono); color: var(--ink-strong); }
 
   /* Switches made from the native checkbox. */

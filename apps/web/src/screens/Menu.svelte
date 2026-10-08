@@ -5,6 +5,7 @@
   import { loadProgress } from '../lib/progress.ts';
   import { dailyShift, RATINGS } from '../lib/career.ts';
   import { DAYS } from '../lib/data.ts';
+  import { COMMIT, REPO, VERSION } from '../lib/version.ts';
 
   interface Props { onNav: (s: string) => void; error?: string }
   let { onNav, error = '' }: Props = $props();
@@ -117,6 +118,7 @@
     </div>
     {#if error}<p class="err">{error}</p>{/if}
     <footer>
+      <a class="ver" href={REPO} target="_blank" rel="noopener" title="Source code and release notes">Squawk v{VERSION} · {COMMIT}</a><br />
       Airport data © OpenStreetMap contributors (ODbL) · UK AIP via NATS AIS · Traffic: The OpenSky Network · Weather: Iowa Environmental Mesonet. Not for real-world navigation or ATC.
     </footer>
   </main>
@@ -176,6 +178,8 @@
   .stat { margin-left: auto; font: 500 12px var(--ui); color: var(--muted); }
   .err { color: var(--red); font: 14px var(--ui); margin: 0; }
   footer { font: 11px/1.5 var(--ui); color: var(--dim); max-width: 70ch; }
+  .ver { display: inline-block; margin-bottom: 4px; font: 600 11px var(--mono); color: var(--muted); text-decoration: none; }
+  .ver:hover { color: var(--accent); }
 
   .live { position: absolute; z-index: 3; top: 16px; right: 16px; display: flex; align-items: center; gap: 12px; padding: 7px 14px; border-radius: 999px;
     background: var(--glass); backdrop-filter: blur(14px); box-shadow: var(--lift); font: 500 13px var(--ui); color: var(--ink); }

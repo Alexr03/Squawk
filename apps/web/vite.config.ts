@@ -2,8 +2,20 @@ import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+
+// Version (SemVer, from the root package.json), commit and build date, shown on the home screen, in Settings and the pause menu.
+const VERSION = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version as string;
+const git = (cmd: string) => { try { return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } };
+const COMMIT = (process.env.CF_PAGES_COMMIT_SHA ?? process.env.GITHUB_SHA ?? git('git rev-parse HEAD')).slice(0, 7) || 'dev';
+const DIRTY = !process.env.CF_PAGES_COMMIT_SHA && !process.env.GITHUB_SHA && git('git status --porcelain') !== '';
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(VERSION),
+    __APP_COMMIT__: JSON.stringify(COMMIT + (DIRTY ? '+' : '')),
+    __APP_BUILT__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+  },
   plugins: [
     svelte(),
     {
