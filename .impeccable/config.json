@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "apps/web/src/App.svelte"
+        ],
+        "createdAt": "2026-10-08T01:20:28.702Z",
+        "reason": "Claude decided: the left bar on .strip is the arrival/departure colour code of an ATC flight strip (domain convention), not decoration"
+      }
+    ]
+  }
+}

@@ -1,0 +1,96 @@
+// Airlines seen at the London airports: RT telephony designator and simplified livery colour blocks.
+export interface Airline {
+  name: string;
+  telephony: string;          // spoken callsign prefix
+  body: string;               // fuselage colour
+  tail: string;               // fin colour
+  accent: string;             // engines / belly / cheatline
+}
+
+const a = (name: string, telephony: string, body: string, tail: string, accent: string): Airline =>
+  ({ name, telephony, body, tail, accent });
+
+export const AIRLINES: Record<string, Airline> = {
+  BAW: a('British Airways', 'Speedbird', '#f2f3f5', '#1b2f6b', '#c8102e'),
+  SHT: a('British Airways Shuttle', 'Shuttle', '#f2f3f5', '#1b2f6b', '#c8102e'),
+  CFE: a('BA CityFlyer', 'Flyer', '#f2f3f5', '#1b2f6b', '#c8102e'),
+  VIR: a('Virgin Atlantic', 'Virgin', '#f4f1f2', '#b5122e', '#5c1a33'),
+  EIN: a('Aer Lingus', 'Shamrock', '#f3f5f4', '#007a5e', '#7fc4a8'),
+  EAI: a('Emerald Airlines', 'Emerald', '#f3f5f4', '#007a5e', '#7fc4a8'),
+  DLH: a('Lufthansa', 'Lufthansa', '#f2f2f2', '#0a1d3d', '#f7b500'),
+  AFR: a('Air France', 'Airfrans', '#f5f5f5', '#f5f5f5', '#002157'),
+  KLM: a('KLM', 'KLM', '#00a1de', '#00a1de', '#f5f5f5'),
+  KLC: a('KLM Cityhopper', 'City', '#00a1de', '#00a1de', '#f5f5f5'),
+  IBE: a('Iberia', 'Iberia', '#f5f5f5', '#d7192d', '#f7b500'),
+  VLG: a('Vueling', 'Vueling', '#f5f5f5', '#f3c300', '#4d4d4d'),
+  SWR: a('Swiss', 'Swiss', '#f5f5f5', '#e20613', '#e20613'),
+  AUA: a('Austrian', 'Austrian', '#f5f5f5', '#d81e05', '#d81e05'),
+  SAS: a('Scandinavian', 'Scandinavian', '#f2efe9', '#00194b', '#c0c0c0'),
+  FIN: a('Finnair', 'Finnair', '#f5f5f5', '#0b1560', '#0b1560'),
+  TAP: a('TAP Air Portugal', 'Air Portugal', '#f5f5f5', '#ce1126', '#2a9d3c'),
+  ITY: a('ITA Airways', 'Itarrow', '#f5f5f5', '#004e9a', '#7aa7d6'),
+  LOT: a('LOT Polish Airlines', 'Pollot', '#f5f5f5', '#11397e', '#11397e'),
+  AEE: a('Aegean', 'Aegean', '#f5f5f5', '#0b2a63', '#7fb0e0'),
+  BEL: a('Brussels Airlines', 'Beeline', '#f5f5f5', '#00235f', '#e30613'),
+  LGL: a('Luxair', 'Luxair', '#f5f5f5', '#7fc6e8', '#00a0e1'),
+  ICE: a('Icelandair', 'Iceair', '#f5f5f5', '#00244e', '#f6b51e'),
+  BTI: a('airBaltic', 'Air Baltic', '#f5f5f5', '#c5d300', '#c5d300'),
+  ROT: a('Tarom', 'Tarom', '#f5f5f5', '#002f6c', '#002f6c'),
+  CTN: a('Croatia Airlines', 'Croatia', '#f5f5f5', '#0a2f6e', '#d71920'),
+  THY: a('Turkish Airlines', 'Turkish', '#f5f5f5', '#c8102e', '#9da3a8'),
+  ELY: a('El Al', 'Elal', '#f5f5f5', '#f5f5f5', '#0a3a7a'),
+  UAE: a('Emirates', 'Emirates', '#f4f4f2', '#d71921', '#b8a46a'),
+  ETD: a('Etihad', 'Etihad', '#efe6d8', '#a58d63', '#7a6a4f'),
+  QTR: a('Qatar Airways', 'Qatari', '#f2f2f2', '#5c0632', '#8c8c8c'),
+  GFA: a('Gulf Air', 'Gulf Air', '#f5f5f5', '#a6893d', '#a6893d'),
+  SVA: a('Saudia', 'Saudia', '#f2eee6', '#004b2d', '#b5985a'),
+  KAC: a('Kuwait Airways', 'Kuwaiti', '#f5f5f5', '#0a3b7a', '#0a3b7a'),
+  OMA: a('Oman Air', 'Oman Air', '#f5f5f5', '#00747a', '#b39b5e'),
+  RJA: a('Royal Jordanian', 'Jordanian', '#2b2b2b', '#2b2b2b', '#c4a352'),
+  MEA: a('Middle East Airlines', 'Cedar Jet', '#f5f5f5', '#f5f5f5', '#00843d'),
+  MSR: a('EgyptAir', 'Egyptair', '#f5f5f5', '#0a3b8a', '#c5a028'),
+  RAM: a('Royal Air Maroc', 'Royalair Maroc', '#f5f5f5', '#c1272d', '#006233'),
+  TAR: a('Tunisair', 'Tunair', '#f5f5f5', '#e2001a', '#e2001a'),
+  ETH: a('Ethiopian Airlines', 'Ethiopian', '#f5f5f5', '#078930', '#fcdd09'),
+  KQA: a('Kenya Airways', 'Kenya', '#f5f5f5', '#c8102e', '#000000'),
+  SAA: a('South African Airways', 'Springbok', '#f5f5f5', '#002395', '#e03c31'),
+  AIC: a('Air India', 'Air India', '#f5f5f5', '#c8102e', '#8a1538'),
+  PIA: a('Pakistan International', 'Pakistan', '#f5f5f5', '#006c35', '#006c35'),
+  BBC: a('Biman Bangladesh', 'Bangladesh', '#f5f5f5', '#00694a', '#e2231a'),
+  ALK: a('SriLankan Airlines', 'Srilankan', '#f5f5f5', '#0a3a7a', '#d14d2b'),
+  SIA: a('Singapore Airlines', 'Singapore', '#f5f5f5', '#00266b', '#f7a700'),
+  CPA: a('Cathay Pacific', 'Cathay', '#e9ecec', '#005d63', '#a9b4b4'),
+  QFA: a('Qantas', 'Qantas', '#f5f5f5', '#e0001b', '#e0001b'),
+  ANA: a('All Nippon Airways', 'All Nippon', '#f5f5f5', '#133c8b', '#00a0e9'),
+  JAL: a('Japan Airlines', 'Japanair', '#f5f5f5', '#f5f5f5', '#cc0000'),
+  KAL: a('Korean Air', 'Koreanair', '#a6d5ec', '#00256c', '#c0c0c0'),
+  AAR: a('Asiana', 'Asiana', '#f2f2f2', '#e2a43b', '#b2b2b2'),
+  CCA: a('Air China', 'Air China', '#f5f5f5', '#f5f5f5', '#c8102e'),
+  CES: a('China Eastern', 'China Eastern', '#f5f5f5', '#c8102e', '#0a3a7a'),
+  CSN: a('China Southern', 'China Southern', '#f5f5f5', '#1a73b8', '#e2231a'),
+  HVN: a('Vietnam Airlines', 'Vietnam Airlines', '#f5f5f5', '#00687a', '#d4a43a'),
+  MAS: a('Malaysia Airlines', 'Malaysian', '#f5f5f5', '#0a3a7a', '#e2231a'),
+  THA: a('Thai Airways', 'Thai', '#f5f5f5', '#5a2a82', '#d4a5c9'),
+  EVA: a('EVA Air', 'Eva', '#f5f5f5', '#00694a', '#f39800'),
+  CAL: a('China Airlines', 'Dynasty', '#f5f5f5', '#0a3a7a', '#e37fa8'),
+  AAL: a('American Airlines', 'American', '#c9cdd1', '#0a3a7a', '#c8102e'),
+  UAL: a('United Airlines', 'United', '#f5f5f5', '#002244', '#0a6bb6'),
+  DAL: a('Delta Air Lines', 'Delta', '#f5f5f5', '#003366', '#c8102e'),
+  ACA: a('Air Canada', 'Air Canada', '#f5f5f5', '#111111', '#d22630'),
+  WJA: a('WestJet', 'Westjet', '#f5f5f5', '#00aaa5', '#003c5a'),
+  AMX: a('Aeromexico', 'Aeromexico', '#f5f5f5', '#0b2343', '#0b2343'),
+  LOG: a('Loganair', 'Logan', '#f5f5f5', '#1f2a44', '#c8102e'),
+  EZY: a('easyJet', 'Easy', '#f5f5f5', '#ff6600', '#ff6600'),
+  EJU: a('easyJet Europe', 'Alpine', '#f5f5f5', '#ff6600', '#ff6600'),
+  RYR: a('Ryanair', 'Ryanair', '#f5f5f5', '#073590', '#f1c933'),
+  WZZ: a('Wizz Air', 'Wizz Air', '#f5f5f5', '#c6007e', '#2a1a5e'),
+  WUK: a('Wizz Air UK', 'Wizz Go', '#f5f5f5', '#c6007e', '#2a1a5e'),
+  TOM: a('TUI', 'Tomson', '#f5f5f5', '#70cbf4', '#d40e14'),
+  EXS: a('Jet2', 'Channex', '#f5f5f5', '#c8102e', '#f5f5f5'),
+  NOZ: a('Norwegian', 'Nor Shuttle', '#f5f5f5', '#d81939', '#d81939'),
+  TRA: a('Transavia', 'Transavia', '#f5f5f5', '#00d66c', '#0a3a7a'),
+};
+
+/** Livery for an airline code, falling back to a neutral white scheme. */
+export const airline = (icao: string): Airline =>
+  AIRLINES[icao] ?? a(icao, icao.split('').join(' '), '#ecedef', '#7d8794', '#5a626d');
