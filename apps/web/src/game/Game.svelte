@@ -14,7 +14,7 @@
   import { radialFor, type RadialItem } from './radial.ts';
   import { needs, workload } from './needs.ts';
   import { Sound } from './sound.ts';
-  import { settings, saveSettings } from '../lib/settings.svelte.ts';
+  import { settings, saveSettings, dayClock } from '../lib/settings.svelte.ts';
   import { createVoiceInput, type VoiceInput } from '../audio/voice.ts';
   import Help from '../screens/Help.svelte';
 
@@ -211,7 +211,7 @@
         {queue} onAction={(cs, a) => { selected = cs; if (a.cmds) send(a.cmds); else if (a.taxi) send([a.taxi.greens ? { cs, verb: 'greens', to: a.taxi.to } : { cs, verb: 'taxi', to: a.taxi.to, via: [] }]); }} />
     </div>
 
-    <TopBar {world} {snap} time={snap.start + snap.tick / 4} {queue} {load} {filter} {speed} {canPause} {title} {voice}
+    <TopBar {world} {snap} time={dayClock(snap.start + snap.tick / 4, client.cfg.start)} {queue} {load} {filter} {speed} {canPause} {title} {voice}
       onFilter={(s) => (filter = s)} onSpeed={setSpeed} onMenu={() => (menuOpen = true)} onJump={jump} />
 
     {#if stripsOpen}
@@ -267,6 +267,7 @@
         <label>Pilot voices <input type="checkbox" bind:checked={settings.pilotVoices} onchange={() => { saveSettings(); sound.apply(); }} /></label>
         <label>Volume <input type="range" min="0" max="1" step="0.05" bind:value={settings.master} oninput={() => { saveSettings(); sound.apply(); }} /></label>
         <label>Slow down when busy <input type="checkbox" bind:checked={settings.autoSlow} onchange={saveSettings} /></label>
+        <label>Fast day and night (1 h = 2 min) <input type="checkbox" bind:checked={settings.fastDay} onchange={saveSettings} /></label>
         <label>Push-to-talk voice <input type="checkbox" bind:checked={settings.voiceInput} onchange={saveSettings} /></label>
         {@render menuExtra?.()}
         <button onclick={() => (helpOpen = true)}>How to play</button>

@@ -41,7 +41,7 @@
     <div class="ctl"><input type="range" min="0" max="1" step="0.05" bind:value={settings[key]} aria-label={label} /><output>{pct(settings[key])}</output></div>
   </div>
 {/snippet}
-{#snippet toggle(label: string, desc: string, key: 'pilotVoices' | 'atcVoice' | 'voiceInput' | 'highContrast' | 'colorblind' | 'reducedMotion' | 'tutorialHints' | 'autoSlow')}
+{#snippet toggle(label: string, desc: string, key: 'pilotVoices' | 'atcVoice' | 'voiceInput' | 'highContrast' | 'colorblind' | 'reducedMotion' | 'tutorialHints' | 'autoSlow' | 'fastDay')}
   <label class="row">
     <div class="lab"><b>{label}</b><span>{desc}</span></div>
     <div class="ctl"><input class="switch" type="checkbox" bind:checked={settings[key]} /></div>
@@ -145,6 +145,7 @@
           <h2>Pacing</h2>
           {@render toggle('Coach hints', 'Tips from the instructor in training shifts', 'tutorialHints')}
           {@render toggle('Slow down when busy', 'Time eases off when many calls are waiting', 'autoSlow')}
+          {@render toggle('Fast day and night', 'The clock and daylight run 30× (an hour every two minutes) so you see dusk and dawn in one session. Traffic and radio stay in real time.', 'fastDay')}
         </section>
         <section>
           <h2>Leaderboard</h2>

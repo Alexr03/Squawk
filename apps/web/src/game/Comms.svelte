@@ -2,6 +2,7 @@
   import { complete, parseLine, text, type ParseCtx, type PhraseCtx } from '@squawk/phraseology';
   import { localHour, type Command, type Radio, type World } from '@squawk/sim';
   import type { Snap } from './client.ts';
+  import { dayClock, settings } from '../lib/settings.svelte.ts';
 
   interface Props { world: World; snap: Snap; selected: string | null; filter: string | null; onSend: (cmds: Command[]) => Promise<string | null>; onSelect: (cs: string) => void; inputEl?: HTMLInputElement }
   let { world, snap, selected, filter, onSend, onSelect, inputEl = $bindable() }: Props = $props();
@@ -48,8 +49,9 @@
   $effect(() => { void lines.length; if (logEl && pinned) logEl.scrollTop = logEl.scrollHeight; });
 
   const clock = (tick: number) => {
-    const u = snap.start + tick / 4;
+    const u = dayClock(snap.start + tick / 4, snap.start);
     const h = localHour(u);
+    if (settings.fastDay) return `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
     const hh = Math.floor(h), mm = Math.floor((h - hh) * 60), ss = Math.floor(u % 60);
     return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
   };

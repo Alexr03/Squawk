@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dayClock } from '../lib/settings.svelte.ts';
   import { onMount } from 'svelte';
   import { createScene, type Scene } from '@squawk/render';
   import { find, geo, route, viaNames, type Command, type XY } from '@squawk/sim';
@@ -56,7 +57,7 @@
       const snap = client.snap;
       scene.setAircraft([...client.views(now), ...client.fillerViews()]);
       scene.setVehicles(snap.vehicles.map(v => ({ id: v.id, kind: v.kind, x: v.x, y: v.y, hdg: v.hdg, lights: v.lights })));
-      scene.setTime(client.time(now));
+      scene.setTime(dayClock(client.time(now), client.cfg.start));
       const w = snap.weather;
       scene.setWeather({ rain: w.wx.some(x => x.includes('RA') || x.includes('DZ')) ? (w.wx.some(x => x.startsWith('+')) ? 1 : 0.55) : 0, visM: w.visM, cloud: w.ceilingFt !== null ? Math.max(0.2, Math.min(1, 1 - w.ceilingFt / 5000)) : 0.1, cells: w.cells });
       const as = snap.apts[0];

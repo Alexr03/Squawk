@@ -2,6 +2,7 @@
   import { localHour, type World } from '@squawk/sim';
   import type { Snap } from './client.ts';
   import type { Need } from './needs.ts';
+  import { settings } from '../lib/settings.svelte.ts';
 
   interface Props {
     world: World; snap: Snap; time: number; queue: Need[]; load: number; filter: string | null; speed: number; canPause: boolean; title: string;
@@ -42,7 +43,7 @@
         </button>
       {/each}
     </div>
-    <div class="clock"><b>{clock}</b><span>{secs}</span></div>
+    <div class="clock" title={settings.fastDay ? 'Fast day: an hour passes every two minutes (traffic runs in real time)' : 'Local time'}><b>{clock}</b>{#if settings.fastDay}<span class="fast">30×</span>{:else}<span>{secs}</span>{/if}</div>
     <div class="wx" title="Weather (ATIS information {w.atis})">
       <span class="atis">{w.atis}</span>
       <svg class="wind" viewBox="0 0 24 24" style="transform: rotate({w.wind.dir + 180}deg)" aria-hidden="true"><path d="M12 4v16M7 9l5-5 5 5" /></svg>
@@ -85,6 +86,7 @@
   .speeds .chev { width: 7px; height: 16px; margin: 0 -1px; stroke-width: 2.4; }
   .clock b { font: 600 22px/1 var(--mono); color: var(--ink-strong); letter-spacing: 0.5px; }
   .clock span { font: 500 13px var(--mono); color: var(--muted); margin-left: 2px; }
+  .clock .fast { margin-left: 6px; font: 600 10px var(--ui); color: var(--amber); vertical-align: 3px; }
   .wx { display: flex; align-items: center; gap: 6px; color: var(--ink); }
   .atis { width: 22px; height: 22px; border-radius: 6px; background: var(--knob); display: grid; place-items: center; font: 700 12px var(--mono); color: var(--accent); }
   .wind { width: 16px; height: 16px; color: var(--accent); }

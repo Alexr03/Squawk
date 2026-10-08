@@ -83,3 +83,6 @@ The world fills the screen; everything else floats over it as rounded translucen
 
 ## Made-up days
 Free shift and co-op offer a "Made-up day" per airport alongside the real recorded days. It borrows the airline/type/destination mix and daily rhythm of the busiest real day there, invents callsigns in each operator's style, jitters times by about ±40 min and varies the volume ±12%. Same seed, same day; "Again" picks a new seed, so it is fresh every shift (apps/web/src/lib/madeup.ts).
+
+## Fast day and night
+On by default (Settings > Gameplay, or the pause menu): the clock, sun and sky run 30x (an hour every two minutes of play) so a session sees dusk and dawn. Only presentation changes: traffic, weather, separation and timers stay on the real sim clock. The radio log uses the same fast clock so times match the top bar.

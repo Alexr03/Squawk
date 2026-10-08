@@ -12,13 +12,14 @@ export interface Settings {
   tutorialHints: boolean;
   callsign: string;            // name on leaderboards
   audioV: number;              // bumped when the mix changes, to reset saved volumes once
+  fastDay: boolean;            // the clock and daylight run 30x (1 h = 2 min); traffic stays real time
 }
 
 const DEFAULTS: Settings = {
   master: 0.5, voice: 0.8, fx: 0.5, ambient: 0.2, pilotVoices: true, atcVoice: false,
   voiceInput: false, voiceBackend: 'webspeech', pttKey: 'Backquote',
   pixelSize: 3, quality: 'high', uiScale: 1, highContrast: false, reducedMotion: false, colorblind: false,
-  autoSlow: false, tutorialHints: true, callsign: '', audioV: 2,
+  autoSlow: false, tutorialHints: true, callsign: '', audioV: 2, fastDay: true,
 };
 
 function read(): Settings {
@@ -30,6 +31,11 @@ function read(): Settings {
   } catch { return { ...DEFAULTS }; }
 }
 export const settings: Settings = $state(read());
+
+/** Fast day: one hour of clock and daylight per two minutes of play. */
+export const DAY_SCALE = 30;
+/** The time of day shown on the clock and used for the sun: the sim's own clock, sped up when fast day is on. */
+export const dayClock = (simTime: number, shiftStart: number) => (settings.fastDay ? shiftStart + (simTime - shiftStart) * DAY_SCALE : simTime);
 export function saveSettings() {
   try { localStorage.setItem('squawk.settings', JSON.stringify(settings)); } catch { /* storage unavailable */ }
 }
