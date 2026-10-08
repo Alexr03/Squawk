@@ -60,7 +60,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
   canvas.style.imageRendering = 'pixelated';
 
   const overlay = document.createElement('canvas');
-  overlay.style.cssText = 'position:absolute;pointer-events:none;';
+  overlay.style.cssText = 'position:absolute;pointer-events:none;z-index:3;'; // above the game's UI layer: tags sit on top of route lines
   canvas.insertAdjacentElement('afterend', overlay);
   const radar = new Radar(overlay, packs.map(p => ({ pack: p, off: project(primary.arp, p.arp) })));
 
@@ -216,13 +216,13 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
     lightUniforms.uWet.value = wet * (0.4 + 0.6 * night);
     const fogAmt = Math.min(0.93, Math.max(0, (2200 - weather.visM) / 2000));
     const lightsOn = Math.max(night, smooth(0.15, 0.6, fogAmt), wet * 0.5);
-    const g = 0.06 + 0.94 * lightsOn;
+    const g = 0.06 + 0.78 * lightsOn; // a touch under full: at night the field read as too bright
     for (const l of world.lights) l.material.uniforms.uGain.value = g;
     ctlGain = 0.3 + 0.7 * lightsOn;
     for (const o of [...greens, stopBars]) { const m = (o as THREE.Points | null)?.material as THREE.ShaderMaterial | undefined; if (m?.uniforms?.uGain) m.uniforms.uGain.value = ctlGain; }
     world.twyCentre.material.uniforms.uGain.value = g;
     for (const [name, p] of world.approach) p.material.uniforms.uGain.value = arr.includes(name) ? g : 0;
-    (standPools.material as THREE.ShaderMaterial).uniforms.uGain.value = night * (1 + 0.6 * wet);
+    (standPools.material as THREE.ShaderMaterial).uniforms.uGain.value = 0.55 * night * (1 + 0.6 * wet);
     world.buildingUniforms.uNight.value = night;
     if (world.scenery) {
       const sc = world.scenery;
@@ -239,7 +239,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
     const golden = smooth(0, 4, el) * (1 - smooth(12, 24, el));
     baseSat = 1.08 + 0.06 * golden - 0.2 * night - 0.25 * cloud;
     grade.uniforms.uContrast.value = 1.04 + 0.08 * golden;
-    bloom.strength = 0.15 + 0.35 * night + 0.5 * fogAmt;
+    bloom.strength = 0.15 + 0.2 * night + 0.5 * fogAmt;
   }
 
   function placeShadowCamera() {
@@ -319,9 +319,11 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
       const nose = T.lengthM * 0.45;
       if (L.taxi && h < 5 && nc < MAX_POOLS)
         pool(conePools, nc++, ac.x + fx * nose, -(ac.y + fy * nose), -b, 34, 70, LC.white, 0.2 * poolGain);
-      if (L.landing && h < 250 && nc < MAX_POOLS) {
-        const k = (1 - h / 250) * 0.28 * poolGain, off = nose + h * 2.5;
-        pool(conePools, nc++, ac.x + fx * off, -(ac.y + fy * off), -b, 60 + h * 0.6, 140 + h, LC.white, k);
+      // Landing lights only light the ground in the last moments before touchdown (and on the roll), right under the nose:
+      // higher up the beam lands far ahead, which looked detached from the aircraft.
+      if (L.landing && h < 40 && nc < MAX_POOLS) {
+        const k = (1 - h / 40) * 0.24 * poolGain, off = nose + h * 1.2;
+        pool(conePools, nc++, ac.x + fx * off, -(ac.y + fy * off), -b, 50 + h * 0.5, 110 + h, LC.white, k);
       }
     }
     for (const [cs, e] of acMeshes) if (!seen.has(cs)) { scene.remove(e.mesh); if (e.tug) scene.remove(e.tug); acMeshes.delete(cs); }
@@ -383,6 +385,9 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
     setRunwaysInUse(a, d) { arr = a; dep = d; applyLighting(); },
     setNight(p) { nightOverride = p; },
     pick(sx, sy) {
+      // A click on a data tag or callsign label selects that aircraft.
+      const tag = radar.tagRects.find(r => sx >= r.x - 2 && sx <= r.x + r.w + 2 && sy >= r.y - 2 && sy <= r.y + r.h + 2);
+      if (tag) return { cs: tag.cs };
       const fade = radarFade();
       let best: string | null = null, bd = Infinity;
       for (const ac of aircraft) {
@@ -424,7 +429,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
         grade.uniforms.uDepthRange.value = camera.far - camera.near;
         const k = tiltK(view.mpp) * (1 - fade);
         depth.uniforms.uRes.value.set(renderer.domElement.width, renderer.domElement.height);
-        depth.uniforms.uBlur.value = 2.6 * k;
+        depth.uniforms.uBlur.value = 2.0 * k;
         depth.uniforms.uHaze.value = 0.14 * k;
         depth.uniforms.uHazeColor.value.copy(grade.uniforms.uFogColor.value);
         depth.uniforms.uVignette.value = 0.35 * (1 - fade);

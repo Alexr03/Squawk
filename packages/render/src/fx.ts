@@ -173,7 +173,7 @@ export const DepthShader = {
     void main() {
       // Sharp band a little below centre (where the eye rests on a tilted view), blurring toward top and bottom.
       float d = vUv.y > 0.46 ? (vUv.y - 0.46) / 0.54 : (0.46 - vUv.y) / 0.46;
-      float r = uBlur * smoothstep(0.28, 1.0, d) * (vUv.y > 0.46 ? 1.0 : 0.75);
+      float r = uBlur * smoothstep(0.5, 1.0, d) * (vUv.y > 0.46 ? 1.0 : 0.7); // a wide sharp band: the runways and the middle of the action stay crisp
       vec4 c = texture2D(tDiffuse, vUv);
       if (r > 0.35) {
         vec4 acc = c; float n = 1.0;

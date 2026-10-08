@@ -118,8 +118,12 @@ export class Radar {
     ctx.globalAlpha = a0;
   }
 
+  /** Where each aircraft's label was drawn last frame (screen px), so clicking a tag selects its aircraft. */
+  tagRects: { cs: string; x: number; y: number; w: number; h: number }[] = [];
+
   draw(F: RadarFrame) {
     const { ctx, packs } = this;
+    this.tagRects = [];
     const P: Pal = F.night ? NIGHT : DAY;
     const { M, dpr } = F;
     const S = (p: XY): XY => ({ x: M.a * p.x + M.c * p.y + M.e, y: M.b * p.x + M.d * p.y + M.f });
@@ -301,6 +305,7 @@ export class Radar {
         const tw = ctx.measureText(ac.cs).width;
         ctx.fillStyle = 'rgba(6,10,20,0.55)'; ctx.fillRect(x - Math.ceil(tw / 2) - 2, y - 1, Math.ceil(tw) + 4, 10);
         ctx.fillStyle = col; ctx.fillText(ac.cs, x, y);
+        this.tagRects.push({ cs: ac.cs, x: x - tw / 2 - 2, y: y - 1, w: tw + 4, h: 10 });
       }
       ctx.textAlign = 'left';
     }
@@ -354,6 +359,7 @@ export class Radar {
         const [dx, dy] = cands[best];
         const r = { x: x + dx, y: y + dy, w: tw, h: th };
         boxes.push(r);
+        this.tagRects.push({ cs: ac.cs, ...r });
         // leader line to the nearest tag corner
         const lx = Math.max(r.x, Math.min(x, r.x + r.w)), ly = Math.max(r.y + 2, Math.min(y, r.y + r.h - 2));
         ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.globalAlpha = fade * 0.8;

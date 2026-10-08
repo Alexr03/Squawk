@@ -9,6 +9,7 @@ export interface FlightPlan {
   end: { p: XY; text: string; dir?: number } | null; // where the plan leads: runway, or the destination off the edge
   track: XY[];                                  // projected path, one point per 10 s
   minutes: { p: XY; text: string }[];           // a tick each minute along the projection
+  level?: { p: XY; text: string };              // where it reaches its cleared level (climbing or descending)
 }
 
 const NM = geo.NM;
@@ -50,6 +51,7 @@ export function flightPlan(world: World, ac: Aircraft): FlightPlan | null {
   // Projection: fly the aircraft's current instructions forward for four minutes, turning at rate one.
   const track: XY[] = [];
   const minutes: FlightPlan['minutes'] = [];
+  let level: FlightPlan['level'];
   let x = ac.x, y = ac.y, hdg = ac.trk ?? ac.hdg, alt = ac.alt;
   const route = [...(ac.nav.mode === 'route' ? ac.nav.route : [])];
   let established = ac.nav.established;
@@ -84,10 +86,11 @@ export function flightPlan(world: World, ac: Aircraft): FlightPlan | null {
     x += Math.sin(b) * v; y += Math.cos(b) * v;
     alt = vs > 0 ? Math.min(ac.tgtAlt, alt + (vs / 60) * 10) : Math.max(ac.tgtAlt, alt + (vs / 60) * 10);
     track.push({ x, y });
-    if (t % 60 === 0) minutes.push({ p: { x, y }, text: `${t / 60}′ ${alt >= 6000 ? 'FL' + String(Math.round(alt / 100)).padStart(3, '0') : Math.round(alt / 100) * 100 + ' ft'}` });
+    if (t % 60 === 0) minutes.push({ p: { x, y }, text: `${t / 60}′` });
+    if (!level && Math.abs(ac.tgtAlt - ac.alt) > 200 && alt === ac.tgtAlt) level = { p: { x, y }, text: `${ac.tgtAlt > ac.alt ? '▲' : '▼'} ${ac.tgtAlt >= 6000 ? 'FL' + String(Math.round(ac.tgtAlt / 100)).padStart(3, '0') : ac.tgtAlt + ' ft'} level` };
     if (ac.nav.ils && established && geo.dist({ x, y }, apt.ends[ac.nav.ils]?.thr ?? { x: 1e9, y: 0 }) < 0.5 * NM) break;
   }
-  return { plan, fixes, end, track, minutes };
+  return { plan, fixes, end, track, minutes, level };
 }
 
 /** The aircraft as it would be after these instructions: for previewing a drag before letting go. */
@@ -136,12 +139,11 @@ function followLoop(ac: Aircraft, loop: XY[], fixPt: XY): Pick<FlightPlan, 'trac
   // Walk 240 s of flying along it.
   const track: XY[] = [], minutes: FlightPlan['minutes'] = [];
   let prev: XY = { x: ac.x, y: ac.y }, t = 0, nextTick = 60;
-  const lvl = ac.alt >= 6000 ? 'FL' + String(Math.round(ac.alt / 100)).padStart(3, '0') : Math.round(ac.alt / 100) * 100 + ' ft';
   for (const p of path) {
     const d = geo.dist(prev, p), dt = d / speed;
     while (t + dt >= nextTick && nextTick <= 240) {
       const k = (nextTick - t) / dt, q = { x: prev.x + (p.x - prev.x) * k, y: prev.y + (p.y - prev.y) * k };
-      minutes.push({ p: q, text: `${nextTick / 60}′ ${lvl}` }); nextTick += 60;
+      minutes.push({ p: q, text: `${nextTick / 60}′` }); nextTick += 60;
     }
     t += dt;
     if (t > 240) { const k = 1 - (t - 240) / dt; track.push({ x: prev.x + (p.x - prev.x) * k, y: prev.y + (p.y - prev.y) * k }); break; }

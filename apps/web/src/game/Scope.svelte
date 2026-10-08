@@ -274,6 +274,15 @@
         ctx.fillStyle = 'rgba(7,14,28,0.75)'; const w = ctx.measureText(m.text).width; ctx.fillRect(q.x + 6, q.y + 4, w + 6, 15);
         ctx.fillStyle = col; ctx.fillText(m.text, q.x + 9, q.y + 12);
       }
+      if (fp.level) {
+        // Level-off marker: a bar across the track where it reaches the cleared level.
+        const q = S(fp.level.p);
+        ctx.strokeStyle = '#ffb547'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(q.x - 7, q.y); ctx.lineTo(q.x + 7, q.y); ctx.stroke();
+        ctx.font = "600 11px 'IBM Plex Mono', ui-monospace, monospace";
+        const w = ctx.measureText(fp.level.text).width;
+        ctx.fillStyle = 'rgba(7,14,28,0.85)'; ctx.fillRect(q.x + 10, q.y - 9, w + 8, 17);
+        ctx.fillStyle = '#ffb547'; ctx.fillText(fp.level.text, q.x + 14, q.y);
+      }
     }
     ctx.restore();
   }
