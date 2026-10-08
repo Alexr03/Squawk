@@ -60,10 +60,16 @@ export function buildSchedule(world: World, cfg: ShiftConfig, st: State, mixes?:
     const apt = world.byIcao[icao];
     const day = cfg.days[i] ?? synthDay(apt, cfg.start, end, st, 36, mixes?.[i]);
     const seen = new Set<string>();
+    // Flights with no known destination (OpenSky's ZZZZ) get one their airline really flies from here that day.
+    const dests = new Map<string, string[]>(), all: string[] = [];
+    for (const g of day.flights) if (g.other && g.other !== 'ZZZZ') { (dests.get(g.operator) ?? dests.set(g.operator, []).get(g.operator)!).push(g.other); all.push(g.other); }
+    const placeFor = (g: Flight) => { if (g.other && g.other !== 'ZZZZ') return g.other; const l = dests.get(g.operator) ?? all; if (!l.length) return g.other; let h = 0; for (const c of g.cs) h = (h * 31 + c.charCodeAt(0)) >>> 0; return l[h % l.length]; };
+    // A busy start shouldn't drop everything in at once: a few flights start pre-positioned, the rest join every 90 s.
+    let earlyDeps = 0, earlyArrs = 0;
     // A day pack from another date is replayed on the shift's date (multi-airport shifts mix days).
     const shift = day.date ? Math.floor(cfg.start / 86400) * 86400 - Date.parse(day.date + 'T00:00:00Z') / 1000 : 0;
     for (const f0 of day.flights) {
-      const f = shift ? { ...f0, time: f0.time + shift } : f0;
+      const f = { ...f0, time: f0.time + shift, other: placeFor(f0) };
       if (!TYPES[f.type]) continue;
       // Sample the day deterministically to the requested traffic share.
       if (rand(st) > cfg.traffic) continue;
@@ -72,11 +78,13 @@ export function buildSchedule(world: World, cfg: ShiftConfig, st: State, mixes?:
         if (f.time < cfg.start + 90 || f.time > end + DEP_LEAD_S) continue; // anything that would call during the shift, even if it takes off after it
         seen.add(cs);
         // Departures due in the first minutes are already waiting at the holding point when the shift starts.
-        const early = f.time < cfg.start + 13 * 60;
+        let early = f.time < cfg.start + 13 * 60;
+        if (early && ++earlyDeps > 3) { early = false; f.time = cfg.start + DEP_LEAD_S + (earlyDeps - 3) * 90; }
         st.schedule.push({ at: ticks(Math.max(0, f.time - (early ? 200 : DEP_LEAD_S) - cfg.start)), kind: 'dep', apt: icao, cs, type: f.type, operator: f.operator, other: f.other, sched: f.time, stand: f.stand, ...(early ? { atHold: true } : {}) });
       } else {
         if (f.time < cfg.start + 100 || f.time > end + 5 * 60) continue;
         seen.add(cs);
+        if (f.time - arrivalLead(apt) < cfg.start && ++earlyArrs > 4) f.time = cfg.start + arrivalLead(apt) + (earlyArrs - 4) * 90;
         st.schedule.push({ at: ticks(Math.max(0, f.time - arrivalLead(apt) - cfg.start)), kind: 'arr', apt: icao, cs, type: f.type, operator: f.operator, other: f.other, sched: f.time });
       }
     }
