@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Squawk audio test</title>
+    <link rel="icon" href="data:," />
+    <style>
+      body { font: 14px system-ui, sans-serif; margin: 16px; max-width: 760px; background: #111; color: #ddd; }
+      fieldset { border: 1px solid #444; margin: 0 0 12px; }
+      button { margin: 2px; }
+      label { display: inline-block; margin-right: 12px; }
+      #ptt.down { background: #c33; color: #fff; }
+      pre { white-space: pre-wrap; background: #000; padding: 8px; min-height: 4em; }
+    </style>
+  </head>
+  <body>
+    <h1>Squawk audio test</h1>
+    <p>Click anywhere first to unlock audio.</p>
+    <fieldset id="radio">
+      <legend>Radio</legend>
+      <button data-say="atc">ATC line</button>
+      <button data-say="pilot">Pilot readback</button>
+      <button data-say="pilot2">Another pilot</button>
+      <button data-say="foreign">Foreign pilot</button>
+      <button data-say="urgent">Mayday (urgent)</button>
+      <button data-say="stepon">Step-on</button>
+      <button data-say="burst">Queue 8 at once</button>
+      <button id="clear">Clear queue</button>
+      <label><input type="checkbox" id="voiceOn" checked /> Voice enabled</label>
+    </fieldset>
+    <fieldset id="chimes">
+      <legend>Chimes</legend>
+      <button data-chime="strip">strip</button>
+      <button data-chime="request">request</button>
+      <button data-chime="conflict">conflict</button>
+      <button data-chime="emergency">emergency</button>
+      <button data-chime="handoff">handoff</button>
+      <button data-chime="click">click</button>
+      <button data-chime="alarm">alarm start</button>
+      <button id="stopAlarm">alarm stop</button>
+      <label><input type="checkbox" id="ambient" /> Ambient</label>
+    </fieldset>
+    <fieldset id="volumes">
+      <legend>Volumes</legend>
+      <label>master <input type="range" min="0" max="1" step="0.05" value="0.8" data-vol="master" /></label>
+      <label>voice <input type="range" min="0" max="1" step="0.05" value="1" data-vol="voice" /></label>
+      <label>fx <input type="range" min="0" max="1" step="0.05" value="0.7" data-vol="fx" /></label>
+      <label>ambient <input type="range" min="0" max="1" step="0.05" value="0.5" data-vol="ambient" /></label>
+    </fieldset>
+    <fieldset>
+      <legend>Voice input</legend>
+      <label>Backend
+        <select id="prefer"><option value="whisper">whisper</option><option value="webspeech">webspeech</option></select>
+      </label>
+      <button id="enableVoice">Enable voice input</button>
+      <button id="ptt" disabled>Hold to talk (or hold Space)</button>
+      <div id="vstate">idle</div>
+      <pre id="transcript"></pre>
+    </fieldset>
+    <script type="module" src="/src/audio/test-page.ts"></script>
+  </body>
+</html>
