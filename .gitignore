@@ -3,3 +3,8 @@ dist/
 credentials.json
 .claude/worktrees/
 tools/pipeline/.cache/
+
+# Local PocketBase: the program and its data never get committed
+pocketbase/pocketbase.exe
+pocketbase/pocketbase
+pocketbase/pb_data/
