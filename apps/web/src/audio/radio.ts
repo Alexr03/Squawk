@@ -35,7 +35,8 @@ export interface RadioAudio {
 }
 
 const MAX_QUEUE = 4;
-const LATIN_ACCENT_LANGS = ['de', 'fr', 'es', 'it', 'nl', 'pt', 'sv', 'da', 'nb', 'no', 'pl', 'fi'];
+const NOT_PILOTS = /\b(ana|junior|kid|child|princess|bubbles|bells|boing|cellos|deranged|hysterical|organ|trinoids|whisper|zarvox|albert|bad news|good news|jester|superstar|wobble)\b/i;
+const LATIN_ACCENT_LANGS =['de', 'fr', 'es', 'it', 'nl', 'pt', 'sv', 'da', 'nb', 'no', 'pl', 'fi'];
 
 interface QueueItem {
   text: string;
@@ -225,24 +226,24 @@ export function createRadioAudio(): RadioAudio {
     const rnd = speakerRng(opts.voiceKey);
     const all = synth?.getVoices() ?? [];
     const lang = (v: SpeechSynthesisVoice) => v.lang.replace('_', '-').toLowerCase();
-    const english = all.filter((v) => lang(v).startsWith('en'));
+    // Child and novelty voices (Edge "Ana", macOS "Junior", "Bubbles"...) never belong on an ATC frequency.
+    const usable = all.filter((v) => !NOT_PILOTS.test(v.name));
+    const english = usable.filter((v) => lang(v).startsWith('en'));
     let pool: SpeechSynthesisVoice[];
     if (opts.atc) {
       const gb = english.filter((v) => lang(v) === 'en-gb');
       pool = gb.length ? gb : english;
     } else {
       // ~15% of pilots get a non-English voice reading English: a foreign accent for free.
-      const foreign = all.filter((v) => LATIN_ACCENT_LANGS.includes(lang(v).slice(0, 2)));
+      const foreign = usable.filter((v) => LATIN_ACCENT_LANGS.includes(lang(v).slice(0, 2)));
       pool = foreign.length && rnd() < 0.15 ? foreign : english;
     }
-    if (!pool.length) pool = all;
+    if (!pool.length) pool = usable.length ? usable : all;
     const voice = pool.length ? pool[Math.floor(rnd() * pool.length)] : null;
-    let pitch = opts.atc ? 0.95 + rnd() * 0.1 : 0.8 + rnd() * 0.4;
+    // Pitch only ever goes down a little: raising it makes adults sound like children.
+    const pitch = opts.atc ? 0.95 + rnd() * 0.05 : 0.88 + rnd() * 0.12;
     let rate = opts.atc ? 1.05 + rnd() * 0.1 : 0.95 + rnd() * 0.3;
-    if (opts.urgent) {
-      pitch += 0.08;
-      rate += 0.1;
-    }
+    if (opts.urgent) rate += 0.1;
     return { voice, pitch, rate };
   }
 
