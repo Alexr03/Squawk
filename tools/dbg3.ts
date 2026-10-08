@@ -1,0 +1,13 @@
+import { readFileSync } from 'node:fs';
+import { buildWorld, createShift, DIFFICULTY, step, runwayAt, geo } from '../packages/sim/src/index.ts';
+const pack = JSON.parse(readFileSync(new URL('../data/airports/EGLL/airport.json', import.meta.url), 'utf8'));
+const day = JSON.parse(readFileSync(new URL('../data/days/EGLL-2026-08-28.json', import.meta.url), 'utf8'));
+const world = buildWorld([pack]);
+const apt = world.primary;
+const cfg = { seed: 7, airports: ['EGLL'], days: [day], start: Date.parse('2026-08-28T07:00:00Z') / 1000, durationS: 1800, traffic: 1, coverage: [], difficulty: DIFFICULTY.standard, mode: 'free' as const };
+const st = createShift(world, cfg);
+while (st.tick < 3300) step(world, cfg, st);
+const a = st.aircraft.find(x => x.cs === 'BAW204')!;
+console.log(a.phase, a.owner, a.checkedIn, a.cleared, 'actAt', a.actAt - st.tick, 'dist', geo.dist(a, apt.ends['27R'].thr) / 1852);
+for (const o of st.aircraft) if (o.onGround && runwayAt(apt, o)) console.log('on runway', o.cs, o.phase, runwayAt(apt, o), Math.round(o.x), Math.round(o.y));
+for (const r of st.radio.filter(r => r.cs === 'BAW204').slice(-8)) console.log(r.tick, r.seat, r.from, JSON.stringify(r.msg).slice(0, 120));

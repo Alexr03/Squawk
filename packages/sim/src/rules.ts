@@ -1,0 +1,278 @@
+// Rules and scoring events: runway occupancy, air separation, wake, STCA prediction, handoff timing, requests, readbacks.
+import { TYPES } from './aircraft.ts';
+import { appSpacing, depGap } from './ai.ts';
+import { dist, NM } from './geo.ts';
+import { aptOf, aptState, elevation } from './physics.ts';
+import { initialCall, nextSeats, pilotCall } from './pilot.ts';
+import { DT, rand, seatId, seatRole, ticks, type Aircraft, type ScoreEvent, type State } from './state.ts';
+import type { Seat } from './types.ts';
+import { runwayAt, type World } from './world.ts';
+
+export function event(st: State, e: Omit<ScoreEvent, 'tick'>) {
+  st.events.push({ tick: st.tick, ...e });
+  st.alerts.push({ tick: st.tick, level: e.severity >= 3 ? 'conflict' : 'caution', text: e.text, cs: e.cs[0] });
+}
+
+/** Lined-up aircraft with take-off clearance start rolling: check runway and departure spacing. */
+export function startRolls(world: World, st: State) {
+  for (const ac of st.aircraft) {
+    if (ac.phase !== 'lined' || !ac.cleared.cto || st.tick < ac.actAt) continue;
+    const apt = aptOf(world, ac), as = aptState(st, ac.apt);
+    const pair = apt.ends[ac.runway!].runway;
+    const blocker = st.aircraft.find(o => o !== ac && o.runway && apt.ends[o.runway]?.runway === pair && (o.phase === 'takeoff' || o.phase === 'landing'));
+    if (blocker) {
+      st.stats.runwayLoss++;
+      event(st, { kind: 'runway', severity: 4, text: `Runway ${pair}: ${ac.cs} rolling with ${blocker.cs} on the runway`, cs: [ac.cs, blocker.cs], x: ac.x, y: ac.y });
+    } else {
+      const gap = depGap(world, st, ac);
+      if (gap > 0 && gap !== Infinity) {
+        st.stats.wakeInf++;
+        event(st, { kind: 'wake', severity: 2, text: `${ac.cs} departed ${Math.ceil(gap)} s inside the required gap behind ${as.lastDep[ac.runway!]?.cs}`, cs: [ac.cs], x: ac.x, y: ac.y });
+      }
+    }
+    as.lastDep[ac.runway!] = { cs: ac.cs, wake: ac.wake, sid: ac.sid, at: null };
+    ac.phase = 'takeoff'; ac.ias = 0; ac.gs = 0;
+    st.stats.depDelayS += Math.max(0, st.start + st.tick * DT - ac.sched - 120);
+  }
+}
+
+/** Touchdown / go-around decision at the threshold. */
+export function thresholdCheck(world: World, st: State, ac: Aircraft) {
+  if (ac.phase !== 'final' || !ac.nav.established || ac.onGround) return null;
+  const apt = aptOf(world, ac), end = apt.ends[ac.runway!];
+  const toThr = end.thrS - ((ac.x - end.end.x) * end.ux + (ac.y - end.end.y) * end.uy);
+  const closed = (aptState(st, ac.apt).closed[end.runway] ?? 0) > st.tick;
+  if (!ac.cleared.land && toThr < 0.5 * NM && ac.emergency?.code !== '7600') return 'no-clearance';
+  if (toThr < 0.5 * NM && closed) return 'closed';
+  if (toThr <= 0) {
+    if (!ac.cleared.land) return 'no-clearance';
+    const busy = st.aircraft.find(o => o !== ac && o.onGround && runwayAt(apt, o) === end.runway && o.phase !== 'holding');
+    if (busy) {
+      st.stats.runwayLoss++;
+      event(st, { kind: 'runway', severity: 4, text: `Runway ${end.runway}: ${ac.cs} landed with ${busy.cs} on the runway`, cs: [ac.cs, busy.cs], x: ac.x, y: ac.y });
+    }
+    // Touchdown.
+    ac.phase = 'landing'; ac.onGround = true; ac.alt = elevation(apt); ac.vs = 0;
+    ac.s = Math.max(end.thrS, (ac.x - end.end.x) * end.ux + (ac.y - end.end.y) * end.uy);
+    ac.landedAt = st.tick; ac.nav.ils = undefined; ac.nav.established = false; ac.nav.gs = false;
+    st.stats.holdS += ac.holdS;
+    st.stats.landed++;
+    st.stats.arrDelayS += Math.max(0, st.start + st.tick * DT - ac.sched - 180);
+    if (ac.emergency) { st.stats.emergenciesHandled++; }
+    return 'landed';
+  }
+  return null;
+}
+
+// ------------------------------------------------------------------ separation
+
+const RVSM = 1000;
+export function separation(world: World, st: State) {
+  const air = st.aircraft.filter(a => !a.onGround && a.phase !== 'gone');
+  const live = new Set<string>();
+  const stca: State['stca'] = {};
+  for (const a of air) a.alert = a.emergency ? 'emergency' : 'none';
+  for (let i = 0; i < air.length; i++) for (let j = i + 1; j < air.length; j++) {
+    const a = air[i], b = air[j];
+    const d = dist(a, b), dv = Math.abs(a.alt - b.alt);
+    if (d > 12 * NM) continue;
+    const aptA = aptOf(world, a), aptB = aptOf(world, b);
+    // Tower's domain: both low and close to the same airport (parallel runway operations are independent).
+    const elev = elevation(aptA);
+    if (a.apt === b.apt && a.alt - elev < 2600 && b.alt - elev < 2600 && dist(a, aptA.offset) < 7 * NM && dist(b, aptB.offset) < 7 * NM) continue;
+    const inTma = dist(a, world.primary.offset) < world.primary.pack.airspace.tmaRadiusNm * NM;
+    let req = (inTma ? 3 : 5) * NM;
+    // Wake spacing between arrivals established on the same ILS.
+    if (a.nav.established && b.nav.established && a.runway === b.runway && a.apt === b.apt) {
+      const end = aptA.ends[a.runway!];
+      const [lead, follow] = dist(a, end.thr) < dist(b, end.thr) ? [a, b] : [b, a];
+      const need = appSpacing(lead.wake, follow.wake, false) * NM - 0.25 * NM;
+      if (d < need) {
+        const key = `${lead.cs}|${follow.cs}|w`;
+        live.add(key);
+        if (!(key in st.sepActive)) { st.sepActive[key] = st.tick; st.stats.wakeInf++; event(st, { kind: 'wake', severity: 2, text: `Wake spacing: ${follow.cs} ${(d / NM).toFixed(1)} nm behind ${lead.cs} (needs ${(need / NM + 0.25).toFixed(0)} nm)`, cs: [follow.cs, lead.cs], x: follow.x, y: follow.y }); }
+        stca[key] = 'caution'; mark(follow, 'caution');
+      }
+      req = Math.min(req, 2.5 * NM);
+      continue;
+    }
+    const key = a.cs < b.cs ? `${a.cs}|${b.cs}` : `${b.cs}|${a.cs}`;
+    if (d < req && dv < RVSM - 100) {
+      live.add(key);
+      stca[key] = 'conflict'; mark(a, 'conflict'); mark(b, 'conflict');
+      if (!(key in st.sepActive)) {
+        st.sepActive[key] = st.tick;
+        st.stats.sepLoss++;
+        event(st, { kind: 'seploss', severity: 4, text: `Separation lost: ${a.cs} and ${b.cs}, ${(d / NM).toFixed(1)} nm / ${Math.round(dv / 100) * 100} ft`, cs: [a.cs, b.cs], x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+      }
+      if (d < 0.15 * NM && dv < 250) {
+        st.stats.collisions++;
+        event(st, { kind: 'collision', severity: 5, text: `MID-AIR COLLISION: ${a.cs} and ${b.cs}`, cs: [a.cs, b.cs], x: a.x, y: a.y });
+        st.ended = 'incident';
+      }
+    } else if (predictConflict(a, b, req)) {
+      stca[key] = 'caution'; mark(a, 'caution'); mark(b, 'caution');
+    }
+  }
+  for (const k of Object.keys(st.sepActive)) if (!live.has(k) && !k.endsWith('|g')) delete st.sepActive[k];
+  st.stca = stca;
+}
+function mark(a: Aircraft, level: 'caution' | 'conflict') {
+  if (a.alert === 'emergency' || a.alert === 'conflict') return;
+  a.alert = level;
+}
+/** Project both tracks 2 minutes ahead (10 s steps): will they lose separation? */
+function predictConflict(a: Aircraft, b: Aircraft, req: number): boolean {
+  const va = vel(a), vb = vel(b);
+  for (let t = 10; t <= 120; t += 10) {
+    const ax = a.x + va.x * t, ay = a.y + va.y * t, bx = b.x + vb.x * t, by = b.y + vb.y * t;
+    const aa = levelAt(a, t), bb = levelAt(b, t);
+    if (Math.hypot(ax - bx, ay - by) < req && Math.abs(aa - bb) < RVSM - 100) return true;
+  }
+  return false;
+}
+const vel = (a: Aircraft) => ({ x: Math.sin(a.trk * Math.PI / 180) * a.gs * NM / 3600, y: Math.cos(a.trk * Math.PI / 180) * a.gs * NM / 3600 });
+const levelAt = (a: Aircraft, t: number) => a.vs > 0 ? Math.min(a.tgtAlt, a.alt + a.vs / 60 * t) : a.vs < 0 ? Math.max(a.tgtAlt, a.alt + a.vs / 60 * t) : a.alt;
+
+/** Ground: runway occupancy losses, ground collisions, taxi gridlock. */
+export function groundRules(world: World, st: State) {
+  const gnd = st.aircraft.filter(a => a.onGround && a.phase !== 'gone' && a.phase !== 'parked' && a.phase !== 'stand');
+  for (let i = 0; i < gnd.length; i++) for (let j = i + 1; j < gnd.length; j++) {
+    const a = gnd[i], b = gnd[j];
+    if (a.apt !== b.apt) continue;
+    const d = dist(a, b);
+    if (d > 120) continue;
+    const ta = TYPES[a.type], tb = TYPES[b.type];
+    const fast = a.gs > 30 || b.gs > 30;
+    if (a.ghost === b.cs || b.ghost === a.cs) { if (d > 160) { if (a.ghost === b.cs) a.ghost = null; if (b.ghost === a.cs) b.ghost = null; } continue; }
+    if (d < Math.min(ta.lengthM, tb.lengthM) * 0.45 && (a.gs > 3 || b.gs > 3)) {
+      st.stats.collisions++;
+      event(st, { kind: 'collision', severity: 5, text: `COLLISION on the ground: ${a.cs} and ${b.cs}`, cs: [a.cs, b.cs], x: a.x, y: a.y });
+      st.ended = 'incident';
+      return;
+    }
+    const gkey = `${a.cs}|${b.cs}|g`;
+    if (!(a.blockedBy === b.cs && b.blockedBy === a.cs) && gkey in st.sepActive) delete st.sepActive[gkey];
+    if (a.blockedBy === b.cs && b.blockedBy === a.cs) {
+      const key = `${a.cs}|${b.cs}|g`;
+      if (!(key in st.sepActive)) {
+        st.sepActive[key] = st.tick;
+        st.stats.taxiConflicts++;
+        event(st, { kind: 'taxi-conflict', severity: 1, text: `Taxi conflict: ${a.cs} and ${b.cs} nose to nose`, cs: [a.cs, b.cs], x: a.x, y: a.y });
+      } else if (st.tick - st.sepActive[key] === ticks(120)) {
+        event(st, { kind: 'gridlock', severity: 2, text: `Gridlock: ${a.cs} and ${b.cs} stuck for two minutes`, cs: [a.cs, b.cs], x: a.x, y: a.y });
+      }
+    }
+    void fast;
+  }
+}
+
+// ------------------------------------------------------------------ handoffs and radio discipline
+
+/** Which seat should be working this aircraft right now. */
+export function domain(world: World, st: State, ac: Aircraft): Seat {
+  const apt = aptOf(world, ac);
+  const elev = elevation(apt);
+  if (ac.kind === 'dep') {
+    if (ac.phase === 'stand' && !ac.cleared.dl) return 'DEL';
+    if (['stand', 'pushing', 'pushed'].includes(ac.phase)) return 'GND';
+    if (ac.phase === 'taxi') return remainingTaxi(world, ac) < 450 ? 'TWR' : 'GND';
+    if (ac.phase === 'climb') return ac.alt - elev < 1500 && dist(ac, apt.offset) < 8 * NM ? 'TWR' : 'LON';
+    return 'TWR';
+  }
+  switch (ac.phase) {
+    case 'arrival': return ac.stack && dist(ac, apt.fixes[ac.stack]) > 24 * NM && ac.alt > 11000 ? 'LON' : 'DIR';
+    case 'stack': case 'approach': return 'DIR';
+    case 'final': return dist(ac, apt.ends[ac.runway!].thr) < 10 * NM ? 'TWR' : 'DIR';
+    case 'landing': case 'vacating': return 'TWR';
+    case 'goaround': return ac.alt - elev < 1800 ? 'TWR' : 'DIR';
+    default: return 'GND';
+  }
+}
+function remainingTaxi(world: World, ac: Aircraft) {
+  const apt = aptOf(world, ac);
+  let d = 0;
+  for (let i = Math.max(1, ac.pi); i < ac.path.length; i++) d += dist(apt.nodes[ac.path[i - 1]], apt.nodes[ac.path[i]]);
+  return d;
+}
+
+export function handoffs(world: World, st: State) {
+  if (st.tick % 4 !== 0) return;
+  for (const ac of st.aircraft) {
+    if (ac.phase === 'gone' || ac.freq !== ac.owner) continue;
+    const want = domain(world, st, ac);
+    const curRole = seatRole(ac.owner);
+    if (want === curRole) { ac.lateS = 0; continue; }
+    const target = want === 'LON' ? 'LON' : seatId(ac.apt, want);
+    const mineNow = st.coverage.includes(ac.owner), mineNext = st.coverage.includes(target);
+    if (!nextSeats(ac).includes(want)) continue;
+    // No handoffs to yourself: when you own both seats the aircraft just stays with you.
+    if (mineNow && mineNext) { ac.owner = ac.freq = target; ac.checkedIn = true; continue; }
+    if (ac.emergency?.code === '7600') { ac.owner = ac.freq = target; ac.checkedIn = true; continue; }
+    if (!mineNow) continue; // AI seats hand off on their own
+    ac.lateS += 4 * DT;
+    if (ac.lateS === 30) st.alerts.push({ tick: st.tick, level: 'caution', text: `${ac.cs}: hand off to ${want === 'LON' ? 'London Control' : want}`, cs: ac.cs });
+    if (ac.lateS === 75) {
+      st.stats.lateHandoffs++;
+      event(st, { kind: 'late-handoff', severity: 1, text: `Late handoff: ${ac.cs} should be with ${want === 'LON' ? 'London Control' : want}`, cs: [ac.cs] });
+    }
+  }
+}
+
+/** Early handoff check, run when a human gives a "contact" instruction. */
+export function earlyHandoff(world: World, st: State, ac: Aircraft) {
+  const want = domain(world, st, ac);
+  if (want === seatRole(ac.owner)) {
+    // Allow a sensible lead: Tower near the hold, Director->Tower established inside ~14 nm, etc.
+    const apt = aptOf(world, ac);
+    const ok = ac.kind === 'dep' ? (ac.phase === 'taxi' && remainingTaxi(world, ac) < 1500) || ac.phase === 'climb' || ac.phase === 'stand'
+      : (ac.nav.established && dist(ac, apt.ends[ac.runway!].thr) < 16 * NM) || ac.phase === 'taxiin' || (ac.phase === 'arrival') || ac.phase === 'goaround';
+    if (!ok) { st.stats.earlyHandoffs++; event(st, { kind: 'early-handoff', severity: 1, text: `Early handoff: ${ac.cs}`, cs: [ac.cs] }); }
+  }
+}
+
+export function radioRules(world: World, st: State) {
+  for (const ac of st.aircraft) {
+    if (ac.rbErr && st.tick >= ac.rbErr.until) {
+      st.stats.readbackMissed++;
+      event(st, { kind: 'readback', severity: 2, text: `Missed readback error: ${ac.cs} read back the wrong ${ac.rbErr.wrong.verb === 'clearance' ? 'squawk' : ac.rbErr.wrong.verb}`, cs: [ac.cs] });
+      ac.rbErr = null;
+    }
+    if (ac.req && st.tick - ac.req.at === ticks(45)) pilotCall(st, ac, ac.req.call);
+    if (ac.req && st.tick - ac.req.at > ticks(90)) {
+      st.stats.unanswered++;
+      event(st, { kind: 'unanswered', severity: 1, text: `Unanswered request from ${ac.cs}`, cs: [ac.cs] });
+      ac.req = null;
+    }
+    // Requests from aircraft on the player's frequencies.
+    if (!ac.req && st.tick >= ac.nextReqAt && st.coverage.includes(ac.owner) && ac.checkedIn && !ac.onGround && !ac.emergency) {
+      ac.nextReqAt = st.tick + ticks(600 + rand(st) * 1200);
+      const apt = aptOf(world, ac);
+      if (ac.kind === 'dep' && ac.phase === 'climb' && ac.alt > 5000 && seatRole(ac.owner) === 'LON' && rand(st) < 0.6) {
+        const sid = apt.pack.airspace.sids.find(s => `${s.name}${s.designator}` === ac.sid);
+        const end = sid?.fixes[sid.fixes.length - 1];
+        const call = rand(st) < 0.5 && end && ac.nav.route.length > 1 ? { k: 'request' as const, what: 'direct' as const, fix: end } : { k: 'request' as const, what: 'climb' as const, alt: Math.max(ac.tgtAlt + 4000, 15000) };
+        ac.req = { call, at: st.tick }; pilotCall(st, ac, call);
+      } else if (ac.kind === 'arr' && ac.phase === 'arrival' && seatRole(ac.owner) === 'LON' && ac.alt > 12000 && rand(st) < 0.5) {
+        const call = { k: 'request' as const, what: 'descend' as const, alt: Math.max(9000, ac.tgtAlt - 4000) };
+        ac.req = { call, at: st.tick }; pilotCall(st, ac, call);
+      }
+    }
+  }
+  // Frequency congestion: more than ~12 player transmissions a minute.
+  if (st.tick % ticks(60) === 0) {
+    const recent = st.radio.filter(r => !r.auto && st.tick - r.tick < ticks(60) && r.from === 'atc').length;
+    if (recent > 12) st.stats.congestedS += 60;
+  }
+}
+
+/** Departure calls Tower when it reaches the holding point, arrivals call Ground once clear of the runway. */
+export function arrivalCalls(world: World, st: State, ac: Aircraft, prevPhase: string) {
+  if (ac.phase === prevPhase) return;
+  if (ac.phase === 'holding' && seatRole(ac.freq) === 'TWR' && ac.checkedIn) pilotCall(st, ac, { k: 'ready', hold: ac.path.length ? aptOf(world, ac).nodes[ac.path[ac.path.length - 1]].hold ?? '' : '', runway: ac.runway ?? '' }, 2);
+  if (ac.phase === 'taxiin' && prevPhase === 'vacating' && !ac.cleared.taxi) {
+    // Stop clear of the runway until Ground gives a taxi clearance.
+    ac.holdAt = ac.pi < ac.path.length ? ac.path[ac.pi] : null;
+  }
+  void initialCall;
+}

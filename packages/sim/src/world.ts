@@ -10,6 +10,7 @@ export interface EndInfo extends RunwayEnd {
   ux: number; uy: number;     // unit vector along the take-off direction (end -> far end)
   thrS: number;               // threshold distance from the take-off end along u
   holds: number[];            // named holding-point nodes for departures on this end
+  front: number[];            // holds nearest the runway on each link (others are CAT III positions behind them)
 }
 export interface Apt {
   icao: string;
@@ -54,7 +55,7 @@ function buildApt(pack: AirportPack, off: XY): Apt {
       const start = o(e.end), far = o(f.end), len = dist(start, far);
       const ux = (far.x - start.x) / len, uy = (far.y - start.y) / len;
       const thr = o(e.thr);
-      ends[e.name] = { ...e, thr, end: start, runway: r.name, opposite: f.name, len, ux, uy, thrS: (thr.x - start.x) * ux + (thr.y - start.y) * uy, holds: [] };
+      ends[e.name] = { ...e, thr, end: start, runway: r.name, opposite: f.name, len, ux, uy, thrS: (thr.x - start.x) * ux + (thr.y - start.y) * uy, holds: [], front: [] };
     }
   }
   const onRunway = new Map<number, string>();
@@ -65,6 +66,22 @@ function buildApt(pack: AirportPack, off: XY): Apt {
   // Order departure holds: full-length first (nearest the take-off end).
   for (const e of Object.values(ends)) e.holds.sort((a, b) => along(e, nodes[a]) - along(e, nodes[b]));
 
+  const apt0 = { nodes, adj, edges, onRunway } as unknown as Apt;
+  for (const e of Object.values(ends)) {
+    const front = e.holds.filter(h => {
+      const p = routeToRunway(apt0, h, e);
+      return !!p && !p.slice(1).some(n => nodes[n].hold && e.holds.includes(n));
+    });
+    // Keep holds whose line-up routes can't be blocked by someone waiting at another kept hold.
+    const kept: { h: number; path: number[] }[] = [];
+    // Each side of the runway is filtered separately, so both sides keep their holds.
+    for (const h of [...front.filter(h => lateral(e, nodes[h]) > 0), ...front.filter(h => lateral(e, nodes[h]) <= 0)]) {
+      const path = routeToRunway(apt0, h, e)!;
+      const clash = kept.some(k => Math.sign(lateral(e, nodes[k.h])) === Math.sign(lateral(e, nodes[h])) && (k.path.some(n => dist(nodes[n], nodes[h]) < 70) || path.some(n => dist(nodes[n], nodes[k.h]) < 70)));
+      if (!clash) kept.push({ h, path });
+    }
+    e.front = kept.map(k => k.h);
+  }
   const fixes: Record<string, Fix> = {};
   for (const [k, f] of Object.entries(pack.airspace.fixes)) fixes[k] = { ...f, ...o(f) };
   const freq = {} as Apt['freq'];
@@ -139,6 +156,13 @@ function astar(apt: Apt, from: number, goal: (n: number) => boolean, target: XY,
     }
   }
   return null;
+}
+
+/** Shortest route from a node onto a runway's centreline (for line-up from a holding point). */
+export function routeToRunway(apt: Apt, from: number, end: EndInfo): number[] | null {
+  const goal = (n: number) => apt.onRunway.get(n) === end.runway && Math.abs(lateral(end, apt.nodes[n])) < 8;
+  const target = pointOnEnd(end, Math.max(0, along(end, apt.nodes[from])));
+  return astar(apt, from, goal, target, { allowRunway: r => r === end.runway });
 }
 
 /** Route that follows the named taxiways in order (controller's "via A, B2"), then the shortest path to the goal. */

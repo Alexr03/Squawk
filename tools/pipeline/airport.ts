@@ -170,7 +170,7 @@ const holdRunway = (n: XY): string | undefined => {
   for (const r of runways) {
     const [e0, e1] = r.ends;
     const s = segDist(n, e0.end, e1.end);
-    if (s.d < 450 && (!best || s.d < best.d)) best = { d: s.d, end: s.t < 0.5 ? e0.name : e1.name };
+    if (s.d < 175 && (!best || s.d < best.d)) best = { d: s.d, end: s.t < 0.5 ? e0.name : e1.name };
   }
   return best?.end;
 };
