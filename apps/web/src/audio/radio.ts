@@ -36,7 +36,27 @@ export interface RadioAudio {
 
 const MAX_QUEUE = 4;
 const NOT_PILOTS = /\b(ana|junior|kid|child|princess|bubbles|bells|boing|cellos|deranged|hysterical|organ|trinoids|whisper|zarvox|albert|bad news|good news|jester|superstar|wobble)\b/i;
-const LATIN_ACCENT_LANGS =['de', 'fr', 'es', 'it', 'nl', 'pt', 'sv', 'da', 'nb', 'no', 'pl', 'fi'];
+// Voice language to look for per airline, best first. European carriers get their own language (reading English gives the
+// accent); elsewhere a regional English, since Asian and Arabic voices reading English are hard to understand.
+const L = (...l: string[]) => l.concat('en');
+const GB = L('en-gb'), US = L('en-us'), IE = L('en-ie', 'en-gb'), FR = L('fr-fr', 'fr'), DE = L('de-de', 'de'), ES = L('es-es', 'es'), IT = L('it'), NL = L('nl'),
+  PT = L('pt-pt', 'pt'), BR = L('pt-br', 'pt'), IN = L('en-in'), AU = L('en-au'), ZA = L('en-za'), GULF = L('en-in', 'en-gb');
+const ACCENT: Record<string, string[]> = {
+  BAW: GB, SHT: GB, CFE: GB, VIR: GB, EZY: GB, EXS: GB, TOM: GB, LOG: GB, BEE: GB, TCX: GB, UKV: GB, EFW: GB, JTH: GB, NJE: GB,
+  EIN: IE, EAI: IE, RYR: IE, RUK: IE, STK: IE, ASL: IE,
+  AFR: FR, HOP: FR, TVF: FR, BEL: FR, LGL: FR, RAM: FR, TAR: FR, CRL: FR, ACA: L('fr-ca', 'en-ca'), TSC: L('fr-ca', 'en-ca'),
+  DLH: DE, CLH: DE, EWG: DE, GWI: DE, CFG: DE, TUI: DE, SWR: DE, EDW: DE, AUA: DE, LDM: DE, CXS: DE,
+  KLM: NL, KLC: NL, TRA: NL, TFL: NL,
+  IBE: ES, IBS: ES, VLG: ES, AEA: ES, ANE: ES, LAN: L('es'), AVA: L('es'), AMX: L('es-mx', 'es'),
+  ITY: IT, AZA: IT, NOS: IT, TAP: PT, TAM: BR, GLO: BR, AZU: BR,
+  SAS: L('sv', 'da', 'nb', 'no'), NOZ: L('nb', 'no', 'sv'), NSZ: L('sv', 'nb'), FIN: L('fi', 'sv'), ICE: L('is', 'en-gb'),
+  LOT: L('pl'), ENT: L('pl'), AEE: L('el'), CYP: L('el'), THY: L('tr'), PGT: L('tr'), ROT: L('ro'), WZZ: L('hu', 'pl', 'ro'), CTN: L('hr'),
+  CSA: L('cs'), BTI: L('lv', 'lt'), ELY: L('he'), AAL: US, UAL: US, DAL: US, JBU: US, FDX: US, UPS: US, GTI: US,
+  AIC: IN, VTI: IN, PIA: IN, ALK: IN, QFA: AU, ANZ: L('en-nz', 'en-au'), SAA: ZA, KQA: L('en-ke', 'en-za'), ETH: L('en-ke', 'en-za'),
+  UAE: GULF, QTR: GULF, ETD: GULF, GFA: GULF, KAC: GULF, SVA: GULF, OMA: GULF, MSR: GULF, RJA: GULF, MEA: L('fr', 'en'),
+  SIA: L('en-sg', 'en-gb'), MAS: L('en-sg', 'en-gb'), CPA: L('en-hk', 'en-gb'), THA: L('en-sg', 'en-gb'),
+  JAL: US, ANA: US, KAL: US, AAR: US, CCA: L('en-hk', 'en-gb'), CES: L('en-hk', 'en-gb'), CSN: L('en-hk', 'en-gb'), CAL: L('en-hk', 'en-gb'),
+};
 
 interface QueueItem {
   text: string;
@@ -229,14 +249,12 @@ export function createRadioAudio(): RadioAudio {
     // Child and novelty voices (Edge "Ana", macOS "Junior", "Bubbles"...) never belong on an ATC frequency.
     const usable = all.filter((v) => !NOT_PILOTS.test(v.name));
     const english = usable.filter((v) => lang(v).startsWith('en'));
-    let pool: SpeechSynthesisVoice[];
-    if (opts.atc) {
-      const gb = english.filter((v) => lang(v) === 'en-gb');
-      pool = gb.length ? gb : english;
-    } else {
-      // ~15% of pilots get a non-English voice reading English: a foreign accent for free.
-      const foreign = usable.filter((v) => LATIN_ACCENT_LANGS.includes(lang(v).slice(0, 2)));
-      pool = foreign.length && rnd() < 0.15 ? foreign : english;
+    // Pilots sound like their airline: an Air France crew gets a French voice reading English, a Delta crew an American one.
+    const want = opts.atc ? ['en-gb'] : ACCENT[opts.voiceKey.slice(0, 3)] ?? ['en-gb', 'en'];
+    let pool: SpeechSynthesisVoice[] = english;
+    for (const w of want) {
+      const m = usable.filter((v) => lang(v).startsWith(w));
+      if (m.length) { pool = m; break; }
     }
     if (!pool.length) pool = usable.length ? usable : all;
     const voice = pool.length ? pool[Math.floor(rnd() * pool.length)] : null;
