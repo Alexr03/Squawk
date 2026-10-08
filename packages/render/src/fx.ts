@@ -150,3 +150,42 @@ export const GradeShader = {
       gl_FragColor = c;
     }`,
 };
+
+/** Diorama depth: tilt-shift blur away from a sharp band through the middle of the screen, haze toward the horizon (the top of
+ *  the tilted view is farther away) and a soft vignette. All three scale with how tilted the camera is. */
+export const DepthShader = {
+  uniforms: {
+    tDiffuse: { value: null as THREE.Texture | null },
+    uRes: { value: new THREE.Vector2(1, 1) },
+    uBlur: { value: 0 },          // max blur radius in render pixels
+    uHaze: { value: 0 }, uHazeColor: { value: new THREE.Color() },
+    uVignette: { value: 0 },
+  },
+  vertexShader: /* glsl */ `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDiffuse;
+    uniform vec2 uRes;
+    uniform float uBlur, uHaze, uVignette;
+    uniform vec3 uHazeColor;
+    varying vec2 vUv;
+    void main() {
+      // Sharp band a little below centre (where the eye rests on a tilted view), blurring toward top and bottom.
+      float d = vUv.y > 0.46 ? (vUv.y - 0.46) / 0.54 : (0.46 - vUv.y) / 0.46;
+      float r = uBlur * smoothstep(0.28, 1.0, d) * (vUv.y > 0.46 ? 1.0 : 0.75);
+      vec4 c = texture2D(tDiffuse, vUv);
+      if (r > 0.35) {
+        vec4 acc = c; float n = 1.0;
+        for (int i = 1; i < 16; i++) {
+          float a = float(i) * 2.39996, rr = sqrt(float(i) / 15.0) * r;
+          acc += texture2D(tDiffuse, vUv + vec2(cos(a), sin(a)) * rr / uRes); n += 1.0;
+        }
+        c = acc / n;
+      }
+      c.rgb = mix(c.rgb, uHazeColor, uHaze * smoothstep(0.45, 1.05, vUv.y));
+      vec2 p = vUv - 0.5;
+      c.rgb *= 1.0 - uVignette * smoothstep(0.18, 0.62, dot(p, p) * 1.6);
+      gl_FragColor = c;
+    }`,
+};

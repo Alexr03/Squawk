@@ -124,6 +124,10 @@
               {#each [2, 3, 4] as v}<button class:on={settings.pixelSize === v} onclick={() => { settings.pixelSize = v; saveSettings(); }}>{v}×</button>{/each}
             </div>
           </div>
+          <label class="row">
+            <div class="lab"><b>Depth of field</b><span>Miniature-style blur toward the edges, haze on the horizon</span></div>
+            <div class="ctl"><input class="switch" type="checkbox" bind:checked={settings.depth} /></div>
+          </label>
           <p class="note">Graphics changes apply from the next shift.</p>
         </section>
         <section>

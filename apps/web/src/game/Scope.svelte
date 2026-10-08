@@ -36,7 +36,7 @@
   const apt = world.primary;
 
   onMount(() => {
-    scene = createScene(canvas, client.packs, { pixelSize: settings.pixelSize, quality: settings.quality });
+    scene = createScene(canvas, client.packs, { pixelSize: settings.pixelSize, quality: settings.quality, depth: settings.depth });
     const cov = client.seats;
     const roles = cov.map(s => s.split(':').pop());
     const start = roles.includes('GND') || roles.includes('DEL') ? { mpp: 1.1, cx: -900, cy: -700 } : roles.includes('TWR') ? { mpp: 2.6, cx: 400, cy: -700 } : roles.includes('DIR') ? { mpp: 105, cx: 0, cy: 0 } : { mpp: 260, cx: 0, cy: 0 };

@@ -9,12 +9,12 @@ import type { AircraftView, AirportPack, VehicleView, XY } from '@squawk/sim/typ
 import { FT, project } from '@squawk/sim/geo';
 import { buildAirport, LC, LightSet, Y } from './world.ts';
 import { aircraftGeometry, lightPoints, typeOf, vehicleGeometry } from './planes.ts';
-import { GradeShader, lightMaterial, lightUniforms, poolMaterial } from './fx.ts';
+import { DepthShader, GradeShader, lightMaterial, lightUniforms, poolMaterial } from './fx.ts';
 import { Radar, type Affine } from './radar.ts';
 import { sunPosition } from './sun.ts';
 export { decodeScenery, type SceneryFile } from './sceneryData.ts';
 
-export interface SceneOptions { pixelSize?: number; quality?: 'low' | 'high' }
+export interface SceneOptions { pixelSize?: number; quality?: 'low' | 'high'; /** tilt-shift depth of field, haze and vignette */ depth?: boolean }
 export interface Weather { rain: number; visM: number; cloud: number; cells?: { x: number; y: number; r: number; intensity: number }[] }
 export interface Overlays { sids?: boolean; stars?: boolean; weather?: boolean; ctr?: boolean; rings?: boolean }
 export interface Scene {
@@ -39,7 +39,9 @@ export interface Scene {
 }
 
 const RAD = Math.PI / 180;
-const MAX_TILT = 22 * RAD;
+const MAX_TILT = 24 * RAD;
+/** How tilted the camera is at a zoom (1 = full 3D, 0 = straight down): the whole airport still reads in 3D, the radar is flat. */
+const tiltK = (mpp: number) => 1 - lsmooth(1.4, 6.5, mpp);
 const MAX_LIGHTS = 4096, MAX_POOLS = 512;
 const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const lsmooth = (a: number, b: number, x: number) => smooth(Math.log(a), Math.log(b), Math.log(x));
@@ -121,6 +123,8 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
   composer.addPass(new RenderPass(scene, camera));
   const grade = new ShaderPass(GradeShader);
   composer.addPass(grade);
+  const depth = new ShaderPass(DepthShader);
+  if (opts.depth !== false) composer.addPass(depth);
   const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0, 1.0);
   // tight halos: at this low resolution the default wide mips smear the whole frame
   bloom.compositeMaterial.uniforms.bloomFactors.value = [1.0, 0.35, 0.06, 0.0, 0.0];
@@ -148,7 +152,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
 
   function updateCamera() {
     const { mpp } = view;
-    const tilt = MAX_TILT * (1 - lsmooth(0.6, 3.5, mpp));
+    const tilt = MAX_TILT * tiltK(mpp);
     // snap the camera target to the render-pixel grid so static pixels don't crawl while panning
     const step = mpp * pixelSize;
     const cx = Math.round(view.cx / step) * step, cy = Math.round(view.cy / (step / Math.cos(tilt))) * (step / Math.cos(tilt));
@@ -398,7 +402,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
       const fade = radarFade();
       if (fade < 0.999) {
         updateDynamic(now);
-        const flat = lsmooth(2.5, 5, view.mpp);
+        const flat = lsmooth(4.5, 7.5, view.mpp); // buildings fold flat only as the radar takes over
         world.buildings.scale.y = 1 - 0.97 * flat;
         if (world.scenery) {
           const sc = world.scenery;
@@ -418,6 +422,12 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
         grade.uniforms.uRes.value.set(renderer.domElement.width, renderer.domElement.height);
         grade.uniforms.tDepth.value = composer.readBuffer.depthTexture;
         grade.uniforms.uDepthRange.value = camera.far - camera.near;
+        const k = tiltK(view.mpp) * (1 - fade);
+        depth.uniforms.uRes.value.set(renderer.domElement.width, renderer.domElement.height);
+        depth.uniforms.uBlur.value = 2.6 * k;
+        depth.uniforms.uHaze.value = 0.14 * k;
+        depth.uniforms.uHazeColor.value.copy(grade.uniforms.uFogColor.value);
+        depth.uniforms.uVignette.value = 0.35 * (1 - fade);
         grade.uniforms.uEdge.value = 1 - 0.6 * lsmooth(1.5, 5, view.mpp);
         composer.render();
       }
