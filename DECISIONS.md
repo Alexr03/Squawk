@@ -18,3 +18,15 @@ Choices made where PLAN.md is silent, or where milestone 1 deliberately cuts a c
 - **Scoring weights and grade thresholds are first guesses.** They're in `debrief()` and are for tuning after play-testing.
 - **Sim in a Web Worker** posts the whole state after each batch of ticks. The main thread blends between the last two snapshots for smooth motion.
 - **Svelte components aren't type-checked yet** (`tsc` covers the `.ts` files). Add `svelte-check` when the UI grows.
+
+## Render (packages/render)
+
+- **The WebGL canvas itself is the low-res target.** `renderer.setPixelRatio(1 / pixelSize)` and CSS `image-rendering: pixelated` do the nearest-neighbour upscale; the composer (render, grade, bloom, output) runs at that resolution, so post-processing is cheap.
+- **Pixel-art edges come from the depth buffer** in the grade pass: a dark outline outside objects and a faint rim inside. No normal pass.
+- **Ground layers don't write depth.** They draw first in a fixed order, so coplanar aprons, taxiways and runways never z-fight.
+- **Shadows use `BasicShadowMap`.** It gives crisp pixel shadows, and PCF in three r186 left the whole scene shadowed here. The shadow camera follows the visible area and snaps to its texel grid.
+- **The lighting is stylised, not photometric.** The sun gets stronger at low elevation so that golden hour reads, and night keeps a moonlit blue ambient so the ground stays legible.
+- **The radar is a 2D canvas overlay at full device resolution**, drawn every frame. Underlay geometry is cached as `Path2D` in world metres and drawn through the ortho camera's affine transform. The scope hides ground traffic beyond 15 m/px.
+- **Crossfade:** tilt eases to zero by about 3.5 m/px. Buildings flatten between 2.5 and 5 m/px. The 3D image desaturates while the navy scope fades in between 3 and 8 m/px. Above 8 m/px the WebGL pass is skipped entirely.
+- **Fonts:** VT323 for data tags and Silkscreen for small labels (both OFL), bundled under `packages/render/assets`.
+- **Only the primary pack is built in 3D.** Other packs appear on the scope as runway symbols, placed by their ARP.

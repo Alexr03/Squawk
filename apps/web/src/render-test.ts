@@ -22,7 +22,14 @@ async function main() {
   const pack: AirportPack = await (await fetch(new URL('../../../data/airports/EGLL/airport.json', import.meta.url))).json();
   const canvas = document.getElementById('c') as HTMLCanvasElement;
   const hud = document.getElementById('hud')!;
-  const scene = createScene(canvas, [pack], { quality: q.get('q') === 'low' ? 'low' : 'high', pixelSize: num('px', 3) });
+  if (q.get('hud') === '0') hud.style.display = 'none';
+  // A runway-only stand-in for Gatwick, to exercise secondary packs on the scope (until its real pack is baked).
+  const lgwEnd = (name: string, x: number, hdg: number) => ({ name, thr: { x, y: x * 0.22 }, end: { x, y: x * 0.22 }, hdgTrue: hdg, elevationFt: 202 });
+  const lgw = {
+    ...pack, icao: 'EGKK', name: 'London Gatwick', arp: { lat: 51.1481, lon: -0.1903 }, surfaces: [], buildings: [], stands: [],
+    taxi: { nodes: [], edges: [] }, runways: [{ name: '08R/26L', widthM: 45, lengthM: 3316, ends: [lgwEnd('08R', -1620, 77.6), lgwEnd('26L', 1620, 257.6)] }],
+  } as unknown as AirportPack;
+  const scene = createScene(canvas, [pack, lgw], { quality: q.get('q') === 'low' ? 'low' : 'high', pixelSize: num('px', 3) });
   (window as unknown as { scene: unknown }).scene = scene;
 
   const nodes = new Map(pack.taxi.nodes.map(n => [n.id, n]));
@@ -51,14 +58,14 @@ async function main() {
 
   // ---- parked at stands
   const stands = pack.stands.filter(() => rnd() < 0.55);
-  for (const s of stands.slice(0, 34)) {
+  for (const [si, s] of stands.slice(0, 34).entries()) {
     const op = pick(opsByTerm.get(s.terminal) ?? ops);
     const big = s.maxWake === 'H' || s.maxWake === 'J';
     const type = big && rnd() < 0.6 ? pick(s.maxWake === 'J' ? wide : wide.filter(t => t !== 'A388')) : pick(narrow);
     const L = TYPES[type].lengthM;
     const b = (s.hdg * Math.PI) / 180;
     const pos = { x: s.x - Math.sin(b) * L * 0.38, y: s.y - Math.cos(b) * L * 0.38 };
-    const pushing = rnd() < 0.12;
+    const pushing = si === 0 || rnd() < 0.12;
     add(view(callsign(op), type, op, { ...pos, hdg: s.hdg, lights: { beacon: pushing, nav: rnd() < 0.5, strobe: false, landing: false, taxi: false }, tug: pushing }), () => {});
   }
 

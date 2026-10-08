@@ -150,7 +150,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
   let dep: string[] = primary.configs[0]?.departures ?? [];
   let nightOverride: boolean | null = null;
   let sunEl = 30, sunAz = 180;
-  let night = 0, day = 1, ctlGain = 1;
+  let night = 0, day = 1, ctlGain = 1, baseSat = 1;
   const t0 = performance.now();
   const elevM = primary.elevationFt * FT;
 
@@ -229,7 +229,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
     for (const o of [...greens, stopBars]) { const m = (o as THREE.Points | null)?.material as THREE.ShaderMaterial | undefined; if (m?.uniforms?.uGain) m.uniforms.uGain.value = ctlGain; }
     world.twyCentre.material.uniforms.uGain.value = g;
     for (const [name, p] of world.approach) p.material.uniforms.uGain.value = arr.includes(name) ? g : 0;
-    (standPools.material as THREE.ShaderMaterial).uniforms.uGain.value = night;
+    (standPools.material as THREE.ShaderMaterial).uniforms.uGain.value = night * (1 + 0.6 * wet);
     world.buildingUniforms.uNight.value = night;
     acMat.emissive.set('#ffe2b8').multiplyScalar(0.07 * night); // apron floodlight on airframes
     world.centrelines.material.color.set('#d9b53a').multiplyScalar(0.18 + 0.82 * day);
@@ -239,7 +239,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
     grade.uniforms.uCloud.value = cloud;
     grade.uniforms.uSun.value = smooth(0, 10, el);
     const golden = smooth(0, 4, el) * (1 - smooth(12, 24, el));
-    grade.uniforms.uSat.value = 1.08 + 0.06 * golden - 0.2 * night - 0.25 * cloud;
+    baseSat = 1.08 + 0.06 * golden - 0.2 * night - 0.25 * cloud;
     grade.uniforms.uContrast.value = 1.04 + 0.08 * golden;
     bloom.strength = 0.15 + 0.35 * night + 0.5 * fogAmt;
   }
@@ -277,7 +277,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
       mesh.setColorAt(i, color.copy(c).multiplyScalar(k));
     };
     const navGain = 0.35 + 0.65 * night;
-    const poolGain = Math.max(night, 0.15 * (1 - day));
+    const poolGain = Math.max(night, 0.15 * (1 - day)) * (1 + 0.8 * weather.rain); // wet tarmac throws light back
     for (const ac of aircraft) {
       seen.add(ac.cs);
       const key = `${ac.type}|${ac.operator}`;
@@ -412,6 +412,7 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
         const o = screenToWorld(0, H), u = screenToWorld(W, H), v = screenToWorld(0, 0);
         grade.uniforms.uO.value.set(o.x, o.y); grade.uniforms.uU.value.set(u.x - o.x, u.y - o.y); grade.uniforms.uV.value.set(v.x - o.x, v.y - o.y);
         grade.uniforms.uTime.value = (now - t0) / 1000;
+        grade.uniforms.uSat.value = baseSat * (1 - fade); // the world drains to a monochrome map under the scope
         grade.uniforms.uRes.value.set(renderer.domElement.width, renderer.domElement.height);
         grade.uniforms.tDepth.value = composer.readBuffer.depthTexture;
         grade.uniforms.uDepthRange.value = camera.far - camera.near;
@@ -430,7 +431,6 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
       scene.traverse(o => { const m = o as THREE.Mesh; m.geometry?.dispose(); });
     },
   };
-  (globalThis as unknown as { __squawkRender: unknown }).__squawkRender = { renderer, scene, sun, composer, camera, grade };
   applyLighting();
   resize();
   return api;

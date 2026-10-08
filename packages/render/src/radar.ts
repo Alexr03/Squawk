@@ -198,7 +198,7 @@ export class Radar {
       for (const f of Object.values(fixes)) {
         const q = S(f); if (q.x < -50 || q.y < -50 || q.x > F.w + 50 || q.y > F.h + 50) continue;
         const big = stackFixes.has(f.name);
-        if (!big && F.mpp > 260) continue;
+        if (!big && F.mpp > 120) continue;
         const x = Math.round(q.x), y = Math.round(q.y);
         ctx.fillStyle = big ? P.stack : P.fix;
         ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x + 4, y + 3); ctx.lineTo(x - 4, y + 3); ctx.closePath();

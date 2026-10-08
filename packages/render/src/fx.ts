@@ -140,8 +140,8 @@ export const GradeShader = {
         vec2 p = floor(vUv * uRes);
         float col = p.x + floor(p.y * 0.35);
         float y = p.y + uTime * 90.0 + h21(vec2(col, 1.7)) * 300.0;
-        float s = step(fract(y / 37.0), 0.16) * step(h21(vec2(col, 9.1)), uRain * 0.55);
-        c.rgb = mix(c.rgb, vec3(0.75, 0.8, 0.9), s * 0.28);
+        float s = step(fract(y / 37.0), 0.16) * step(h21(vec2(col, 9.1)), uRain * 0.4);
+        c.rgb += s * (vec3(0.02, 0.025, 0.03) + c.rgb * 0.45); // streaks pick up the scene's own light
       }
       // time-of-day grade (saturation/contrast around mid grey, in linear space)
       float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
