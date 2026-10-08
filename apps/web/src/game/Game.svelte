@@ -114,6 +114,14 @@
     viewRequest = { cx: c.x + v.dx, cy: c.y + v.dy, mpp: v.mpp, t: performance.now() };
   }
 
+  /** Fly the camera to an aircraft: close in on the ground, radar view in the air. */
+  function focus(cs: string) {
+    const a = snap && find(snap, cs);
+    if (!a) return;
+    const mpp = a.onGround ? 0.9 : a.alt < 3000 ? 12 : 40;
+    viewRequest = { cx: a.x, cy: a.y, mpp, t: performance.now() };
+  }
+
   // ---------------------------------------------------------------- keyboard
   function key(e: KeyboardEvent) {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -193,7 +201,7 @@
 <svelte:window onkeydown={key} onkeyup={keyup} onpointerdown={() => sound.unlock()} />
 
 {#if snap}
-  <div class="game" style="--scale:{settings.uiScale}">
+  <div class="game" class:radial-open={!!radial} style="--scale:{settings.uiScale}">
     <div class="world">
       <Scope bind:this={scope} {client} {selected} bind:taxiEdit {overlays} {viewRequest}
         onSelect={(cs) => (selected = cs)} onRadial={(cs, x, y) => (radial = { cs, x, y })} onIssue={(c) => send(c)} onTaxiDone={taxiDone}
@@ -205,7 +213,7 @@
 
     {#if stripsOpen}
       <div class="drawer">
-        <StripBay {world} {snap} {selected} {filter} {queue} onSelect={(cs) => (selected = cs)}
+        <StripBay {world} {snap} {selected} {filter} {queue} onSelect={(cs) => { selected = cs; focus(cs); }}
           onHandoff={(cs) => { const a = find(snap!, cs); const it = a && radialFor(world, snap!, cs).find(i => i.label.startsWith('Contact')); if (it?.cmd) send(it.cmd); }} />
       </div>
     {/if}
@@ -214,7 +222,7 @@
       {#if queue.length}
         <div class="alerts" aria-label="Needs you">
           {#each queue.slice(0, 5) as n (n.cs)}
-            <button class="alert {n.level}" class:sel={n.cs === selected} onclick={() => (selected = n.cs)}>
+            <button class="alert {n.level}" class:sel={n.cs === selected} onclick={() => { selected = n.cs; focus(n.cs); }}>
               <span class="mark"></span><b>{n.cs}</b><span class="what">{n.text}</span>
             </button>
           {/each}
@@ -271,6 +279,7 @@
 <style>
   .game { position: relative; height: 100vh; overflow: hidden; background: var(--bg); color: var(--ink); zoom: var(--scale); }
   .world { position: absolute; inset: 0; }
+  .radial-open :global(.bubble) { display: none; }
   .drawer { position: absolute; left: 12px; top: 68px; max-height: calc(100% - 230px); display: flex; flex-direction: column; width: 290px; z-index: 8; border-radius: 14px; overflow: hidden; background: var(--glass); backdrop-filter: blur(14px) saturate(1.2); box-shadow: var(--lift); }
   .side { position: absolute; right: 12px; top: 74px; bottom: 90px; width: 300px; z-index: 8; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
   .side > :global(*) { pointer-events: auto; }

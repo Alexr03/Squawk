@@ -389,7 +389,8 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
       }
       return best ? { cs: best } : screenToWorld(sx, sy);
     },
-    worldToScreen: p => worldToScreen(p),
+    // Aircraft views project at their altitude in the 3D view, so rings and bubbles sit on the plane, not its shadow.
+    worldToScreen: p => ('alt' in p && radarFade() <= 0.5 ? screenOf(p as AircraftView) : worldToScreen(p)),
     screenToWorld,
     resize,
     render() {
