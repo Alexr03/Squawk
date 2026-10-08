@@ -196,3 +196,28 @@ export interface Radio {
   auto?: boolean;             // sent by an AI controller
   light?: boolean;            // radio failure: shown as a light signal / wing rock
 }
+
+// ---------------------------------------------------------------- render views
+
+/** What the renderer needs per aircraft each frame. Positions in the primary airport's local frame. */
+export interface AircraftView {
+  cs: string;
+  type: string;               // key into TYPES (aircraft.ts)
+  operator: string;           // key into AIRLINES (airlines.ts)
+  wake: Wake;
+  x: number; y: number;       // metres
+  alt: number;                // ft above mean sea level
+  hdg: number;                // degrees true, nose direction
+  gs: number;                 // kt
+  vs: number;                 // ft/min
+  onGround: boolean;
+  lights: { beacon: boolean; nav: boolean; strobe: boolean; landing: boolean; taxi: boolean };
+  tug: boolean;               // pushback tug attached
+  mine: boolean;              // on one of the player's frequencies (radar colour)
+  alert: 'none' | 'caution' | 'conflict' | 'emergency';
+  squawk: string;
+  clearedAlt: number | null;
+  trail: XY[];                // recent positions, newest last (radar history dots)
+  tag: string[];              // radar data block lines, prepared upstream
+}
+export interface VehicleView { id: string; kind: 'fire' | 'followme' | 'tug'; x: number; y: number; hdg: number; lights: boolean }
