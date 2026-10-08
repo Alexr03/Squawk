@@ -22,7 +22,7 @@
   }
   let { client, selected, taxiEdit = $bindable(), overlays, onSelect, onRadial, onIssue, onTaxiDone, viewRequest, queue, onAction }: Props = $props();
   const feedback = new Feedback();
-  let bubbles = $state<{ cs: string; x: number; y: number; a: Action; level: string }[]>([]);
+  let bubbles = $state<{ cs: string; x: number; y: number; oy: number; a: Action; level: string }[]>([]);
 
   let wrap: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -137,11 +137,15 @@
       if (!a || !v || taxiEdit) continue;
       const p = scene!.worldToScreen(v);
       if (p.x < 0 || p.y < 0 || p.x > w || p.y > h) continue;
-      out.push({ cs: n.cs, x: Math.round(p.x), y: Math.round(p.y), a, level: n.level });
+      const x = Math.round(p.x), y = Math.round(p.y);
+      // Stack bubbles upwards so neighbours (e.g. two aircraft at adjacent holds) never overlap.
+      let oy = 0;
+      while (out.some(b => Math.abs(b.x - x) < 170 && Math.abs(b.y + b.oy - (y + oy)) < 30)) oy -= 32;
+      out.push({ cs: n.cs, x, y, oy, a, level: n.level });
       if (out.length >= 6) break;
     }
     // Avoid rewriting state every frame when nothing moved.
-    if (out.length !== bubbles.length || out.some((b, i) => b.cs !== bubbles[i].cs || b.x !== bubbles[i].x || b.y !== bubbles[i].y || b.a.label !== bubbles[i].a.label)) bubbles = out;
+    if (out.length !== bubbles.length || out.some((b, i) => b.cs !== bubbles[i].cs || b.x !== bubbles[i].x || b.y !== bubbles[i].y || b.oy !== bubbles[i].oy || b.a.label !== bubbles[i].a.label)) bubbles = out;
   }
 
   function drawUi(now = performance.now()) {
@@ -277,7 +281,7 @@
   <canvas bind:this={canvas} onpointerdown={down} onpointermove={move} onpointerup={up} oncontextmenu={context} onwheel={wheel} ondblclick={dbl}></canvas>
   <canvas class="ui" bind:this={ui}></canvas>
   {#each bubbles as b (b.cs)}
-    <button class="bubble {b.a.tone} {b.level}" style="left:{b.x + 16}px; top:{b.y - 34}px" onclick={() => onAction(b.cs, b.a)} title="{b.cs}: {b.a.label}">
+    <button class="bubble {b.a.tone} {b.level}" style="left:{b.x + 16}px; top:{b.y - 34 + b.oy}px" onclick={() => onAction(b.cs, b.a)} title="{b.cs}: {b.a.label}">
       <span class="cs">{b.cs}</span>{b.a.label}
     </button>
   {/each}
