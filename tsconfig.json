@@ -12,5 +12,5 @@
     "verbatimModuleSyntax": true,
     "types": []
   },
-  "include": ["packages/*/src", "apps/web/src/**/*.ts"]
+  "include": ["packages/*/src", "apps/web/src/**/*.ts", "apps/leaderboard/src"]
 }
