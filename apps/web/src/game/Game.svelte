@@ -10,6 +10,7 @@
   import AircraftCard from './AircraftCard.svelte';
   import RadialMenu from './RadialMenu.svelte';
   import Console from './Console.svelte';
+  import Settings from '../screens/Settings.svelte';
   import { viewFor } from './views.ts';
   import { versionLabel } from '../lib/version.ts';
   import Loading, { type Brief } from '../screens/Loading.svelte';
@@ -41,6 +42,7 @@
   let paused = $state(false);
   let menuOpen = $state(false);
   let helpOpen = $state(false);
+  let settingsOpen = $state(false);
   let stripsOpen = $state(innerWidth > 1000);
   let logOpen = $state(false);
   let toasts = $state<{ id: number; text: string; level: string }[]>([]);
@@ -168,7 +170,7 @@
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     sound.unlock();
     if (settings.voiceInput && e.code === settings.pttKey) { e.preventDefault(); if (!e.repeat) pttDown(); return; }
-    if (radial) return; // the menu handles its own keys
+    if (radial || settingsOpen) return; // the menu / settings handle their own keys
     const k = e.key.toLowerCase();
     if (e.key === 'Escape') { if (taxiEdit) taxiDone(false); else if (selected) selected = null; else menuOpen = !menuOpen; return; }
     if (e.key === 'Enter' && taxiEdit) { taxiDone(true); return; }
@@ -306,12 +308,7 @@
       <div class="box">
         <h2>{title}</h2>
         <button class="go" onclick={() => (menuOpen = false)}>Resume</button>
-        <label>Pilot voices <input type="checkbox" bind:checked={settings.pilotVoices} onchange={() => { saveSettings(); sound.apply(); }} /></label>
-        <label>Volume <input type="range" min="0" max="1" step="0.05" bind:value={settings.master} oninput={() => { saveSettings(); sound.apply(); }} /></label>
-        <label>Music <input type="range" min="0" max="1" step="0.05" bind:value={settings.music} oninput={() => { saveSettings(); sound.apply(); }} /></label>
-        <label>Slow down when busy <input type="checkbox" bind:checked={settings.autoSlow} onchange={saveSettings} /></label>
-        <label>Fast day and night (1 h = 2 min) <input type="checkbox" bind:checked={settings.fastDay} onchange={saveSettings} /></label>
-        <label>Push-to-talk voice <input type="checkbox" bind:checked={settings.voiceInput} onchange={saveSettings} /></label>
+        <button onclick={() => (settingsOpen = true)}>Settings</button>
         {@render menuExtra?.()}
         <button onclick={() => (helpOpen = true)}>How to play</button>
         <button class="quit" onclick={onQuit}>End shift</button>
@@ -320,6 +317,7 @@
     </div>
   {/if}
 {#if helpOpen}<Help onClose={() => (helpOpen = false)} />{/if}
+{#if settingsOpen}<div class="settings-layer"><Settings onBack={() => { settingsOpen = false; sound.apply(); }} /></div>{/if}
 {:else}
   {#if brief}<Loading {brief} step={2} />{:else}<div class="loading">Opening the frequency…</div>{/if}
 {/if}
@@ -360,6 +358,7 @@
   .toast.caution { color: var(--amber); }
   .toast.conflict { color: var(--red); }
   .pausebadge { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); z-index: 9; font: 600 14px var(--ui); color: var(--bg); background: var(--amber); padding: 6px 16px; border-radius: 999px; box-shadow: var(--lift); }
+  .settings-layer { position: fixed; inset: 0; z-index: 70; }
   .modal { position: fixed; inset: 0; z-index: 60; background: rgba(5, 10, 20, 0.55); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; }
   .box { width: min(420px, 92vw); border-radius: 18px; background: var(--glass); backdrop-filter: blur(18px); box-shadow: var(--lift); padding: 20px 22px; display: flex; flex-direction: column; gap: 10px; font: 500 14px var(--ui); }
   .box h2 { margin: 0 0 6px; font: 600 17px var(--ui); color: var(--ink-strong); }
