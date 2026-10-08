@@ -88,7 +88,16 @@ function buildApt(pack: AirportPack, off: XY): Apt {
   for (const [k, f] of Object.entries(pack.airspace.fixes)) fixes[k] = { ...f, ...o(f) };
   const freq = {} as Apt['freq'];
   for (const f of pack.frequencies) if (!freq[f.seat]) freq[f.seat] = { callsign: f.callsign, freq: f.freq };
-  const stands = pack.stands.map(s => ({ ...s, ...o(s) }));
+  // Stands the source data puts right on top of another taxi route (a few remote stands, duplicate entries) are dropped:
+  // an aircraft parked there would sit in the middle of the taxiway.
+  let stands = pack.stands.map(s => ({ ...s, ...o(s) }));
+  for (let pass = 0; pass < 4; pass++) { // dropping a stand turns its lead-in into plain apron, which can expose its neighbours
+    const standNodes = new Set(stands.map(s => s.node));
+    const onLane = (p: XY, own: number[]) => edges.some(e => !e.runway && !own.includes(e.a) && !own.includes(e.b) && !standNodes.has(e.a) && !standNodes.has(e.b) && segDist(p, nodes[e.a], nodes[e.b]).d < 10);
+    const kept = stands.filter(s => !onLane(s, [s.node, s.pushNode]));
+    if (kept.length === stands.length) break;
+    stands = kept;
+  }
   // Spatial neighbours via a coarse grid.
   const cell = (v: number) => Math.floor(v / 40);
   const grid = new Map<string, number[]>();
