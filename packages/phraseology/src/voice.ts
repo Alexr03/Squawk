@@ -56,8 +56,9 @@ function findCallsign(T: string[], list: string[], from: number, to: number, fix
     for (let e = s + 1; e <= Math.min(s + 7, to); e++) {
       const keys = windowKeys(T, s, e);
       for (const cs of list) {
-        const key = csKey(cs), num = compact(cs.slice(3));
-        for (const k of keys) {
+        // Radio name ("speedbird one two") or the letters spelled out ("bravo alpha whiskey one two") for newcomers.
+        const names = [csKey(cs), compact(cs)], num = compact(cs.slice(3));
+        for (const k of keys) for (const key of names) {
           const sim = similar(k, key) * (k.endsWith(num) ? 1 : 0.85);
           if (!best || sim > best.sim || (sim === best.sim && s === best.s && e > best.e)) best = { cs, sim, s, e };
         }

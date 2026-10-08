@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, type Snippet } from 'svelte';
-  import { parseSpeech, type ParseCtx } from '@squawk/phraseology';
+  import { callsign, parseSpeech, type ParseCtx } from '@squawk/phraseology';
   import { find, seatRole, viaNames, type Command, type State } from '@squawk/sim';
   import type { ShiftClient, Snap } from './client.ts';
   import Scope from './Scope.svelte';
@@ -223,7 +223,7 @@
         <div class="alerts" aria-label="Needs you">
           {#each queue.slice(0, 5) as n (n.cs)}
             <button class="alert {n.level}" class:sel={n.cs === selected} onclick={() => { selected = n.cs; focus(n.cs); }}>
-              <span class="mark"></span><b>{n.cs}</b><span class="what">{n.text}</span>
+              <span class="mark"></span><span class="who"><b>{n.cs}</b><small>{callsign(n.cs)}</small></span><span class="what">{n.text}</span>
             </button>
           {/each}
           {#if queue.length > 5}<div class="more">+{queue.length - 5} more · press N</div>{/if}
@@ -287,10 +287,12 @@
   .alert { display: grid; grid-template-columns: 6px auto 1fr; gap: 9px; align-items: center; text-align: left; padding: 7px 12px 7px 8px; border: none; border-radius: 10px;
     background: var(--glass); backdrop-filter: blur(14px); box-shadow: var(--lift); color: var(--ink); cursor: pointer; font: 500 13px var(--ui); }
   .alert:hover, .alert.sel { background: var(--glass-hi); }
-  .alert .mark { width: 6px; height: 22px; border-radius: 3px; background: var(--muted); }
+  .alert .mark { width: 6px; height: 28px; border-radius: 3px; background: var(--muted); }
   .alert.urgent .mark { background: var(--amber); }
   .alert.emergency .mark { background: var(--red); box-shadow: 0 0 10px var(--red); }
+  .alert .who { display: flex; flex-direction: column; line-height: 1.15; }
   .alert b { font: 600 13px var(--mono); color: var(--ink-strong); }
+  .alert small { font: 500 11px var(--ui); color: var(--muted); white-space: nowrap; }
   .alert .what { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .alert.emergency .what { color: var(--red); }
   .more { font: 500 12px var(--ui); color: var(--muted); padding-left: 10px; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); }

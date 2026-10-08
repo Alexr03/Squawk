@@ -17,7 +17,7 @@
   <header>
     <div>
       <h2>{ac.cs}</h2>
-      <div class="tel">{callsign(ac.cs)}</div>
+      <div class="tel" title="Say this on the radio (or spell the letters: {ac.cs.split('').join(' ')})">On the radio: <b>{callsign(ac.cs)}</b></div>
     </div>
     <button class="x" onclick={onClose} aria-label="Close">×</button>
   </header>
@@ -56,6 +56,7 @@
   header { display: flex; justify-content: space-between; align-items: flex-start; }
   h2 { margin: 0; font: 600 22px var(--mono); color: var(--ink-strong); }
   .tel { color: var(--muted); }
+  .tel b { color: var(--accent); font-weight: 600; }
   .x { background: none; border: none; color: var(--muted); font-size: 21px; cursor: pointer; line-height: 1; }
   .livery { height: 10px; margin: 8px 0; border-radius: 5px; background: var(--body); border-bottom: 3px solid var(--accent); position: relative; }
   .livery span { position: absolute; right: 0; top: -6px; width: 22px; height: 16px; background: var(--tail); clip-path: polygon(30% 0, 100% 0, 100% 100%, 0 100%); }

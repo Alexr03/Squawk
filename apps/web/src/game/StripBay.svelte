@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { callsign } from '@squawk/phraseology';
   import { depGap, geo, nextSeats, seatRole, type Aircraft, type World } from '@squawk/sim';
   import type { Snap } from './client.ts';
   import type { Need } from './needs.ts';
@@ -77,7 +78,7 @@
         {@const need = queue.find(n => n.cs === a.cs)}
         <button class="strip {a.kind}" class:sel={a.cs === selected} class:emg={!!a.emergency} class:alert={a.alert !== 'none' && a.alert !== 'emergency'}
           class:dim={title !== 'Active'} draggable={title === 'Active'}
-          ondragstart={() => (dragging = a.cs)} onclick={() => onSelect(a.cs)}>
+          ondragstart={() => (dragging = a.cs)} onclick={() => onSelect(a.cs)} title="On the radio: {callsign(a.cs)}">
           <div class="row1">
             <b>{a.cs}</b>
             <span class="type">{a.type}/{a.wake}</span>

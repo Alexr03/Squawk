@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { callsign } from '@squawk/phraseology';
   import type { RadialItem } from './radial.ts';
 
   interface Props { x: number; y: number; cs: string; items: RadialItem[]; onPick: (item: RadialItem) => void; onClose: () => void }
@@ -32,7 +33,7 @@
 <div class="ring" style="left:{cx}px; top:{cy}px">
   <div class="halo"></div>
   <button class="hub" onclick={() => (stack.length ? (stack = stack.slice(0, -1)) : onClose())} aria-label={stack.length ? 'Back' : 'Close'}></button>
-  <div class="title"><b>{current.title}</b>{#if stack.length}<small>click the centre to go back</small>{/if}</div>
+  <div class="title"><b>{current.title}</b><small>{stack.length ? 'click the centre to go back' : callsign(cs.split(' ')[0])}</small></div>
   {#each current.items as it, i (it.label + i)}
     {@const p = pos(i, current.items.length)}
     <button class="item" class:danger={it.danger} class:hasSub={!!it.sub} style="left:{p.left}px; top:{p.top}px; --tx:{p.tx}%; animation-delay:{i * 18}ms"
