@@ -126,7 +126,7 @@
     --bg: #070e1c; --panel: #0d1628; --panel-2: #111d34; --btn: #1a2b47; --line: #26395a; --line-strong: #34496f;
     --ink: #c9d6e6; --ink-strong: #eef3f8; --muted: #7d90ae; --dim: #4f6080;
     --green: #3ee6a8; --green-dim: #2f8f72; --accent: #6cb7ff; --amber: #ffb547; --red: #ff5a5a; --sel: #ffffff; --sel-bg: rgba(143, 199, 255, 0.09);
-    --strip-bg: #ede3c8; --strip-hover: #f3ecd7; --strip-emg: #f6d5cf; --strip-dep: #4a8be0; --strip-arr: #d9a441;
+    --strip-bg: #172234; --strip-hover: #1f2d44; --strip-emg: #3b1c25; --strip-dep: #4a8be0; --strip-arr: #d9a441;
     --ui: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
     --glass: rgba(14, 26, 43, 0.82); --glass-hi: rgba(30, 48, 74, 0.92); --glass-line: rgba(255, 255, 255, 0.09); --knob: rgba(255, 255, 255, 0.07);
@@ -143,15 +143,6 @@
   :global(.app.hc) { --ink: #ffffff; --muted: #c7d3e6; --dim: #9fb0cb; --line: #4a6290; --green: #7dffcf; }
   :global(.app.cb) { --green: #5cc8ff; --green-dim: #3a7fa6; --amber: #ffd23f; --red: #ff6ad5; }
   :global(.app.rm *) { animation: none !important; transition: none !important; }
-  /* Strips are paper: dark ink on buff. */
-  :global(.strip) { color: #1f2633 !important; }
-  :global(.strip b) { color: #0b0f17 !important; }
-  :global(.strip .type), :global(.strip .sq), :global(.strip .rwy) { color: #5c6577 !important; }
-  :global(.strip .route) { color: #1d4f9a !important; }
-  :global(.strip .st) { color: #1f2633 !important; }
-  :global(.strip .need.routine) { color: #5c6577 !important; }
-  :global(.strip .need.urgent) { color: #a8650a !important; }
-  :global(.strip .need.emergency) { color: #c0262d !important; }
   .loading { height: 100vh; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center; font: 600 15px var(--ui); color: var(--green); }
   .lost { position: fixed; inset: 0; z-index: 80; background: rgba(5, 10, 20, 0.75); display: flex; align-items: center; justify-content: center; }
   .lost .box { width: min(520px, 92vw); background: var(--panel-2); border: 1px solid var(--amber); padding: 18px 20px; font: 14px var(--ui); }

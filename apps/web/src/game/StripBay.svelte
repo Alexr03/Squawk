@@ -103,11 +103,12 @@
   h3 span { color: var(--muted); font-weight: 500; }
   .group.drop { min-height: 48px; border: 1px dashed transparent; border-radius: 8px; }
   .group.drop:hover { border-color: var(--line); }
-  .strip { display: block; width: 100%; text-align: left; margin: 0 0 4px; padding: 4px 7px 5px 9px; border: none; border-left: 6px solid var(--strip-dep);
-    background: var(--strip-bg); color: var(--ink); font: 13px/1.05 var(--mono); cursor: pointer; border-radius: 6px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); }
+  /* Electronic flight strips (EFPS): flat, dark, a solid colour block for the flight's type. */
+  .strip { display: block; width: 100%; text-align: left; margin: 0 0 3px; padding: 5px 8px 6px 11px; border: 1px solid rgba(255, 255, 255, 0.06); border-left: 6px solid var(--strip-dep);
+    background: var(--strip-bg); color: var(--ink); font: 13px/1.1 var(--mono); cursor: pointer; border-radius: 3px; transition: background 0.1s; }
   .strip.arr { border-left-color: var(--strip-arr); }
   .strip:hover { background: var(--strip-hover); }
-  .strip.sel { outline: 2px solid var(--sel); outline-offset: -2px; }
+  .strip.sel { background: #24364f; border-color: rgba(108, 183, 255, 0.7); }
   .strip.emg { border-left-color: var(--red); background: var(--strip-emg); }
   .strip.alert { box-shadow: inset 0 0 0 1px var(--amber); }
   .strip.dim { opacity: 0.62; }
@@ -115,7 +116,7 @@
   .row1 b { font-weight: 600; font-size: 16px; color: var(--ink-strong); min-width: 82px; }
   .type, .sq { color: var(--muted); }
   .sq { margin-left: auto; }
-  .rb { font: italic 500 11px var(--ui); color: #2a6fb8; white-space: nowrap; }
+  .rb { font: italic 500 11px var(--ui); color: var(--accent); white-space: nowrap; }
   .route { color: var(--accent); min-width: 64px; }
   .rwy { color: var(--muted); min-width: 28px; }
   .st { margin-left: auto; color: var(--ink); text-align: right; }

@@ -63,9 +63,9 @@
       {/if}
     </header>
 
-    <div class="bay" role="list">
+    <nav class="bay" aria-label="Game modes">
       {#each strips as s (s.id)}
-        <button class="strip" role="listitem" style="--edge:{s.edge}" onclick={() => onNav(s.id)}>
+        <button class="strip" style="--edge:{s.edge}" onclick={() => onNav(s.id)}>
           <span class="name">{s.name}</span>
           <span class="box a">{s.a}</span>
           <span class="box b">{s.b}</span>
@@ -74,7 +74,7 @@
           <span class="box e">{s.e}</span>
         </button>
       {/each}
-    </div>
+    </nav>
 
     <nav class="aux">
       <button onclick={() => onNav('settings')}>Settings</button>
@@ -110,23 +110,21 @@
   .atis { margin: 14px 0 0; max-width: 52ch; font: 400 14px/1.55 var(--mono); color: #b9c8de; }
   .atis b { color: var(--amber); font-weight: 600; }
 
-  /* The strip bay: a dark rail with flight progress strips slotted into it. */
-  .bay { position: relative; display: flex; flex-direction: column; gap: 5px; padding: 8px 0 8px 10px; }
-  .bay::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 2px; background: linear-gradient(#5d6a7d, #39424f); box-shadow: 1px 0 0 rgba(255, 255, 255, 0.08); }
-  .strip { position: relative; display: grid; grid-template-columns: 148px 86px 70px 1fr 64px 54px; align-items: stretch; height: 46px; padding: 0 0 0 10px; border: none; border-radius: 2px;
-    background: #ede3c8; color: #1d2430; text-align: left; cursor: pointer; font: 500 13px var(--mono);
-    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35), 0 6px 14px rgba(0, 0, 0, 0.28); transition: transform 0.14s ease-out, box-shadow 0.14s; }
-  .strip::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 8px; background: var(--edge); }
-  .strip:hover, .strip:focus-visible { transform: translateX(14px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35), 0 12px 24px rgba(0, 0, 0, 0.4); outline: none; }
-  .strip:focus-visible { box-shadow: 0 0 0 2px var(--accent), 0 12px 24px rgba(0, 0, 0, 0.4); }
-  .strip:active { transform: translateX(10px); }
-  .name { display: flex; align-items: center; padding-left: 8px; font: 600 17px var(--ui); color: #0e131c; }
-  .box { display: flex; align-items: center; padding: 0 9px; border-left: 1px solid rgba(29, 36, 48, 0.28); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .box.c { font: 400 13px var(--ui); color: #3a4352; }
-  .box.d, .box.e { justify-content: center; color: #4a5466; }
-  .box.b { justify-content: center; }
+  /* An electronic strip bay (EFPS): a dark touchscreen panel, flat strips, a solid colour block naming each one. */
+  .bay { display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 8px; background: rgba(9, 15, 25, 0.86); border: 1px solid #22314a;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45); backdrop-filter: blur(6px); }
+  .strip { position: relative; display: grid; grid-template-columns: 140px 84px 70px 1fr 66px 56px; align-items: stretch; height: 44px; padding: 0; border: 1px solid #253650; border-radius: 3px;
+    background: #152133; color: #c9d6e6; text-align: left; cursor: pointer; font: 500 13px var(--mono); overflow: hidden; transition: background 0.1s, border-color 0.1s; }
+  .strip:hover, .strip:focus-visible { background: #1d2d45; border-color: var(--edge); outline: none; }
+  .strip:active { background: #24384f; }
+  .name { display: flex; align-items: center; padding-left: 12px; background: var(--edge); font: 700 15px var(--ui); color: #08101c; }
+  .box { display: flex; align-items: center; padding: 0 10px; border-left: 1px solid #253650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .box.c { font: 400 13px var(--ui); color: #e6edf6; }
+  .box.d, .box.e { justify-content: center; color: #8ea0ba; }
+  .box.b { justify-content: center; color: #e6edf6; }
+  .strip:hover .box.c { color: #fff; }
 
-  .aux { display: flex; align-items: center; gap: 22px; padding-left: 10px; font: 500 14px var(--ui); }
+  .aux { display: flex; align-items: center; gap: 22px; padding-left: 2px; font: 500 14px var(--ui); }
   .aux button { padding: 0; border: none; background: none; color: #c9d6e6; cursor: pointer; font: inherit; border-bottom: 1px solid transparent; }
   .aux button:hover, .aux button:focus-visible { color: #fff; border-bottom-color: currentColor; outline: none; }
   .aux span { color: var(--muted); font-size: 13px; }
