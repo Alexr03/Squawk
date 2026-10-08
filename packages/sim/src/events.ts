@@ -10,7 +10,7 @@ import { finalPoint, type World } from './world.ts';
 
 export function scheduleNextEmergency(st: State) {
   const perHour = st.difficulty.emergencies;
-  st.nextEmergencyAt = perHour > 0 ? st.tick + ticks(Math.max(240, -Math.log(1 - rand(st)) * 3600 / perHour)) : Number.MAX_SAFE_INTEGER;
+  st.nextEmergencyAt = perHour > 0 ? st.tick + ticks(Math.max(600, -Math.log(1 - rand(st)) * 3600 / perHour)) : Number.MAX_SAFE_INTEGER;
 }
 
 export function emergencies(world: World, st: State) {

@@ -41,7 +41,8 @@ export function debrief(st: State): Debrief {
   if (s.goArounds) notes.push(`${s.goArounds} go-around${s.goArounds > 1 ? 's' : ''}`);
   if (s.lateHandoffs) notes.push(`${s.lateHandoffs} late handoff${s.lateHandoffs > 1 ? 's' : ''}`);
   if (s.unanswered) notes.push(`${s.unanswered} pilot request${s.unanswered > 1 ? 's' : ''} left unanswered`);
-  if (s.emergencies) notes.push(`${s.emergenciesHandled}/${s.emergencies} emergencies landed safely`);
+  const airborne = st.aircraft.filter(a => a.emergency && !a.onGround).length;
+  if (s.emergencies) notes.push(`${s.emergenciesHandled}/${s.emergencies} emergencies landed safely${airborne ? ` (${airborne} still airborne at handover)` : ''}`);
   if (!notes.length) notes.push('A clean, quiet shift.');
   return { grade, score, safety, efficiency: Math.round(efficiency), throughput, radio: Math.round(radio), movements, perHour: Math.round(perHour), incident, stats: s, worst, notes };
 }

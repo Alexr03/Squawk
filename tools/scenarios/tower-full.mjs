@@ -7,14 +7,14 @@ export default async (page, shot) => {
   await page.locator('select').first().selectOption('15');
   await page.getByRole('button', { name: 'Start shift' }).click();
   await page.waitForTimeout(4000);
-  await page.getByRole('button', { name: '4×' }).click();
+  await page.getByRole('button', { name: '4 times speed' }).click();
   const t0 = Date.now(); let n = 0, last = '';
   while (Date.now() - t0 < 6 * 60_000) {
     if (await page.locator('.deb').count()) break;
-    const items = await page.locator('.queue button').allTextContents();
+    const items = await page.locator('.alert').allTextContents();
     for (const t of items.slice(0, 3)) {
       const cs = t.trim().split(/\s+/)[0];
-      await page.locator('.queue button', { hasText: cs }).first().click().catch(() => {});
+      await page.locator('.alert', { hasText: cs }).first().click().catch(() => {});
       await page.waitForTimeout(120);
       const key = /Landing clearance/.test(t) ? 'l' : /gap OK/.test(t) && /Lined/.test(t) ? 't' : /Ready, gap OK/.test(t) ? 'l' : /Hand off/.test(t) ? 'k' : /readback/i.test(t) ? 'z' : null;
       if (key) { await page.keyboard.press(key); n++; last = `${cs} ${key}`; }
