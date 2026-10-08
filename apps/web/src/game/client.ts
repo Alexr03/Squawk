@@ -13,6 +13,8 @@ export class GameClient {
   prevAt = 0; curAt = 0;
   final: State | null = null;
   speed = 1;
+  /** Seats this player works (in co-op the sim's coverage is everyone's seats). */
+  seats: string[];
   onSnap: (s: Snap) => void = () => {};
   onFinal: (s: State) => void = () => {};
   onError: (m: string) => void = () => {};
@@ -23,6 +25,7 @@ export class GameClient {
   constructor(packs: AirportPack[], cfg: ShiftConfig) {
     this.packs = packs; this.cfg = cfg;
     this.world = buildWorld(packs);
+    this.seats = [...cfg.coverage];
     this.worker = new Worker(new URL('../worker.ts', import.meta.url), { type: 'module' });
     this.worker.onmessage = (e: MessageEvent<FromWorker>) => this.receive(e.data);
     // Plain data only: Svelte state proxies can't cross to a worker.

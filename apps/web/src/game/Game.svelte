@@ -49,6 +49,8 @@
 
   onMount(() => {
     client.onSnap = s => {
+      // The UI sees this player's seats as the coverage (in co-op the sim covers everyone's).
+      s = { ...s, coverage: client.seats };
       snap = s;
       sound.update(world, s);
       if (selected && !find(s, selected)) selected = null;
@@ -61,7 +63,7 @@
     };
     client.onFinal = st => { sound.stop(); onEnd(st); };
     client.onError = m => toast(`Sim error: ${m.split('\n')[0]}`, 'conflict');
-    if (client.snap) snap = client.snap;
+    if (client.snap) snap = { ...client.snap, coverage: client.seats };
     return () => { sound.stop(); voiceInput?.dispose(); };
   });
 
