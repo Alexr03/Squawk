@@ -33,6 +33,25 @@
   }
   const keyName = (code: string) => code === 'Backquote' ? 'Backtick  `' : code === 'Space' ? 'Space bar' : code.replace(/^Key|^Digit/, '');
   const pct = (v: number) => `${Math.round(v * 100)}%`;
+  // Every installed speech voice, to hear and switch off any that don't belong on a frequency.
+  let voices = $state<SpeechSynthesisVoice[]>([]);
+  $effect(() => {
+    if (typeof speechSynthesis === 'undefined') return;
+    const load = () => (voices = speechSynthesis.getVoices().filter(v => /^(en|fr|de|es|it|nl|pt|sv|da|nb|no|pl|fi|el|tr|ro|hu|cs|hr|sr|bg|he|is)/i.test(v.lang)).sort((a, b) => a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name)));
+    load(); speechSynthesis.addEventListener('voiceschanged', load);
+    return () => speechSynthesis.removeEventListener('voiceschanged', load);
+  });
+  function sample(v: SpeechSynthesisVoice) {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance('Heathrow Tower, Speedbird one two, established ILS runway two seven right.');
+    u.voice = v; u.lang = v.lang; u.volume = Math.min(1, settings.master * settings.voice + 0.2);
+    speechSynthesis.speak(u);
+  }
+  const blocked = (v: SpeechSynthesisVoice) => settings.blockedVoices.includes(v.name);
+  function toggleVoice(v: SpeechSynthesisVoice) {
+    settings.blockedVoices = blocked(v) ? settings.blockedVoices.filter(n => n !== v.name) : [...settings.blockedVoices, v.name];
+    saveSettings();
+  }
   function esc(e: KeyboardEvent) { if (e.key === 'Escape' && !listening) onBack(); }
 </script>
 
@@ -79,6 +98,22 @@
             <div class="ctl"><button class="act" class:playing onclick={hear}>{#if playing}<span class="eq"><i></i><i></i><i></i></span>Transmitting{:else}Play a call{/if}</button></div>
           </div>
         </section>
+        {#if voices.length}
+          <section>
+            <h2>Voices</h2>
+            <p class="note">Pilots are drawn from the voices installed on this device. Play any of them, and switch off one you don't want on the radio.</p>
+            <div class="voices">
+              {#each voices as v (v.name)}
+                <div class="vrow" class:off={blocked(v)}>
+                  <button class="play" onclick={() => sample(v)} aria-label="Play {v.name}"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg></button>
+                  <span class="vn">{v.name.replace(/^Microsoft |^Google /, '').replace(/ Online (Natural)/, '').replace(/ - .*/, '')}</span>
+                  <span class="vl">{v.lang}</span>
+                  <input class="switch" type="checkbox" checked={!blocked(v)} onchange={() => toggleVoice(v)} aria-label="Use {v.name}" />
+                </div>
+              {/each}
+            </div>
+          </section>
+        {/if}
         <section>
           <h2>Who speaks</h2>
           {@render toggle('Pilot voices', 'Read pilot transmissions aloud', 'pilotVoices')}
@@ -236,6 +271,14 @@
   .seg button.on { background: var(--green); color: var(--bg); }
   select, .txt { background: var(--knob); color: var(--ink-strong); border: 1px solid var(--glass-line); border-radius: 10px; font: 13px var(--ui); padding: 7px 10px; }
   .txt { width: 200px; }
+  .voices { display: flex; flex-direction: column; max-height: 300px; overflow-y: auto; margin: 4px 0 8px; scrollbar-width: thin; }
+  .vrow { display: grid; grid-template-columns: 32px 1fr 64px 44px; align-items: center; gap: 10px; padding: 6px 2px; border-top: 1px solid var(--glass-line); }
+  .vrow.off .vn, .vrow.off .vl { opacity: 0.45; text-decoration: line-through; }
+  .play { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--knob); color: var(--ink-strong); }
+  .play:hover { color: var(--green); }
+  .play svg { width: 14px; height: 14px; fill: currentColor; stroke: none; }
+  .vn { font: 500 14px var(--ui); color: var(--ink-strong); }
+  .vl { font: 500 12px var(--mono); color: var(--muted); }
   .example p { margin: 4px 0 8px; color: var(--ink); }
   .example ul { margin: 0 0 8px; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--ink-strong); }
   .note { color: var(--muted); font-size: 12.5px; margin: 8px 0 6px; }

@@ -36,7 +36,8 @@ export interface RadioAudio {
 }
 
 const MAX_QUEUE = 4;
-const NOT_PILOTS = /\b(ana|junior|kid|child|princess|bubbles|bells|boing|cellos|deranged|hysterical|organ|trinoids|whisper|zarvox|albert|bad news|good news|jester|superstar|wobble)\b/i;
+// Child voices (Edge: Ana en-US, Maisie en-GB, Gisela de-DE, Eloise fr-FR, Xiaoyou/Xiaoshuang zh) and macOS novelty voices.
+const NOT_PILOTS = /\b(ana|maisie|gisela|eloise|xiaoyou|xiaoshuang|junior|kid|child|princess|bubbles|bells|boing|cellos|deranged|hysterical|organ|trinoids|whisper|zarvox|albert|bad news|good news|jester|superstar|wobble)\b/i;
 // Voice language to look for per airline, best first. European carriers get their own language (reading English gives the
 // accent); elsewhere a regional English, since Asian and Arabic voices reading English are hard to understand.
 const L = (...l: string[]) => l.concat('en');
@@ -248,7 +249,7 @@ export function createRadioAudio(): RadioAudio {
     const all = synth?.getVoices() ?? [];
     const lang = (v: SpeechSynthesisVoice) => v.lang.replace('_', '-').toLowerCase();
     // Child and novelty voices (Edge "Ana", macOS "Junior", "Bubbles"...) never belong on an ATC frequency.
-    const usable = all.filter((v) => !NOT_PILOTS.test(v.name));
+    const usable = all.filter((v) => !NOT_PILOTS.test(v.name) && !settings.blockedVoices.includes(v.name));
     const english = usable.filter((v) => lang(v).startsWith('en'));
     // Pilots sound like their airline: an Air France crew gets a French voice reading English, a Delta crew an American one.
     // Accent strength (Settings): off = plain English; light = regional English, plus home-language voices only when they are
