@@ -82,6 +82,10 @@
           <h2>Who speaks</h2>
           {@render toggle('Pilot voices', 'Read pilot transmissions aloud', 'pilotVoices')}
           {@render toggle('Your transmissions', 'Also read out what you say to pilots', 'atcVoice')}
+          <div class="row">
+            <div class="lab"><b>Pilot accents</b><span>Crews sound like their airline's country. Light keeps every call easy to follow.</span></div>
+            <div class="ctl seg">{#each [['off', 'Off'], ['light', 'Light'], ['strong', 'Strong']] as [v, n]}<button class:on={settings.accents === v} onclick={() => { settings.accents = v as 'off' | 'light' | 'strong'; saveSettings(); }}>{n}</button>{/each}</div>
+          </div>
         </section>
       {:else if tab === 'voice'}
         <section>

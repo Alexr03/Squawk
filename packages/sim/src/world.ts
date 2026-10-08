@@ -165,7 +165,7 @@ function astar(apt: Apt, from: number, goal: (n: number) => boolean, target: XY,
           // Crossing a runway is allowed; taxiing along one is not.
           const rw = apt.runways.find(r => r.name === e.runway);
           if (rw && Math.abs(Math.sin((bearing(apt.nodes[cur], apt.nodes[to]) - bearing(rw.a, rw.b)) * Math.PI / 180)) < 0.5) continue;
-          cost += e.len * 40 + 4000;
+          cost += e.len * 40 + 60000; // dwarfs any traffic penalty: never cross a runway just to avoid opposite-direction taxiing
         }
       }
       // An aircraft already pointing somewhere can't start by reversing.

@@ -208,6 +208,12 @@ export function moveGround(world: World, st: State, ac: Aircraft) {
     case 'taxi': case 'taxiin': case 'vacating': case 'lineup': {
       if (ac.pi >= ac.path.length) { if (ac.towing) ac.towing = false; else arrive(world, st, ac, apt); ac.gs = 0; break; }
       if (st.tick < ac.actAt) { ac.gs = 0; break; }
+      // A route point just behind the nose (the centre of a node the aircraft stopped a few metres past) is skipped, never
+      // driven back to: big jets can't reverse, and doubling back to it would mean two half-turns instead of one.
+      if ((ac.phase === 'taxi' || ac.phase === 'taxiin') && ac.pi <= 1 && ac.gs < 2 && ac.pi < ac.path.length - 1 && ac.holdAt !== ac.path[ac.pi] && !ac.towing) {
+        const n = apt.nodes[ac.path[ac.pi]];
+        if (dist(ac, n) < 25 && Math.abs(angleDiff(ac.hdg, bearing(ac, n))) > 100) ac.pi++;
+      }
       let want = ac.towing ? 4 : ac.phase === 'lineup' ? 10 : Math.min(t.taxi, lvp ? 12 : 30) * (ac.phase === 'vacating' ? 1.6 : 1);
       // Slow for the coming turn.
       const n0 = apt.nodes[ac.path[ac.pi]], n1 = apt.nodes[ac.path[ac.pi + 1]];

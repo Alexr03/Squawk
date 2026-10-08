@@ -97,6 +97,8 @@ export class Radar {
     const stands = F.mpp < 1.1;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     const placed: { x: number; y: number; w: number; h: number }[] = [];
+    // Aircraft win: a sign never sits on top of a plane (reserve each one, with its callsign tag below it).
+    for (const ac of F.aircraft) { const q = F.screenOf(ac), r = Math.max(10, F.sizeOf(ac)); if (q.x > -40 && q.y > -40 && q.x < F.w + 40 && q.y < F.h + 40) placed.push({ x: q.x - r, y: q.y - r, w: 2 * r, h: 2 * r + 16 }); }
     for (const pk of this.packs) for (const l of pk.labels) {
       if (l.kind === 'stand' && !stands) continue;
       const p = F.groundOf(l);

@@ -1,3 +1,4 @@
+import { settings } from '../lib/settings.svelte.ts';
 // Radio + UI audio. Speech comes from speechSynthesis, which can't be routed through
 // Web Audio, so the "radio" is faked: a soft squelch click + a faint hiss under the
 // speech for its duration, then a squelch tail. Everything else is synthesised.
@@ -250,10 +251,14 @@ export function createRadioAudio(): RadioAudio {
     const usable = all.filter((v) => !NOT_PILOTS.test(v.name));
     const english = usable.filter((v) => lang(v).startsWith('en'));
     // Pilots sound like their airline: an Air France crew gets a French voice reading English, a Delta crew an American one.
-    const want = opts.atc ? ['en-gb'] : ACCENT[opts.voiceKey.slice(0, 3)] ?? ['en-gb', 'en'];
+    // Accent strength (Settings): off = plain English; light = regional English, plus home-language voices only when they are
+    // 'Multilingual' (fluent English with a light accent); strong = any home-language voice reading English.
+    const level = settings.accents;
+    const want = opts.atc || level === 'off' ? ['en-gb', 'en'] : ACCENT[opts.voiceKey.slice(0, 3)] ?? ['en-gb', 'en'];
     let pool: SpeechSynthesisVoice[] = english;
     for (const w of want) {
-      const m = usable.filter((v) => lang(v).startsWith(w));
+      let m = usable.filter((v) => lang(v).startsWith(w));
+      if (level === 'light' && !w.startsWith('en')) m = m.filter((v) => /multilingual/i.test(v.name));
       if (m.length) { pool = m; break; }
     }
     if (!pool.length) pool = usable.length ? usable : all;
