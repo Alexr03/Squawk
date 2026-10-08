@@ -6,6 +6,8 @@
     ".": "./src/index.ts",
     "./types": "./src/types.ts",
     "./airlines": "./src/airlines.ts",
-    "./aircraft": "./src/aircraft.ts"
+    "./aircraft": "./src/aircraft.ts",
+    "./geo": "./src/geo.ts",
+    "./world": "./src/world.ts"
   }
 }
