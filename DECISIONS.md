@@ -62,3 +62,10 @@ Choices made where PLAN.md is silent, or where milestone 1 deliberately cuts a c
 - **The rate limit is 30 s per IP**, but KV's minimum TTL is 60 s, so the key stores the time of the last score and the handler checks the 30 s itself. The server sets `at`.
 - **Polling-friendly reads:** a missing offer or answer in an existing room returns `200 null`, not 404, so the browser console stays quiet while polling. An unknown room is a 404.
 - **KV is eventually consistent.** That's fine for a leaderboard. Room signalling can lag for players in different regions, and copy-paste codes always work. A Durable Object is the upgrade path if it matters.
+
+## PWA
+
+- **No plugin.** A small Vite plugin (`vite.config.ts`) emits `sw.js` from `apps/web/sw.js` with the build's file list. The worker is registered from `main.ts` in production builds only.
+- **Precached:** `./`, the manifest, the icons, and every JS, CSS and woff2 file in the build. **Not precached:** the data packs, which are cached on first use, cache-first, since their names are hashed. Also left out are the audio/render test pages and the transformers chunk and its ONNX/wasm files. The service worker never touches those, and transformers.js caches its models itself. Navigations are network-first, so a new release shows up on the next load and the cached shell is the offline fallback.
+- **One version-free `squawk-assets` cache** keeps the data packs across releases, and it is never pruned (a few MB per release). Shell caches are versioned and the old ones are deleted on activate.
+- **Icons** are a 32×32 pixel-art radar scope, drawn by `tools/icons.mjs` using only Node built-ins (zlib deflate and crc32). The maskable icon keeps the art inside the safe zone. They're committed under `apps/web/public/icons`.
