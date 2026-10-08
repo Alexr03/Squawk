@@ -32,6 +32,16 @@ export interface AirportPack {
   /** Runway configurations the airport uses, most common first. */
   configs: RunwayConfig[];
   fireStation?: XY;
+  /** Surroundings and extra airside pavement for the renderer (data/airports/<ICAO>/scenery.json, attached on load). */
+  scenery?: Scenery;
+}
+
+export type SceneryAreaKind = 'residential' | 'industrial' | 'commercial' | 'retail' | 'farmland' | 'grass' | 'forest' | 'water' | 'parking' | 'construction' | 'paved' | 'railway';
+export type SceneryRoadKind = 'motorway' | 'trunk' | 'primary' | 'secondary' | 'minor' | 'service' | 'rail';
+export interface Scenery {
+  areas: { kind: SceneryAreaKind; poly: XY[] }[]; // largest first
+  roads: { kind: SceneryRoadKind; pts: XY[]; width: number }[];
+  buildings: { kind: 'terminal' | 'hangar' | 'tower' | 'building'; poly: XY[]; heightM: number; name?: string }[];
 }
 
 export interface Frequency { seat: Seat; sector?: string; callsign: string; freq: string }

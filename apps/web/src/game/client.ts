@@ -30,7 +30,7 @@ export class GameClient {
     this.worker.onmessage = (e: MessageEvent<FromWorker>) => this.receive(e.data);
     // Plain data only: Svelte state proxies can't cross to a worker.
     this.cfg = JSON.parse(JSON.stringify(cfg));
-    this.send({ t: 'init', packs, cfg: this.cfg });
+    this.send({ t: 'init', packs: packs.map(({ scenery: _, ...p }) => p), cfg: this.cfg }); // the sim has no use for scenery
   }
 
   private send(m: ToWorker) { this.worker.postMessage(m); }

@@ -12,8 +12,7 @@ import { aircraftGeometry, lightPoints, typeOf, vehicleGeometry } from './planes
 import { GradeShader, lightMaterial, lightUniforms, poolMaterial } from './fx.ts';
 import { Radar, type Affine } from './radar.ts';
 import { sunPosition } from './sun.ts';
-import vt323Url from '../assets/vt323.woff2?url';
-import silkscreenUrl from '../assets/silkscreen.woff2?url';
+export { decodeScenery, type SceneryFile } from './sceneryData.ts';
 
 export interface SceneOptions { pixelSize?: number; quality?: 'low' | 'high' }
 export interface Weather { rain: number; visM: number; cloud: number; cells?: { x: number; y: number; r: number; intensity: number }[] }
@@ -46,20 +45,10 @@ const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math
 const lsmooth = (a: number, b: number, x: number) => smooth(Math.log(a), Math.log(b), Math.log(x));
 const hashStr = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return (h >>> 0) / 4294967296; };
 
-let fontsRequested = false;
-function loadFonts() {
-  if (fontsRequested || typeof FontFace === 'undefined') return;
-  fontsRequested = true;
-  for (const [name, url] of [['VT323', vt323Url], ['Silkscreen', silkscreenUrl]]) {
-    new FontFace(name, `url(${url})`).load().then(f => document.fonts.add(f), () => {});
-  }
-}
-
 export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opts: SceneOptions = {}): Scene {
   const pixelSize = opts.pixelSize ?? 3;
   const high = opts.quality !== 'low';
   const primary = packs[0];
-  loadFonts();
 
   // ---- renderer: the canvas itself is the low-res target; CSS upscales it with nearest-neighbour
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
@@ -231,6 +220,11 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
     for (const [name, p] of world.approach) p.material.uniforms.uGain.value = arr.includes(name) ? g : 0;
     (standPools.material as THREE.ShaderMaterial).uniforms.uGain.value = night * (1 + 0.6 * wet);
     world.buildingUniforms.uNight.value = night;
+    if (world.scenery) {
+      const sc = world.scenery;
+      sc.uniforms.uNight.value = night; sc.uniforms.uDay.value = day;
+      sc.streetLights.material.uniforms.uGain.value = Math.max(1 - smooth(-3, 5, el), smooth(0.3, 0.7, fogAmt)) * 0.9;
+    }
     acMat.emissive.set('#ffe2b8').multiplyScalar(0.07 * night); // apron floodlight on airframes
     world.centrelines.material.color.set('#d9b53a').multiplyScalar(0.18 + 0.82 * day);
     grade.uniforms.uFog.value = fogAmt;
@@ -405,6 +399,13 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
         updateDynamic(now);
         const flat = lsmooth(2.5, 5, view.mpp);
         world.buildings.scale.y = 1 - 0.97 * flat;
+        if (world.scenery) {
+          const sc = world.scenery;
+          sc.uniforms.uTime.value = (now - t0) / 1000;
+          sc.uniforms.uDetail.value = 1 - lsmooth(1, 2.5, view.mpp);
+          for (const m of sc.buildingsBig) m.scale.y = 1 - 0.97 * flat;
+          for (const m of sc.buildingsSmall) { m.scale.y = 1 - 0.97 * flat; m.visible = view.mpp < 4; } // LOD: houses and sheds drop out once the scope takes over
+        }
         world.buildingUniforms.uDetail.value = 1 - lsmooth(1, 2.5, view.mpp);
         world.centrelines.material.opacity = (0.9 - 0.55 * lsmooth(0.8, 3, view.mpp)) * (1 - lsmooth(2.5, 6, view.mpp));
         lightUniforms.uPxPerM.value = 1 / (view.mpp * pixelSize);

@@ -5,6 +5,7 @@ import { bearing, dist, dms, fromBearing, NM, project, segDist } from '../../pac
 import type { AirportPack, Fix, LatLon, RunwayPack, Stand, TaxiEdge, TaxiNode, Wake, XY } from '../../packages/sim/src/types.ts';
 import { londonMap } from './map.ts';
 import { overpass } from './overpass.ts';
+import { buildScenery } from './scenery.ts';
 import { validate } from './validate.ts';
 
 const icao = process.argv[2];
@@ -325,6 +326,7 @@ if (!existsSync(out)) mkdirSync(out, { recursive: true });
 writeFileSync(new URL('airport.json', out), JSON.stringify(pack));
 console.log(`wrote data/airports/${icao}/airport.json`);
 if (problems.some(p => p.startsWith('FATAL'))) process.exit(2);
+await buildScenery(icao, refresh);
 
 // ------------------------------------------------------------------ helpers
 function area(poly: XY[]) { let s = 0; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) s += (poly[j].x + poly[i].x) * (poly[j].y - poly[i].y); return Math.abs(s / 2); }

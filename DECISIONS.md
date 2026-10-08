@@ -40,3 +40,11 @@ Choices made where PLAN.md is silent, or where milestone 1 deliberately cuts a c
 - **Crossfade:** tilt eases to zero by about 3.5 m/px. Buildings flatten between 2.5 and 5 m/px. The 3D image desaturates while the navy scope fades in between 3 and 8 m/px. Above 8 m/px the WebGL pass is skipped entirely.
 - **Fonts:** VT323 for data tags and Silkscreen for small labels (both OFL), bundled under `packages/render/assets`.
 - **Only the primary pack is built in 3D.** Other packs appear on the scope as runway symbols, placed by their ARP.
+- **Scenery is stored in its own file, `data/airports/<ICAO>/scenery.json`.** It comes from `tools/pipeline/scenery.ts`, which `airport.ts` runs after writing the pack. It holds OSM landuse, roads, rail and buildings in a box around the airfield, sized by the airfield's extent (about ±7 × ±4 km at Heathrow). Coordinates are rounded to 1 m and delta-encoded, so every pack stays under 2.5 MB. The format is decoded by `decodeScenery` from `@squawk/render`. `lib/data.ts` attaches the result as the optional `AirportPack.scenery`, and the game client strips it before posting packs to the sim worker. `airport.json` is unchanged.
+- **Airside pavement uses heuristics, because OSM maps Heathrow's aprons as strips by the piers.** Every stand gets a paved box sized by wake, apron lanes are 64 m wide, and taxiways get 10 m concrete shoulders and filleted junctions. Together these give the continuous concrete seen in aerial photos.
+- **Scenery rendering:**
+  - Landuse is one mesh, largest polygons first, with per-kind patterns in the shader.
+  - Roads are one mesh with lane markings.
+  - Traffic is GPU-animated points: cars by day, white and red light streams at night.
+  - Street lights are additive points.
+  - Buildings are merged per 1 km tile and share the terminal material, so they get lit windows. Houses and sheds drop out above 4 m/px.

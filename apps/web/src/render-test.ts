@@ -1,7 +1,8 @@
 // Render test bed: Heathrow with ~60 fake aircraft. Wheel zoom, drag pan, click select.
 // Keys: T time of day, R rain, F fog, G follow-the-greens demo, W weather overlay, S SIDs/STARs.
 // URL params (for screenshots): cx, cy, mpp, t=dawn|noon|golden|dusk|night, rain, fog, greens, sel, ov=sids,stars,weather, n=extra aircraft
-import { createScene } from '@squawk/render';
+import '@fontsource/ibm-plex-mono/500.css';
+import { createScene, decodeScenery } from '@squawk/render';
 import type { AircraftView, AirportPack, VehicleView, XY } from '@squawk/sim/types';
 import { TYPES } from '@squawk/sim/aircraft';
 import { FT, NM, bearing, dist, fromBearing } from '@squawk/sim/geo';
@@ -20,6 +21,7 @@ interface Fake { v: AircraftView; step(dt: number): void; trailT: number }
 
 async function main() {
   const pack: AirportPack = await (await fetch(new URL('../../../data/airports/EGLL/airport.json', import.meta.url))).json();
+  if (q.get('scenery') !== '0') pack.scenery = decodeScenery(await (await fetch(new URL('../../../data/airports/EGLL/scenery.json', import.meta.url))).json());
   const canvas = document.getElementById('c') as HTMLCanvasElement;
   const hud = document.getElementById('hud')!;
   if (q.get('hud') === '0') hud.style.display = 'none';

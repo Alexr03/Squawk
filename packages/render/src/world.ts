@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import type { AirportPack, RunwayPack, XY } from '@squawk/sim/types';
 import { segDist } from '@squawk/sim/geo';
 import { lightMaterial } from './fx.ts';
+import { buildScenery, type SceneryWorld } from './scenery.ts';
 
 export const Y = { grass: 0, map: 0.05, twy: 0.1, apron: 0.16, rwyBase: 0.2, rwy: 0.24, line: 0.3, pool: 0.34, light: 0.6 };
 
@@ -312,6 +313,7 @@ export interface AirportWorld {
   twyCentre: THREE.Points<THREE.BufferGeometry, THREE.ShaderMaterial>;
   stopBars: Map<number, XY[]>;
   standPools: { x: number; y: number }[];
+  scenery?: SceneryWorld;
 }
 
 export function buildAirport(pack: AirportPack, maxTex: number): AirportWorld {
@@ -323,15 +325,18 @@ export function buildAirport(pack: AirportPack, maxTex: number): AirportWorld {
   const surfaceMats: AirportWorld['surfaceMats'] = [];
   const mat = (hex: string, map?: THREE.Texture, lit = 0) => {
     const base = new THREE.Color(hex);
-    const m = new THREE.MeshLambertMaterial({ color: base.clone(), map });
+    const m = new THREE.MeshLambertMaterial({ color: base.clone(), ...(map ? { map } : {}) });
     surfaceMats.push({ mat: m, base, lit });
     return m;
   };
   const flat = (g: THREE.BufferGeometry, m: THREE.Material) => { const o = new THREE.Mesh(g, m); o.receiveShadow = true; return ground(o); };
 
-  // map features around the airport (motorways, rivers)
+  const { material: bm, uniforms: buildingUniforms } = buildingMaterial();
+  // the town around the fence (OSM scenery) when the pack has it, else just the map's motorways and rivers
+  const scenery = pack.scenery ? buildScenery(pack.scenery, ground, bm) : undefined;
+  if (scenery) group.add(scenery.group);
   const near = (p: XY) => Math.abs(p.x) < 20000 && Math.abs(p.y) < 20000;
-  for (const [kind, w, hex] of [['motorway', 30, '#5d5b57'], ['river', 26, '#4d7480']] as const) {
+  if (!scenery) for (const [kind, w, hex] of [['motorway', 30, '#5d5b57'], ['river', 26, '#4d7480']] as const) {
     const segs: [XY, XY][] = [];
     for (const l of pack.airspace.map) if (l.kind === kind)
       for (let i = 1; i < l.pts.length; i++) if (near(l.pts[i]) || near(l.pts[i - 1])) segs.push([l.pts[i - 1], l.pts[i]]);
@@ -344,9 +349,29 @@ export function buildAirport(pack: AirportPack, maxTex: number): AirportWorld {
   const twyEdges = pack.taxi.edges.filter(e => !e.runway);
   const segs: [XY, XY][] = twyEdges.map(e => [byId.get(e.a)!, byId.get(e.b)!]);
   const used = new Set<number>(); for (const e of twyEdges) { used.add(e.a); used.add(e.b); }
-  flat(ribbons(segs, 23, Y.twy, [...used].map(id => byId.get(id)!)), mat('#7a7671', asphalt(), 0.3));
-  flat(polysGeometry(pack.surfaces.filter(s => s.kind !== 'runway').map(s => s.poly), Y.apron), mat('#b1a999', concrete(), 1));
-  flat(polysGeometry(pack.surfaces.filter(s => s.kind === 'runway').map(s => s.poly), Y.rwyBase), mat('#4b4946'));
+  // Taxiways: a lighter concrete shoulder band (~10 m each side) under the 23 m pavement, and filleted junctions
+  // (bigger discs where three or more segments meet fill the inside of the turns).
+  const deg = new Map<number, number>(); for (const e of twyEdges) for (const id of [e.a, e.b]) deg.set(id, (deg.get(id) ?? 0) + 1);
+  const usedPts = [...used].map(id => byId.get(id)!), junctions = [...used].filter(id => deg.get(id)! >= 3).map(id => byId.get(id)!);
+  flat(ribbons(segs, 41, Y.twy - 0.02, usedPts), mat('#a29c91', concrete(), 0.6));
+  flat(ribbons([], 46, Y.twy - 0.015, junctions), mat('#a29c91', concrete(), 0.6));
+  flat(ribbons(segs, 23, Y.twy, usedPts), mat('#8b8780', asphalt(), 0.3));
+  flat(ribbons([], 30, Y.twy + 0.005, junctions), mat('#8b8780', asphalt(), 0.3));
+  // Aprons: OSM maps them as strips by the piers. Pave what the stands and apron lanes actually use too, so the
+  // terminal areas read as the continuous concrete they are (a box per stand, sized by wake, plus 64 m apron lanes).
+  const apronMat = mat('#b1a999', concrete(), 1);
+  const lanes = twyEdges.filter(e => !e.name).map(e => [byId.get(e.a)!, byId.get(e.b)!] as [XY, XY]);
+  const laneNodes = [...new Set(twyEdges.filter(e => !e.name).flatMap(e => [e.a, e.b]))].map(id => byId.get(id)!);
+  const DEG = Math.PI / 180;
+  const boxes = pack.stands.map(st => {
+    const w = st.maxWake === 'J' ? 86 : st.maxWake === 'H' ? 70 : 46, L = st.maxWake === 'M' ? 58 : 82;
+    const fx = Math.sin(st.hdg * DEG), fy = Math.cos(st.hdg * DEG), rx = fy, ry = -fx;
+    const c = { x: st.x - fx * (L / 2 - 8), y: st.y - fy * (L / 2 - 8) };
+    return [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([a, b]) => ({ x: c.x + fx * a * L / 2 + rx * b * w / 2, y: c.y + fy * a * L / 2 + ry * b * w / 2 }));
+  });
+  flat(ribbons(lanes, 64, Y.apron - 0.01, laneNodes), apronMat);
+  flat(polysGeometry(boxes, Y.apron - 0.005), apronMat);
+  flat(polysGeometry(pack.surfaces.filter(s => s.kind !== 'runway').map(s => s.poly), Y.apron), apronMat);  flat(polysGeometry(pack.surfaces.filter(s => s.kind === 'runway').map(s => s.poly), Y.rwyBase), mat('#4b4946'));
   for (const rw of pack.runways) {
     const m = runwayMesh(rw, maxTex);
     surfaceMats.push({ mat: m.material as THREE.MeshLambertMaterial, base: new THREE.Color('#ffffff') });
@@ -362,7 +387,6 @@ export function buildAirport(pack: AirportPack, maxTex: number): AirportWorld {
   ground(centrelines);
 
   // buildings
-  const { material: bm, uniforms: buildingUniforms } = buildingMaterial();
   const buildings = new THREE.Mesh(buildingsGeometry(pack), bm);
   buildings.castShadow = buildings.receiveShadow = true;
   group.add(buildings);
@@ -452,6 +476,6 @@ export function buildAirport(pack: AirportPack, maxTex: number): AirportWorld {
   for (const l of [...lights, twyCentre]) group.add(l);
   return {
     group, buildings, buildingUniforms, surfaceMats, centrelines, lights, approach, twyCentre, stopBars,
-    standPools: pack.stands.map(s => ({ x: s.x, y: s.y })),
+    standPools: pack.stands.map(s => ({ x: s.x, y: s.y })), scenery,
   };
 }
