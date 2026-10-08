@@ -1,6 +1,7 @@
 // Static airport scene from an AirportPack: ground, surfaces, runway markings, buildings and airfield lights.
 // World mapping: pack (x east, y north) -> three (x, up, -y).
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { AirportPack, RunwayPack, XY } from '@squawk/sim/types';
 import { segDist } from '@squawk/sim/geo';
 import { lightMaterial } from './fx.ts';
@@ -390,6 +391,8 @@ export function buildAirport(pack: AirportPack, maxTex: number): AirportWorld {
   const buildings = new THREE.Mesh(buildingsGeometry(pack), bm);
   buildings.castShadow = buildings.receiveShadow = true;
   group.add(buildings);
+  const bridges = jetBridges(pack);
+  if (bridges) group.add(bridges);
 
   // ---- airfield ground lighting
   const rwyL = new LightSet();
@@ -478,4 +481,44 @@ export function buildAirport(pack: AirportPack, maxTex: number): AirportWorld {
     group, buildings, buildingUniforms, surfaceMats, centrelines, lights, approach, twyCentre, stopBars,
     standPools: pack.stands.map(s => ({ x: s.x, y: s.y })), scenery,
   };
+}
+
+/** Air bridges, built where OSM has none: from the nearest terminal wall to the front door of each contact stand. */
+function jetBridges(pack: AirportPack): THREE.Mesh | null {
+  const walls: [XY, XY][] = [];
+  for (const b of pack.buildings) if (b.kind === 'terminal' || b.heightM >= 9) b.poly.forEach((p, i) => walls.push([p, b.poly[(i + 1) % b.poly.length]]));
+  const near = (p: XY) => {
+    let best: XY | null = null, bd = Infinity;
+    for (const [a, b] of walls) {
+      const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+      const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)), q = { x: a.x + dx * t, y: a.y + dy * t };
+      const d = Math.hypot(q.x - p.x, q.y - p.y);
+      if (d < bd) { bd = d; best = q; }
+    }
+    return best ? { p: best, d: bd } : null;
+  };
+  const geos: THREE.BufferGeometry[] = [];
+  const box = (a: XY, b: XY, w: number, y0: number, y1: number) => {
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (len < 2) return;
+    const g = new THREE.BoxGeometry(len, y1 - y0, w);
+    g.rotateY(Math.atan2(b.y - a.y, b.x - a.x));
+    g.translate((a.x + b.x) / 2, (y0 + y1) / 2, -(a.y + b.y) / 2);
+    geos.push(g);
+  };
+  for (const s of pack.stands) {
+    const h = (s.hdg * Math.PI) / 180, fx = Math.sin(h), fy = Math.cos(h), lx = -fy, ly = fx; // forward, and the left (door) side
+    const nose = s.maxWake === 'M' ? 15 : 24;
+    const door = { x: s.x + fx * (nose - 6) + lx * 3, y: s.y + fy * (nose - 6) + ly * 3 };
+    const w = near(door);
+    if (!w || w.d > 45 || w.d < 4) continue;
+    if ((w.p.x - s.x) * fx + (w.p.y - s.y) * fy < 0) continue; // the wall must be ahead of the aircraft, not behind it
+    box(w.p, door, 3.2, 3.6, 6.4);                               // the tunnel
+    const g = new THREE.CylinderGeometry(0.5, 0.5, 3.6, 6); g.translate(door.x - (door.x - w.p.x) * 0.25, 1.8, -(door.y - (door.y - w.p.y) * 0.25)); geos.push(g); // wheel leg
+    const r = new THREE.BoxGeometry(4.6, 3.4, 4.6); r.translate(w.p.x, 5, -w.p.y); geos.push(r); // rotunda at the wall
+  }
+  if (!geos.length) return null;
+  const m = new THREE.Mesh(mergeGeometries(geos), new THREE.MeshLambertMaterial({ color: '#c9ced6', flatShading: true }));
+  m.castShadow = m.receiveShadow = true;
+  return m;
 }
