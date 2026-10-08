@@ -42,6 +42,11 @@ export function flightPlan(world: World, ac: Aircraft): FlightPlan | null {
     end = { p: last, text: `${placeName(ac.other) ?? ac.other} (${ac.other})`, dir };
   }
 
+  // Holding: the racetrack itself (as drawn on the scope): straight to the fix if not there yet, then round the pattern.
+  if (ac.nav.mode === 'hold' && ac.nav.hold) {
+    const loop = racetrack(apt, ac.nav.hold.fix, ac.nav.hold.inbound, ac.nav.hold.turn);
+    if (loop) return { plan, fixes, end, ...followLoop(ac, loop, fx(ac.nav.hold.fix)!) };
+  }
   // Projection: fly the aircraft's current instructions forward for four minutes, turning at rate one.
   const track: XY[] = [];
   const minutes: FlightPlan['minutes'] = [];
@@ -96,4 +101,51 @@ export function withCommands(ac: Aircraft, cmds: Command[]): Aircraft {
     else if (c.verb === 'alt') a.tgtAlt = c.alt;
   }
   return a;
+}
+
+/** The holding pattern at a fix as a closed polyline in flying order: inbound leg to the fix, turn, outbound leg, turn. */
+function racetrack(apt: { pack: { airspace: { stacks: { fix: string; inboundTrack: number; turn: 'L' | 'R' }[] } }; fixes: Record<string, XY> }, fix: string, inbound: number, turn: 'L' | 'R'): XY[] | null {
+  const f = apt.fixes[fix];
+  if (!f) return null;
+  const sk = apt.pack.airspace.stacks.find(s => s.fix === fix);
+  const trk = sk?.inboundTrack ?? inbound, dir = sk?.turn ?? turn;
+  const t = (trk * Math.PI) / 180, ux = Math.sin(t), uy = Math.cos(t);
+  const sx = dir === 'R' ? uy : -uy, sy = dir === 'R' ? -ux : ux; // toward the turn side
+  const leg = 4 * NM, r = 1.2 * NM;
+  const a0 = { x: f.x - ux * leg, y: f.y - uy * leg };
+  const pts: XY[] = [a0, { x: f.x, y: f.y }];
+  const arc = (c: XY, from: XY) => {
+    const ang0 = Math.atan2(from.y - c.y, from.x - c.x);
+    for (let i = 1; i <= 12; i++) { const a = ang0 + (dir === 'R' ? -1 : 1) * Math.PI * (i / 12); pts.push({ x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r }); }
+  };
+  arc({ x: f.x + sx * r, y: f.y + sy * r }, f);
+  const b0 = { x: f.x + sx * 2 * r - ux * leg, y: f.y + sy * 2 * r - uy * leg };
+  pts.push(b0);
+  arc({ x: a0.x + sx * r, y: a0.y + sy * r }, b0);
+  return pts;
+}
+
+/** Four minutes along: to the fix first if still on the way in, then round the loop from the nearest point, ticks by distance. */
+function followLoop(ac: Aircraft, loop: XY[], fixPt: XY): Pick<FlightPlan, 'track' | 'minutes'> {
+  const speed = Math.max(140, ac.gs) * KT; // m/s
+  const path: XY[] = [];
+  let i: number;
+  if (geo.dist(ac, fixPt) > 2.5 * NM && geo.dist(ac, loop[0]) > 2.5 * NM) { path.push(fixPt); i = 2; } // inbound to the fix, then into the turn
+  else { i = loop.reduce((b, p, k) => (geo.dist(ac, p) < geo.dist(ac, loop[b]) ? k : b), 0); i = (i + 1) % loop.length; }
+  while (path.length < 400) { path.push(loop[i]); i = (i + 1) % loop.length; if (path.length > loop.length * 2) break; }
+  // Walk 240 s of flying along it.
+  const track: XY[] = [], minutes: FlightPlan['minutes'] = [];
+  let prev: XY = { x: ac.x, y: ac.y }, t = 0, nextTick = 60;
+  const lvl = ac.alt >= 6000 ? 'FL' + String(Math.round(ac.alt / 100)).padStart(3, '0') : Math.round(ac.alt / 100) * 100 + ' ft';
+  for (const p of path) {
+    const d = geo.dist(prev, p), dt = d / speed;
+    while (t + dt >= nextTick && nextTick <= 240) {
+      const k = (nextTick - t) / dt, q = { x: prev.x + (p.x - prev.x) * k, y: prev.y + (p.y - prev.y) * k };
+      minutes.push({ p: q, text: `${nextTick / 60}′ ${lvl}` }); nextTick += 60;
+    }
+    t += dt;
+    if (t > 240) { const k = 1 - (t - 240) / dt; track.push({ x: prev.x + (p.x - prev.x) * k, y: prev.y + (p.y - prev.y) * k }); break; }
+    track.push(p); prev = p;
+  }
+  return { track, minutes };
 }
