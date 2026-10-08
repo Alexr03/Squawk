@@ -24,6 +24,7 @@ export { depGap, appSpacing, WAKE_APP, WAKE_DEP, isDark, etaToThreshold } from '
 export { validate, nextSeats, find, taxiTarget, runwayFree, routeStart, startHdg } from './pilot.ts';
 export { flowPenalty } from './physics.ts';
 export { domain } from './rules.ts';
+export { project, type Pt } from './predict.ts';
 export { debrief, type Debrief } from './score.ts';
 export { views, aircraftView } from './views.ts';
 export { declare as declareEmergency } from './events.ts';

@@ -2,12 +2,13 @@
 import { TYPES } from './aircraft.ts';
 import { crash } from './incidents.ts';
 import { appSpacing, depGap } from './ai.ts';
-import { dist, NM } from './geo.ts';
+import { angleDiff, dist, NM } from './geo.ts';
 import { aptOf, aptState, elevation } from './physics.ts';
 import { initialCall, nextSeats, pilotCall } from './pilot.ts';
 import { DT, rand, seatId, seatRole, ticks, type Aircraft, type ScoreEvent, type State } from './state.ts';
 import type { Seat } from './types.ts';
-import { runwayAt, type World } from './world.ts';
+import { project, type Pt } from './predict.ts';
+import { along, lateral, runwayAt, type World } from './world.ts';
 
 /** Is the player responsible for any of these aircraft (working them on one of their seats)? */
 export function blame(st: State, cs: string[]): boolean {
@@ -79,48 +80,58 @@ export function separation(world: World, st: State) {
   const air = st.aircraft.filter(a => !a.onGround && a.phase !== 'gone');
   const live = new Set<string>();
   const stca: State['stca'] = {};
+  const paths = new Map<string, Pt[]>();
+  const path = (a: Aircraft) => { let p = paths.get(a.cs); if (!p) paths.set(a.cs, p = project(world, a, 120, 10)); return p; };
   for (const a of air) a.alert = a.emergency ? 'emergency' : 'none';
   for (let i = 0; i < air.length; i++) for (let j = i + 1; j < air.length; j++) {
     const a = air[i], b = air[j];
     if (a.phase === 'gone' || b.phase === 'gone') continue; // already collided this tick
     const d = dist(a, b), dv = Math.abs(a.alt - b.alt);
     if (d > 12 * NM) continue;
-    const aptA = aptOf(world, a), aptB = aptOf(world, b);
-    // Tower's domain: both low and close to the same airport (parallel runway operations are independent).
-    const elev = elevation(aptA);
-    if (a.apt === b.apt && a.alt - elev < 2600 && b.alt - elev < 2600 && dist(a, aptA.offset) < 7 * NM && dist(b, aptB.offset) < 7 * NM) continue;
-    const inTma = dist(a, world.primary.offset) < world.primary.pack.airspace.tmaRadiusNm * NM;
-    let req = (inTma ? 3 : 5) * NM;
-    // Wake spacing between arrivals established on the same ILS.
-    if (a.nav.established && b.nav.established && a.runway === b.runway && a.apt === b.apt) {
-      const end = aptA.ends[a.runway!];
-      const [lead, follow] = dist(a, end.thr) < dist(b, end.thr) ? [a, b] : [b, a];
-      const need = appSpacing(lead.wake, follow.wake, false) * NM - 0.25 * NM;
-      if (d < need) {
-        const key = `${lead.cs}|${follow.cs}|w`;
-        live.add(key);
-        if (!(key in st.sepActive)) { st.sepActive[key] = st.tick; if (st.coverage.includes(seatId(a.apt, 'DIR'))) penal(st, [follow.cs, lead.cs], 'wakeInf'); event(st, { kind: 'wake', severity: 2, text: `Wake spacing: ${follow.cs} ${(d / NM).toFixed(1)} nm behind ${lead.cs} (needs ${(need / NM + 0.25).toFixed(0)} nm)`, cs: [follow.cs, lead.cs], x: follow.x, y: follow.y }); }
-        stca[key] = 'caution'; mark(follow, 'caution');
-      }
-      req = Math.min(req, 2.5 * NM);
+    const key = a.cs < b.cs ? `${a.cs}|${b.cs}` : `${b.cs}|${a.cs}`;
+    // An actual mid-air: wingspans overlapping (allowing for how far the pair closes in one tick), not merely too close.
+    if (d < 90 + (a.gs + b.gs) * 0.514 * DT && dv < 120) {
+      penal(st, [a.cs, b.cs], 'collisions');
+      crash(world, st, a, b, true);
       continue;
     }
-    const key = a.cs < b.cs ? `${a.cs}|${b.cs}` : `${b.cs}|${a.cs}`;
-    if (d < req && dv < RVSM - 100) {
+    const lost = (text: string) => {
       live.add(key);
       stca[key] = 'conflict'; mark(a, 'conflict'); mark(b, 'conflict');
-      if (!(key in st.sepActive)) {
-        st.sepActive[key] = st.tick;
-        penal(st, [a.cs, b.cs], 'sepLoss');
-        event(st, { kind: 'seploss', severity: 4, text: `Separation lost: ${a.cs} and ${b.cs}, ${(d / NM).toFixed(1)} nm / ${Math.round(dv / 100) * 100} ft`, cs: [a.cs, b.cs], x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-      }
-      // An actual mid-air: wingspans overlapping (allowing for how far the pair closes in one tick), not merely too close.
-      if (d < 90 + (a.gs + b.gs) * 0.514 * DT && dv < 120) {
-        penal(st, [a.cs, b.cs], 'collisions');
-        crash(world, st, a, b, true);
-        continue;
-      }
-    } else if (predictConflict(a, b, req)) {
+      if (key in st.sepActive) return;
+      st.sepActive[key] = st.tick;
+      penal(st, [a.cs, b.cs], 'sepLoss');
+      event(st, { kind: 'seploss', severity: 4, text: `${text}: ${a.cs} and ${b.cs}, ${(d / NM).toFixed(1)} nm / ${Math.round(dv / 100) * 100} ft`, cs: [a.cs, b.cs], x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    };
+    const aptA = aptOf(world, a);
+    // Arrivals on the same final: wake spacing, closing up, overlapping. Checked even low and close in (the Tower's domain).
+    const end = onFinal(world, a) && onFinal(world, b) && a.runway === b.runway && a.apt === b.apt ? aptA.ends[a.runway!] : null;
+    if (end) {
+      const [lead, follow] = dist(a, end.thr) < dist(b, end.thr) ? [a, b] : [b, a];
+      const need = appSpacing(lead.wake, follow.wake, false) * NM - 0.25 * NM;
+      const wkey = `${lead.cs}|${follow.cs}|w`;
+      if (d < NM && dv < RVSM - 500) lost('Too close on final');
+      else if (d < need) {
+        live.add(wkey);
+        if (!(wkey in st.sepActive)) { st.sepActive[wkey] = st.tick; if (st.coverage.includes(seatId(a.apt, 'DIR'))) penal(st, [follow.cs, lead.cs], 'wakeInf'); event(st, { kind: 'wake', severity: 2, text: `Wake spacing: ${follow.cs} ${(d / NM).toFixed(1)} nm behind ${lead.cs} (needs ${(need / NM + 0.25).toFixed(0)} nm)`, cs: [follow.cs, lead.cs], x: follow.x, y: follow.y }); }
+        stca[wkey] = 'caution'; mark(follow, 'caution');
+      } else if (predictConflict(path(lead), path(follow), need, false)) { stca[wkey] = 'caution'; mark(follow, 'caution'); }
+      continue;
+    }
+    // Tower's domain: both low and close to the same airport (parallel runway operations are independent).
+    const elev = elevation(aptA);
+    if (a.apt === b.apt && a.alt - elev < 2600 && b.alt - elev < 2600 && dist(a, aptA.offset) < 7 * NM && dist(b, aptOf(world, b).offset) < 7 * NM) continue;
+    const inTma = dist(a, world.primary.offset) < world.primary.pack.airspace.tmaRadiusNm * NM;
+    const req = (inTma ? 3 : 5) * NM;
+    if (d < req && dv < RVSM - 100) {
+      // Moving apart, or both in the same hold: a caution, not a new loss (one already counted stays counted).
+      const va = vel(a), vb = vel(b), apart = (b.x - a.x) * (vb.x - va.x) + (b.y - a.y) * (vb.y - va.y) >= 0;
+      const sameHold = a.nav.mode === 'hold' && b.nav.mode === 'hold' && a.nav.hold?.fix === b.nav.hold?.fix;
+      if (apart || sameHold) {
+        stca[key] = 'caution'; mark(a, 'caution'); mark(b, 'caution');
+        if (key in st.sepActive) live.add(key);
+      } else lost('Separation lost');
+    } else if (predictConflict(path(a), path(b), req, true)) {
       stca[key] = 'caution'; mark(a, 'caution'); mark(b, 'caution');
     }
   }
@@ -131,18 +142,21 @@ function mark(a: Aircraft, level: 'caution' | 'conflict') {
   if (a.alert === 'emergency' || a.alert === 'conflict') return;
   a.alert = level;
 }
-/** Project both tracks 2 minutes ahead (10 s steps): will they lose separation? */
-function predictConflict(a: Aircraft, b: Aircraft, req: number): boolean {
-  const va = vel(a), vb = vel(b);
-  for (let t = 10; t <= 120; t += 10) {
-    const ax = a.x + va.x * t, ay = a.y + va.y * t, bx = b.x + vb.x * t, by = b.y + vb.y * t;
-    const aa = levelAt(a, t), bb = levelAt(b, t);
-    if (Math.hypot(ax - bx, ay - by) < req && Math.abs(aa - bb) < RVSM - 100) return true;
+/** On (or joining) the final approach to its runway: established, or lined up on it inside 15 nm. */
+function onFinal(world: World, a: Aircraft) {
+  if (a.kind !== 'arr' || !a.runway) return false;
+  if (a.nav.established || a.phase === 'final') return true;
+  const end = aptOf(world, a).ends[a.runway], toThr = end.thrS - along(end, a);
+  return a.nav.ils === a.runway && toThr > 0 && toThr < 15 * NM && Math.abs(lateral(end, a)) < 0.5 * NM && Math.abs(angleDiff(a.trk, end.hdgTrue)) < 45;
+}
+/** Along both projected paths (every 10 s for 2 minutes): will they come closer than the minimum? */
+function predictConflict(pa: Pt[], pb: Pt[], req: number, vertical: boolean): boolean {
+  for (let k = 0; k < Math.min(pa.length, pb.length); k++) {
+    if (Math.hypot(pa[k].x - pb[k].x, pa[k].y - pb[k].y) < req && (!vertical || Math.abs(pa[k].alt - pb[k].alt) < RVSM - 100)) return true;
   }
   return false;
 }
 const vel = (a: Aircraft) => ({ x: Math.sin(a.trk * Math.PI / 180) * a.gs * NM / 3600, y: Math.cos(a.trk * Math.PI / 180) * a.gs * NM / 3600 });
-const levelAt = (a: Aircraft, t: number) => a.vs > 0 ? Math.min(a.tgtAlt, a.alt + a.vs / 60 * t) : a.vs < 0 ? Math.max(a.tgtAlt, a.alt + a.vs / 60 * t) : a.alt;
 
 /** Ground: runway occupancy losses, ground collisions, taxi gridlock. */
 export function groundRules(world: World, st: State) {

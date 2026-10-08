@@ -1,5 +1,5 @@
 // What the selected aircraft intends (its filed route) and where it is actually heading (a short projection of its real path).
-import { finalPoint, geo, type Aircraft, type Command, type World } from '@squawk/sim';
+import { finalPoint, geo, project, type Aircraft, type Command, type World } from '@squawk/sim';
 import { placeName } from '@squawk/phraseology';
 
 type XY = { x: number; y: number };
@@ -12,8 +12,6 @@ export interface FlightPlan {
   level?: { p: XY; text: string };              // where it reaches its cleared level (climbing or descending)
 }
 
-const NM = geo.NM;
-const KT = NM / 3600; // metres per second per knot
 
 export function flightPlan(world: World, ac: Aircraft): FlightPlan | null {
   if (ac.onGround) return null;
@@ -43,55 +41,15 @@ export function flightPlan(world: World, ac: Aircraft): FlightPlan | null {
     end = { p: last, text: `${placeName(ac.other) ?? ac.other} (${ac.other})`, dir };
   }
 
-  // Holding: the racetrack itself (as drawn on the scope): straight to the fix if not there yet, then round the pattern.
-  if (ac.nav.mode === 'hold' && ac.nav.hold) {
-    const h = ac.nav.hold, f = fx(h.fix), sk = apt.pack.airspace.stacks.find(s => s.fix === h.fix);
-    // The pattern exactly as the sim flies it (sized for its speed, level and the wind), once it has worked that out.
-    const loop = f && geo.racetrack(f, sk?.inboundTrack ?? h.inbound, sk?.turn ?? h.turn, h.r && h.len ? { r: h.r, leg: h.len } : geo.holdShape(ac.ias, ac.alt));
-    if (loop) return { plan, fixes, end, ...followLoop(ac, loop, f) };
-  }
-  // Projection: fly the aircraft's current instructions forward for four minutes, turning at rate one.
+  // Projection: the sim's own prediction of its path (the one STCA uses), four minutes ahead.
   const track: XY[] = [];
   const minutes: FlightPlan['minutes'] = [];
   let level: FlightPlan['level'];
-  let x = ac.x, y = ac.y, hdg = ac.trk ?? ac.hdg, alt = ac.alt;
-  const route = [...(ac.nav.mode === 'route' ? ac.nav.route : [])];
-  let established = ac.nav.established;
-  const target = (): number | null => {
-    if (ac.nav.mode === 'hold' && ac.nav.hold) {
-      const f = fx(ac.nav.hold.fix);
-      return f && geo.dist({ x, y }, f) > 1.5 * NM ? geo.bearing({ x, y }, f) : null; // at the fix: keep the current turn going (racetrack)
-    }
-    if (ac.nav.ils) {
-      const e = apt.ends[ac.nav.ils];
-      if (e && !established) {
-        // Capture the localizer when close to the centreline and pointing roughly along it.
-        const ax = x - e.thr.x, ay = y - e.thr.y, along = -(ax * e.ux + ay * e.uy), off = Math.abs(ax * e.uy - ay * e.ux);
-        const course = (Math.atan2(e.ux, e.uy) * 180) / Math.PI;
-        if (along > 0 && off < 0.4 * NM && Math.abs(((course - hdg + 540) % 360) - 180) < 70) established = true;
-      }
-      if (e && established) return geo.bearing({ x, y }, e.thr);
-    }
-    while (route.length && fx(route[0]) && geo.dist({ x, y }, fx(route[0])!) < 1.2 * NM) route.shift();
-    if (route.length && fx(route[0])) return geo.bearing({ x, y }, fx(route[0])!);
-    return ac.tgtHdg;
-  };
-  const vs = Math.sign(ac.tgtAlt - ac.alt) * Math.max(800, Math.abs(ac.vs) || 1500);
-  for (let t = 10; t <= 240; t += 10) {
-    const want = target();
-    if (want !== null) {
-      let d = ((want - hdg + 540) % 360) - 180;
-      if (ac.nav.mode === 'hdg' && ac.turn && Math.abs(d) > 5) d = ac.turn === 'L' ? (d > 0 ? d - 360 : d) : (d < 0 ? d + 360 : d); // the way the controller said to turn
-      hdg = (hdg + Math.max(-30, Math.min(30, d)) + 360) % 360; // 3°/s
-    } else if (ac.nav.mode === 'hold') hdg = (hdg + (ac.nav.hold?.turn === 'L' ? -30 : 30) * 0.25 + 360) % 360;
-    const b = (hdg * Math.PI) / 180, v = Math.max(120, ac.gs) * KT * 10;
-    x += Math.sin(b) * v; y += Math.cos(b) * v;
-    alt = vs > 0 ? Math.min(ac.tgtAlt, alt + (vs / 60) * 10) : Math.max(ac.tgtAlt, alt + (vs / 60) * 10);
+  project(world, ac, 240, 10).forEach(({ x, y, alt }, i) => {
     track.push({ x, y });
-    if (t % 60 === 0) minutes.push({ p: { x, y }, text: `${t / 60}′` });
+    if ((i + 1) % 6 === 0) minutes.push({ p: { x, y }, text: `${(i + 1) / 6}′` });
     if (!level && Math.abs(ac.tgtAlt - ac.alt) > 200 && alt === ac.tgtAlt) level = { p: { x, y }, text: `${ac.tgtAlt > ac.alt ? '▲' : '▼'} ${ac.tgtAlt >= 6000 ? 'FL' + String(Math.round(ac.tgtAlt / 100)).padStart(3, '0') : ac.tgtAlt + ' ft'} level` };
-    if (ac.nav.ils && established && geo.dist({ x, y }, apt.ends[ac.nav.ils]?.thr ?? { x: 1e9, y: 0 }) < 0.5 * NM) break;
-  }
+  });
   return { plan, fixes, end, track, minutes, level };
 }
 
@@ -106,28 +64,4 @@ export function withCommands(ac: Aircraft, cmds: Command[]): Aircraft {
     else if (c.verb === 'alt') a.tgtAlt = c.alt;
   }
   return a;
-}
-
-/** Four minutes along: to the fix first if still on the way in, then round the loop from the nearest point, ticks by distance. */
-function followLoop(ac: Aircraft, loop: XY[], fixPt: XY): Pick<FlightPlan, 'track' | 'minutes'> {
-  const speed = Math.max(140, ac.gs) * KT; // m/s
-  const path: XY[] = [];
-  let i: number;
-  if (geo.dist(ac, fixPt) > 2.5 * NM && geo.dist(ac, loop[0]) > 2.5 * NM) { path.push(fixPt); i = 2; } // inbound to the fix, then into the turn
-  else { i = loop.reduce((b, p, k) => (geo.dist(ac, p) < geo.dist(ac, loop[b]) ? k : b), 0); i = (i + 1) % loop.length; }
-  while (path.length < 400) { path.push(loop[i]); i = (i + 1) % loop.length; if (path.length > loop.length * 2) break; }
-  // Walk 240 s of flying along it.
-  const track: XY[] = [], minutes: FlightPlan['minutes'] = [];
-  let prev: XY = { x: ac.x, y: ac.y }, t = 0, nextTick = 60;
-  for (const p of path) {
-    const d = geo.dist(prev, p), dt = d / speed;
-    while (t + dt >= nextTick && nextTick <= 240) {
-      const k = (nextTick - t) / dt, q = { x: prev.x + (p.x - prev.x) * k, y: prev.y + (p.y - prev.y) * k };
-      minutes.push({ p: q, text: `${nextTick / 60}′` }); nextTick += 60;
-    }
-    t += dt;
-    if (t > 240) { const k = 1 - (t - 240) / dt; track.push({ x: prev.x + (p.x - prev.x) * k, y: prev.y + (p.y - prev.y) * k }); break; }
-    track.push(p); prev = p;
-  }
-  return { track, minutes };
 }

@@ -353,6 +353,10 @@ function director(world: World, st: State, ac: Aircraft) {
     }
   } else if (Math.abs(angleDiff(ac.tgtHdg ?? ac.hdg, bearing(ac, target))) > 12 && ac.nav.mode === 'hdg' && d > 3 * NM) {
     say(world, st, ac, [{ cs: ac.cs, verb: 'heading', hdg: Math.round(norm(bearing(ac, target))) || 360 }]);
+  } else {
+    // Levelled off for traffic on the way in: once nothing is in conflict with it, carry on down.
+    const want = isLast ? 4000 : 6000;
+    if (ac.tgtAlt > want && Math.abs(ac.vs) < 100 && !Object.keys(st.stca).some(k => k.split('|').includes(ac.cs))) say(world, st, ac, [{ cs: ac.cs, verb: 'alt', alt: want }]);
   }
 }
 const norm = (h: number) => ((h % 360) + 360) % 360;
@@ -447,7 +451,11 @@ export function stackLevel(world: World, st: State, ac: Aircraft): number | null
   const key = (a: Aircraft) => a.phase === 'stack' ? a.alt / 1e6 : 1 + dist(a, fix) / NM;
   const group = st.aircraft.filter(a => a.apt === ac.apt && a.stack === ac.stack && a.kind === 'arr' && !a.onGround && !a.vectors && !a.nav.established && (a.phase === 'stack' || a.phase === 'arrival'));
   group.sort((a, b) => key(a) - key(b));
-  return sk.minAltFt + Math.max(0, group.indexOf(ac)) * 1000;
+  let lvl = sk.minAltFt + Math.max(0, group.indexOf(ac)) * 1000;
+  // Never a level someone in the hold is still at or cleared to (it may not have been able to step down yet).
+  const held = (l: number) => group.some(o => o !== ac && o.phase === 'stack' && (Math.abs(o.alt - l) < 500 || Math.abs(o.tgtAlt - l) < 500));
+  while (held(lvl)) lvl += 1000;
+  return lvl;
 }
 function removeFromStack(st: State, as: ReturnType<typeof aptState>, cs: string) { for (const k of Object.keys(as.stack)) as.stack[k] = as.stack[k].filter(c => c !== cs); void st; }
 

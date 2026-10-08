@@ -1,4 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { stackLevel } from './ai.ts';
+import { project } from './predict.ts';
+import { separation } from './rules.ts';
+import { pointOnEnd } from './world.ts';
 import { describe, expect, test } from 'vitest';
 import { buildWorld, createShift, debrief, depGap, DIFFICULTY, geo, hashState, issue, replay, step, find, type AirportPack, type DayPack, type ShiftConfig, type State } from './index.ts';
 
@@ -106,5 +110,76 @@ describe('holding', () => {
       expect(worst / geo.NM).toBeLessThan(0.25);
     }
     expect([...entries].sort()).toEqual(['outbound', 'parallel', 'teardrop']);
+  });
+});
+
+describe('separation alerts', () => {
+  const NM = geo.NM;
+  /** Two airborne aircraft placed by hand, owned by the player's Director. */
+  const pair = (over: [Partial<State['aircraft'][number]>, Partial<State['aircraft'][number]>]) => {
+    const c = cfg({ coverage: ['EGLL:DIR', 'LON'] });
+    const st = createShift(world, c);
+    while (st.aircraft.filter(a => !a.onGround && a.kind === 'arr').length < 2) step(world, c, st);
+    const [a, b] = st.aircraft.filter(a => !a.onGround && a.kind === 'arr');
+    st.aircraft = [a, b];
+    for (const [ac, o] of [[a, over[0]], [b, over[1]]] as const) Object.assign(ac, { owner: 'EGLL:DIR', freq: 'EGLL:DIR', checkedIn: true, turn: null, vs: 0, tgtSpd: null, runway: '27R', vectors: null, emergency: null, ...o });
+    return { st, a, b };
+  };
+  const nav = (o: Partial<State['aircraft'][number]['nav']>) => ({ mode: 'hdg', route: [], established: false, gs: false, ...o }) as State['aircraft'][number]['nav'];
+
+  test('two in the same hold at the same level, moving apart: a caution, not a loss', () => {
+    const sk = pack.airspace.stacks.find(s => s.name === 'BNN')!, f = world.primary.fixes[sk.fix];
+    const hold = (leg: 'inbound' | 'outbound') => nav({ mode: 'hold', hold: { fix: sk.fix, inbound: sk.inboundTrack, turn: sk.turn, leg, t: 0 } });
+    const p = geo.fromBearing(f, sk.inboundTrack + 180, 1.35 * NM), q = geo.fromBearing(f, sk.inboundTrack, 1.35 * NM);
+    const { st, a, b } = pair([
+      { x: p.x, y: p.y, alt: 8000, tgtAlt: 8000, hdg: sk.inboundTrack + 180, trk: sk.inboundTrack + 180, gs: 220, phase: 'stack', nav: hold('outbound') },
+      { x: q.x, y: q.y, alt: 8000, tgtAlt: 8000, hdg: sk.inboundTrack, trk: sk.inboundTrack, gs: 220, phase: 'stack', nav: hold('inbound') },
+    ]);
+    separation(world, st);
+    expect(Object.values(st.stca)).toEqual(['caution']);
+    expect(st.stats.sepLoss).toBe(0);
+    expect(a.alert).toBe('caution'); expect(b.alert).toBe('caution');
+  });
+
+  test('two arrivals overlapping on final, low and close in: a red alert; closing inside wake spacing: a caution', () => {
+    const e = world.primary.ends['27R'];
+    const fin = (nm: number, alt: number) => { const p = pointOnEnd(e, e.thrS - nm * NM); return { x: p.x, y: p.y, alt, tgtAlt: 3000, hdg: e.hdgTrue, trk: e.hdgTrue, gs: 150, phase: 'final' as const, nav: nav({ ils: '27R', established: true, gs: true }) }; };
+    let { st } = pair([fin(4, 1300), fin(4.6, 1450)]);
+    separation(world, st);
+    expect(Object.values(st.stca)).toContain('conflict');
+    expect(st.stats.sepLoss).toBe(1);
+    ({ st } = pair([fin(4, 1300), fin(6, 1900)]));
+    separation(world, st);
+    expect(Object.entries(st.stca)).toEqual([[expect.stringMatching(/\|w$/), 'caution']]);
+    expect(st.stats.sepLoss).toBe(0);
+  });
+
+  test('prediction follows the ILS join: one turning onto the localizer is no conflict with one on final 4.5 nm behind', () => {
+    const e = world.primary.ends['27R'];
+    const base = pointOnEnd(e, e.thrS - 8 * NM, 2 * NM), fin = pointOnEnd(e, e.thrS - 12.5 * NM);
+    const toCl = geo.bearing(base, pointOnEnd(e, e.thrS - 8 * NM)); // straight at the centreline
+    const { st, a, b } = pair([
+      { x: base.x, y: base.y, alt: 4000, tgtAlt: 4000, hdg: toCl, trk: toCl, gs: 210, ias: 210, phase: 'approach', nav: nav({ ils: '27R' }), tgtHdg: toCl },
+      { x: fin.x, y: fin.y, alt: 4000, tgtAlt: 3000, hdg: e.hdgTrue, trk: e.hdgTrue, gs: 180, ias: 180, phase: 'final', nav: nav({ ils: '27R', established: true }) },
+    ]);
+    // Straight on, as the old prediction assumed, they would pass inside 3 nm within two minutes...
+    const straight = (ac: typeof a, t: number) => geo.fromBearing(ac, ac.trk, ac.gs * NM / 3600 * t);
+    expect(Math.min(...[10, 20, 30, 40, 50, 60].map(t => geo.dist(straight(a, t), straight(b, t))))).toBeLessThan(3 * NM);
+    // ...but it turns onto the localizer ahead of the other.
+    const pa = project(world, a, 120, 10);
+    expect(Math.abs(geo.angleDiff(geo.bearing(pa[10], pa[11]), e.hdgTrue))).toBeLessThan(10);
+    separation(world, st);
+    expect(st.stca).toEqual({});
+  });
+
+  test('stack levels: an inbound never gets a level someone is still holding at', () => {
+    const sk = pack.airspace.stacks.find(s => s.name === 'BNN')!, f = world.primary.fixes[sk.fix];
+    const far = geo.fromBearing(f, 0, 40 * NM);
+    const { st, a, b } = pair([
+      { x: f.x, y: f.y, alt: 8000, tgtAlt: 8000, phase: 'stack', stack: 'BNN', nav: nav({ mode: 'hold', hold: { fix: sk.fix, inbound: sk.inboundTrack, turn: sk.turn, leg: 'inbound', t: 0 } }) },
+      { x: far.x, y: far.y, alt: 15000, tgtAlt: 15000, phase: 'arrival', stack: 'BNN', nav: nav({ mode: 'route', route: [sk.fix] }) },
+    ]);
+    expect(stackLevel(world, st, a)).toBe(7000);
+    expect(stackLevel(world, st, b)).toBe(9000); // its rank says 8000, but the one holding hasn't left 8000
   });
 });
