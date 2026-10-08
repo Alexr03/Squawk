@@ -56,7 +56,7 @@
 </div>
 
 <style>
-  .deb { height: 100vh; overflow-y: auto; display: flex; justify-content: center; padding: 30px 16px; background: radial-gradient(ellipse at top, #10203c, var(--bg) 70%); font: 14px var(--ui); color: var(--ink); }
+  .deb { height: 100vh; overflow-y: auto; display: flex; justify-content: center; padding: 30px 16px; background: var(--screen-bg); font: 14px var(--ui); color: var(--ink); }
   .card { width: min(760px, 100%); }
   .head { display: flex; gap: 22px; align-items: center; }
   .grade { font: 600 97px var(--ui); width: 130px; text-align: center; color: var(--green); text-shadow: 0 0 30px currentColor; }

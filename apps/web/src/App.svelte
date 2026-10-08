@@ -116,7 +116,7 @@
 
 <style>
   :global(:root) {
-    --bg: #070e1c; --panel: #0d1628; --panel-2: #111d34; --btn: #16243f; --line: #22324f; --line-strong: #34496f;
+    --bg: #070e1c; --panel: #0d1628; --panel-2: #111d34; --btn: #1a2b47; --line: #26395a; --line-strong: #34496f;
     --ink: #c9d6e6; --ink-strong: #eef3f8; --muted: #7d90ae; --dim: #4f6080;
     --green: #3ee6a8; --green-dim: #2f8f72; --accent: #6cb7ff; --amber: #ffb547; --red: #ff5a5a; --sel: #ffffff; --sel-bg: rgba(143, 199, 255, 0.09);
     --strip-bg: #ede3c8; --strip-hover: #f3ecd7; --strip-emg: #f6d5cf; --strip-dep: #4a8be0; --strip-arr: #d9a441;
@@ -124,10 +124,15 @@
     --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
     --glass: rgba(14, 26, 43, 0.82); --glass-hi: rgba(30, 48, 74, 0.92); --glass-line: rgba(255, 255, 255, 0.09); --knob: rgba(255, 255, 255, 0.07);
     --lift: 0 10px 30px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    --screen-bg: radial-gradient(ellipse 90% 70% at 75% -10%, #1b3658 0%, #0c1a30 45%, var(--bg) 85%) fixed;
     color-scheme: dark;
   }
   :global(body) { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--ui); overflow: hidden; }
-  :global(button) { font-family: inherit; }
+  :global(button) { font-family: inherit; border-radius: 10px; }
+  :global(select), :global(input:not([type=range]):not([type=checkbox])) { border-radius: 8px; }
+  /* Panels in the menu screens: soft, rounded, lifted. */
+  :global(.rating), :global(.box), :global(.dials), :global(.seat), :global(.card) { border-radius: 14px; }
+  :global(.start) { border-radius: 12px; box-shadow: 0 8px 24px rgba(62, 230, 168, 0.25); }
   :global(.app.hc) { --ink: #ffffff; --muted: #c7d3e6; --dim: #9fb0cb; --line: #4a6290; --green: #7dffcf; }
   :global(.app.cb) { --green: #5cc8ff; --green-dim: #3a7fa6; --amber: #ffd23f; --red: #ff6ad5; }
   :global(.app.rm *) { animation: none !important; transition: none !important; }

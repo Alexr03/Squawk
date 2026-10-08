@@ -60,7 +60,7 @@
 </div>
 
 <style>
-  .set { height: 100vh; overflow-y: auto; background: var(--bg); padding: 18px clamp(16px, 4vw, 48px); font: 14px var(--ui); color: var(--ink); }
+  .set { height: 100vh; overflow-y: auto; background: var(--screen-bg); padding: 18px clamp(16px, 4vw, 48px); font: 14px var(--ui); color: var(--ink); }
   header { display: flex; align-items: center; gap: 18px; }
   h1 { margin: 0; font: 600 21px var(--ui); color: var(--green); }
   h2 { margin: 20px 0 8px; font: 600 13px var(--ui); color: var(--muted); letter-spacing: 1px; }

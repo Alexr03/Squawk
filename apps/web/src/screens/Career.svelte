@@ -61,7 +61,7 @@
 </div>
 
 <style>
-  .career { height: 100vh; overflow-y: auto; background: var(--bg); padding: 18px clamp(16px, 4vw, 48px); font: 14px var(--ui); color: var(--ink); }
+  .career { height: 100vh; overflow-y: auto; background: var(--screen-bg); padding: 18px clamp(16px, 4vw, 48px); font: 14px var(--ui); color: var(--ink); }
   header { display: flex; align-items: center; gap: 18px; }
   h1 { margin: 0; font: 600 21px var(--ui); color: var(--green); }
   .back, button { background: var(--btn); border: 1px solid var(--line); color: var(--ink-strong); font: 13px var(--ui); padding: 3px 10px; cursor: pointer; }

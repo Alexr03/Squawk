@@ -77,3 +77,6 @@ Choices made where PLAN.md is silent, or where milestone 1 deliberately cuts a c
   - Traffic is GPU-animated points: cars by day, white and red light streams at night.
   - Street lights are additive points.
   - Buildings are merged per 1 km tile and share the terminal material, so they get lit windows. Houses and sheds drop out above 4 m/px.
+
+## Game-style HUD (user feedback: "looks like an admin dashboard")
+The world fills the screen; everything else floats over it as rounded translucent glass (`--glass`, `--lift` tokens in App.svelte), in the spirit of Cities: Skylines / Planet Coaster. The bottom-centre radio console (one button per position, showing its frequency, with a badge counting waiting calls) is the signature control and replaces the frequency tabs. The flight strips are a collapsible drawer, alerts and the selected aircraft float on the right, and the radio feed plus command bar sit bottom-left (toggle the log to expand it). The menu screens share a sky gradient (`--screen-bg`) and rounded controls.
