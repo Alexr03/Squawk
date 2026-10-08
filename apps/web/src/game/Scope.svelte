@@ -29,6 +29,7 @@
   }
   let { client, selected, taxiEdit = $bindable(), overlays, onSelect, onRadial, onIssue, onTaxiDone, viewRequest, queue, onAction, follow = null, onUserCamera }: Props = $props();
   const feedback = new Feedback();
+  let groundBubble = $state<{ x: number; y: number; n: number } | null>(null);
   let bubbles = $state<{ cs: string; x: number; y: number; oy: number; a: Action | null; level: string }[]>([]);
 
   let wrap: HTMLDivElement;
@@ -149,9 +150,13 @@
     const views = new Map(client.views().map(v => [v.cs, v]));
     const waiting = new Set(client.snap!.pending.map(p => p.cs));
     const items = [...[...waiting].map(cs => ({ cs, level: 'routine' })), ...queue.slice(0, 8).filter(n => !waiting.has(n.cs))];
+    // Zoomed out to the radar, ground traffic is a dot: fold its bubbles into one summary at the airport.
+    const radar = mpp > 6;
+    let onGround = 0;
     for (const n of items) {
-      const a = waiting.has(n.cs) ? null : primaryAction(world, client.snap!, n as Need);
       const v = views.get(n.cs);
+      if (radar && v?.onGround) { if (!waiting.has(n.cs)) onGround++; continue; }
+      const a = waiting.has(n.cs) ? null : primaryAction(world, client.snap!, n as Need);
       if ((!a && !waiting.has(n.cs)) || !v || taxiEdit) continue;
       const p = scene!.worldToScreen(v);
       if (p.x < 0 || p.y < 0 || p.x > w || p.y > h) continue;
@@ -162,6 +167,9 @@
       out.push({ cs: n.cs, x, y, oy, a, level: n.level });
       if (out.length >= 6) break;
     }
+    const gp = onGround ? scene!.worldToScreen(apt.offset) : null;
+    const gb = gp ? { x: Math.round(gp.x), y: Math.round(gp.y), n: onGround } : null;
+    if (gb?.x !== groundBubble?.x || gb?.y !== groundBubble?.y || gb?.n !== groundBubble?.n) groundBubble = gb;
     // Avoid rewriting state every frame when nothing moved.
     if (out.length !== bubbles.length || out.some((b, i) => b.cs !== bubbles[i].cs || b.x !== bubbles[i].x || b.y !== bubbles[i].y || b.oy !== bubbles[i].oy || b.a?.label !== bubbles[i].a?.label)) bubbles = out;
   }
@@ -432,6 +440,11 @@
 <div class="scope" bind:this={wrap}>
   <canvas bind:this={canvas} onpointerdown={down} onpointermove={move} onpointerup={up} oncontextmenu={context} onwheel={wheel} ondblclick={dbl}></canvas>
   <canvas class="ui" bind:this={ui}></canvas>
+  {#if groundBubble}
+    <button class="bubble info" style="left:{groundBubble.x + 16}px; top:{groundBubble.y - 34}px" onclick={() => { const v = viewFor(apt, 'GND'); zoomTo(v.cx, v.cy, v.mpp); }} title="Zoom in to the ground traffic">
+      <span class="cs">{apt.icao}</span>{groundBubble.n} on the ground waiting
+    </button>
+  {/if}
   {#each bubbles as b (b.cs)}
     {#if b.a}
       {@const a = b.a}

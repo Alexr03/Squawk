@@ -315,6 +315,8 @@ export class Radar {
           ctx.stroke();
         }
         if (F.mpp > 1.6 && ac.onGround && ac.gs < 1 && ac.cs !== F.selected) continue; // parked: no label when zoomed out
+        // Callsign labels appear with the taxiway signs (zoomed in); the selected aircraft and alerts keep theirs.
+        if (F.mpp >= 2.2 && ac.cs !== F.selected && ac.alert === 'none') continue;
         const tw = ctx.measureText(ac.cs).width;
         ctx.fillStyle = 'rgba(6,10,20,0.55)'; ctx.fillRect(x - Math.ceil(tw / 2) - 2, y - 1, Math.ceil(tw) + 4, 10);
         ctx.fillStyle = col; ctx.fillText(ac.cs, x, y);
