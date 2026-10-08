@@ -1,6 +1,7 @@
 // Tower shift: run at 4x for a while, then interact: select, radial menu, issue via keyboard and command line.
 export default async (page, shot) => {
   await page.waitForTimeout(2500);
+  /* closeHelp */ if (await page.locator('.help').count()) await page.keyboard.press('Escape');
   await page.getByRole('button', { name: /Free shift/ }).click();
   await page.waitForTimeout(400);
   await page.getByRole('button', { name: 'Start shift' }).click();

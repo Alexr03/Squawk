@@ -1,5 +1,6 @@
 export default async (page, shot) => {
   await page.waitForTimeout(2500);
+  /* closeHelp */ if (await page.locator('.help').count()) await page.keyboard.press('Escape');
   await page.getByRole('button', { name: /Free shift/ }).click();
   await page.waitForTimeout(400);
   await page.getByRole('button', { name: 'Director', exact: true }).click();

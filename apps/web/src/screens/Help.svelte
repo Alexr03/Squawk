@@ -3,6 +3,8 @@
   let { onClose }: Props = $props();
 </script>
 
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }} />
+
 <div class="help" role="dialog" aria-label="How to play">
   <div class="box">
     <header><h2>How to play</h2><button onclick={onClose} aria-label="Close">×</button></header>
