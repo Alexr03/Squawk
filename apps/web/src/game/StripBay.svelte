@@ -81,6 +81,7 @@
           <div class="row1">
             <b>{a.cs}</b>
             <span class="type">{a.type}/{a.wake}</span>
+            {#if snap.pending.some(p => p.cs === a.cs)}<span class="rb">reading back…</span>{/if}
             <span class="sq">{a.squawk || '----'}</span>
           </div>
           <div class="row2">
@@ -113,6 +114,7 @@
   .row1 b { font-weight: 600; font-size: 16px; color: var(--ink-strong); min-width: 82px; }
   .type, .sq { color: var(--muted); }
   .sq { margin-left: auto; }
+  .rb { font: italic 500 11px var(--ui); color: #2a6fb8; white-space: nowrap; }
   .route { color: var(--accent); min-width: 64px; }
   .rwy { color: var(--muted); min-width: 28px; }
   .st { margin-left: auto; color: var(--ink); text-align: right; }

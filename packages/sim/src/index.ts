@@ -144,8 +144,9 @@ function endless(world: World, st: State) {
 /** Snapshot for the UI thread: everything except the bulky future schedule and replay log. */
 export function snapshot(st: State) {
   const { schedule, cmdLog, pending, ...rest } = st;
-  void cmdLog; void pending;
-  return { ...rest, schedule: [], cmdLog: [], pending: [], upcoming: schedule.slice(0, 40), radio: st.radio.slice(-200) } as State & { upcoming: State['schedule'] };
+  void cmdLog;
+  // Only instructions awaiting a readback: the UI shows a 'reading back' cue on those aircraft.
+  return { ...rest, schedule: [], cmdLog: [], pending: pending.filter(p => p.apply), upcoming: schedule.slice(0, 40), radio: st.radio.slice(-200) } as State & { upcoming: State['schedule'] };
 }
 
 /** Re-run a shift from its config and command log. Same inputs, same final state. */

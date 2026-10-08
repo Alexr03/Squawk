@@ -83,7 +83,7 @@
   async function send(cmds: Command[], opts: { voice?: boolean } = {}): Promise<string | null> {
     sound.unlock();
     const err = await client.issue(cmds, opts);
-    if (err) toast(err, 'caution');
+    if (err) toast(err, 'caution'); else sound.radio.chime('click');
     return err;
   }
   function pick(it: RadialItem) {
@@ -273,7 +273,7 @@
   .world { position: absolute; inset: 0; }
   .drawer { position: absolute; left: 12px; top: 68px; max-height: calc(100% - 230px); display: flex; flex-direction: column; width: 290px; z-index: 8; border-radius: 14px; overflow: hidden; background: var(--glass); backdrop-filter: blur(14px) saturate(1.2); box-shadow: var(--lift); }
   .side { position: absolute; right: 12px; top: 74px; bottom: 90px; width: 300px; z-index: 8; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
-  .side > * { pointer-events: auto; }
+  .side > :global(*) { pointer-events: auto; }
   .alerts { display: flex; flex-direction: column; gap: 4px; }
   .alert { display: grid; grid-template-columns: 6px auto 1fr; gap: 9px; align-items: center; text-align: left; padding: 7px 12px 7px 8px; border: none; border-radius: 10px;
     background: var(--glass); backdrop-filter: blur(14px); box-shadow: var(--lift); color: var(--ink); cursor: pointer; font: 500 13px var(--ui); }

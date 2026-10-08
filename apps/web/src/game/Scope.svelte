@@ -22,7 +22,7 @@
   }
   let { client, selected, taxiEdit = $bindable(), overlays, onSelect, onRadial, onIssue, onTaxiDone, viewRequest, queue, onAction }: Props = $props();
   const feedback = new Feedback();
-  let bubbles = $state<{ cs: string; x: number; y: number; oy: number; a: Action; level: string }[]>([]);
+  let bubbles = $state<{ cs: string; x: number; y: number; oy: number; a: Action | null; level: string }[]>([]);
 
   let wrap: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -131,10 +131,12 @@
     const out: typeof bubbles = [];
     const w = wrap.clientWidth, h = wrap.clientHeight;
     const views = new Map(client.views().map(v => [v.cs, v]));
-    for (const n of queue.slice(0, 8)) {
-      const a = primaryAction(world, client.snap!, n);
+    const waiting = new Set(client.snap!.pending.map(p => p.cs));
+    const items = [...[...waiting].map(cs => ({ cs, level: 'routine' })), ...queue.slice(0, 8).filter(n => !waiting.has(n.cs))];
+    for (const n of items) {
+      const a = waiting.has(n.cs) ? null : primaryAction(world, client.snap!, n as Need);
       const v = views.get(n.cs);
-      if (!a || !v || taxiEdit) continue;
+      if ((!a && !waiting.has(n.cs)) || !v || taxiEdit) continue;
       const p = scene!.worldToScreen(v);
       if (p.x < 0 || p.y < 0 || p.x > w || p.y > h) continue;
       const x = Math.round(p.x), y = Math.round(p.y);
@@ -145,7 +147,7 @@
       if (out.length >= 6) break;
     }
     // Avoid rewriting state every frame when nothing moved.
-    if (out.length !== bubbles.length || out.some((b, i) => b.cs !== bubbles[i].cs || b.x !== bubbles[i].x || b.y !== bubbles[i].y || b.oy !== bubbles[i].oy || b.a.label !== bubbles[i].a.label)) bubbles = out;
+    if (out.length !== bubbles.length || out.some((b, i) => b.cs !== bubbles[i].cs || b.x !== bubbles[i].x || b.y !== bubbles[i].y || b.oy !== bubbles[i].oy || b.a?.label !== bubbles[i].a?.label)) bubbles = out;
   }
 
   function drawUi(now = performance.now()) {
@@ -281,9 +283,16 @@
   <canvas bind:this={canvas} onpointerdown={down} onpointermove={move} onpointerup={up} oncontextmenu={context} onwheel={wheel} ondblclick={dbl}></canvas>
   <canvas class="ui" bind:this={ui}></canvas>
   {#each bubbles as b (b.cs)}
-    <button class="bubble {b.a.tone} {b.level}" style="left:{b.x + 16}px; top:{b.y - 34 + b.oy}px" onclick={() => onAction(b.cs, b.a)} title="{b.cs}: {b.a.label}">
-      <span class="cs">{b.cs}</span>{b.a.label}
-    </button>
+    {#if b.a}
+      {@const a = b.a}
+      <button class="bubble {a.tone} {b.level}" style="left:{b.x + 16}px; top:{b.y - 34 + b.oy}px" onclick={() => onAction(b.cs, a)} title="{b.cs}: {a.label}">
+        <span class="cs">{b.cs}</span>{a.label}
+      </button>
+    {:else}
+      <div class="bubble wait" style="left:{b.x + 16}px; top:{b.y - 34 + b.oy}px" title="{b.cs} is reading back">
+        <span class="cs">{b.cs}</span><span class="dots"><i></i><i></i><i></i></span>
+      </div>
+    {/if}
   {/each}
   <div class="scale">{mpp < 8 ? `${mpp.toFixed(1)} m/px` : `${((mpp * 900) / 1852).toFixed(0)} nm across`}</div>
 </div>
@@ -302,5 +311,11 @@
   .bubble.info:hover { border-color: var(--accent); color: var(--accent); }
   .bubble.emergency { box-shadow: 0 0 0 2px var(--red); }
   .bubble:hover .cs { color: inherit; }
+  .bubble.wait { cursor: default; border-color: var(--accent); pointer-events: none; }
+  .dots { display: inline-flex; gap: 3px; align-items: center; height: 12px; }
+  .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: dot 1s infinite ease-in-out; }
+  .dots i:nth-child(2) { animation-delay: 0.15s; }
+  .dots i:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes dot { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
   .scale { position: absolute; right: 10px; bottom: 8px; z-index: 3; font: 11px var(--mono); color: #6f86a8; pointer-events: none; }
 </style>

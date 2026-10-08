@@ -42,7 +42,8 @@
     {#if ac.emergency}<dt>Emergency</dt><dd class="emg">{ac.emergency.code} · {ac.emergency.nature}</dd>{/if}
     {#if ac.req}<dt>Request</dt><dd class="req">{ac.req.call.k === 'request' ? ac.req.call.what : ''}</dd>{/if}
   </dl>
-  <div class="acts">
+  {#if snap.pending.some(p => p.cs === ac.cs)}<div class="rb"><span class="dots"><i></i><i></i><i></i></span>Pilot is reading back…</div>{/if}
+  <div class="acts" class:waiting={snap.pending.some(p => p.cs === ac.cs)}>
     {#each actions.slice(0, 10) as it (it.label)}
       <button class:danger={it.danger} onclick={() => onPick(it)}>{it.label}{#if it.hint}<kbd>{it.hint}</kbd>{/if}</button>
     {/each}
@@ -70,4 +71,11 @@
   .acts button.danger { color: var(--red); border-color: var(--red); }
   kbd { font: 600 11px var(--mono); color: var(--muted); background: rgba(0, 0, 0, 0.25); border-radius: 4px; padding: 1px 5px; }
   .foot { margin-top: 10px; color: var(--dim); }
+  .rb { display: flex; gap: 8px; align-items: center; margin: 0 0 8px; padding: 7px 10px; border-radius: 10px; background: rgba(108, 183, 255, 0.12); color: var(--accent); font: 500 13px var(--ui); }
+  .acts.waiting { opacity: 0.45; }
+  .dots { display: inline-flex; gap: 3px; }
+  .dots i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: dot 1s infinite ease-in-out; }
+  .dots i:nth-child(2) { animation-delay: 0.15s; }
+  .dots i:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes dot { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
 </style>
