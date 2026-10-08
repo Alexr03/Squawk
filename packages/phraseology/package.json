@@ -1,0 +1,7 @@
+{
+  "name": "@squawk/phraseology",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": { "@squawk/sim": "workspace:*" }
+}
