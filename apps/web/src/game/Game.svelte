@@ -9,6 +9,7 @@
   import TopBar from './TopBar.svelte';
   import AircraftCard from './AircraftCard.svelte';
   import RadialMenu from './RadialMenu.svelte';
+  import Console from './Console.svelte';
   import { radialFor, type RadialItem } from './radial.ts';
   import { needs, workload } from './needs.ts';
   import { Sound } from './sound.ts';
@@ -35,6 +36,8 @@
   let paused = $state(false);
   let menuOpen = $state(false);
   let helpOpen = $state(false);
+  let stripsOpen = $state(innerWidth > 1000);
+  let logOpen = $state(false);
   let toasts = $state<{ id: number; text: string; level: string }[]>([]);
   let viewRequest = $state<{ cx: number; cy: number; mpp: number; t: number } | null>(null);
   let cmdInput = $state<HTMLInputElement>();
@@ -191,40 +194,56 @@
 
 {#if snap}
   <div class="game" style="--scale:{settings.uiScale}">
+    <div class="world">
+      <Scope bind:this={scope} {client} {selected} bind:taxiEdit {overlays} {viewRequest}
+        onSelect={(cs) => (selected = cs)} onRadial={(cs, x, y) => (radial = { cs, x, y })} onIssue={(c) => send(c)} onTaxiDone={taxiDone}
+        {queue} onAction={(cs, a) => { selected = cs; if (a.cmds) send(a.cmds); else if (a.taxi) send([a.taxi.greens ? { cs, verb: 'greens', to: a.taxi.to } : { cs, verb: 'taxi', to: a.taxi.to, via: [] }]); }} />
+    </div>
+
     <TopBar {world} {snap} time={snap.start + snap.tick / 4} {queue} {load} {filter} {speed} {canPause} {title} {voice}
       onFilter={(s) => (filter = s)} onSpeed={setSpeed} onMenu={() => (menuOpen = true)} onJump={jump} />
-    <div class="mid">
-      <StripBay {world} {snap} {selected} {filter} {queue} onSelect={(cs) => (selected = cs)}
-        onHandoff={(cs) => { const a = find(snap!, cs); const it = a && radialFor(world, snap!, cs).find(i => i.label.startsWith('Contact')); if (it?.cmd) send(it.cmd); }} />
-      <div class="scopewrap">
-        <Scope bind:this={scope} {client} {selected} bind:taxiEdit {overlays} {viewRequest}
-          onSelect={(cs) => (selected = cs)} onRadial={(cs, x, y) => (radial = { cs, x, y })} onIssue={(c) => send(c)} onTaxiDone={taxiDone}
-          {queue} onAction={(cs, a) => { selected = cs; if (a.cmds) send(a.cmds); else if (a.taxi) send([a.taxi.greens ? { cs, verb: 'greens', to: a.taxi.to } : { cs, verb: 'taxi', to: a.taxi.to, via: [] }]); }} />
-        {#if queue.length}
-          <div class="queue">
-            <h4>Needs you <span>N</span></h4>
-            {#each queue.slice(0, 7) as n (n.cs)}
-              <button class={n.level} class:sel={n.cs === selected} onclick={() => (selected = n.cs)}><b>{n.cs}</b> {n.text}</button>
-            {/each}
-          </div>
-        {/if}
-        {#if coachText}<div class="coach">{coachText}</div>{/if}
-        {#if pendingVoice}
-          <div class="confirm">
-            <div>Heard: “{pendingVoice.text}”</div>
-            <div class="row"><button onclick={() => { send(pendingVoice!.cmds, { voice: true }); pendingVoice = null; }}>Send</button><button onclick={() => (pendingVoice = null)}>Discard</button></div>
-          </div>
-        {/if}
-        <div class="toasts">{#each toasts as t (t.id)}<div class="toast {t.level}">{t.text}</div>{/each}</div>
-        {#if paused}<div class="pausebadge">PAUSED — Space to resume</div>{/if}
+
+    {#if stripsOpen}
+      <div class="drawer">
+        <StripBay {world} {snap} {selected} {filter} {queue} onSelect={(cs) => (selected = cs)}
+          onHandoff={(cs) => { const a = find(snap!, cs); const it = a && radialFor(world, snap!, cs).find(i => i.label.startsWith('Contact')); if (it?.cmd) send(it.cmd); }} />
       </div>
+    {/if}
+
+    <div class="side">
+      {#if queue.length}
+        <div class="alerts" aria-label="Needs you">
+          {#each queue.slice(0, 5) as n (n.cs)}
+            <button class="alert {n.level}" class:sel={n.cs === selected} onclick={() => (selected = n.cs)}>
+              <span class="mark"></span><b>{n.cs}</b><span class="what">{n.text}</span>
+            </button>
+          {/each}
+          {#if queue.length > 5}<div class="more">+{queue.length - 5} more · press N</div>{/if}
+        </div>
+      {/if}
       {#if selAc}
         <AircraftCard {world} {snap} ac={selAc} {actions} onPick={(it) => (it.sub && !it.cmd && !it.taxi ? (radial = { cs: selAc!.cs, x: innerWidth - 300, y: innerHeight / 2, items: it.sub(), title: it.label }) : pick(it))} onClose={() => (selected = null)} />
       {/if}
     </div>
-    <div class="bottom">
+
+    <div class="radio" class:open={logOpen}>
       <Comms {world} snap={client.monitor ? { ...snap, coverage: client.cfg.coverage } : snap} {selected} {filter} onSend={(c) => send(c)} onSelect={(cs) => (selected = cs)} bind:inputEl={cmdInput} />
     </div>
+
+    <Console {world} {snap} {queue} {filter} {overlays} {stripsOpen} {logOpen}
+      onSeat={(s) => { jump(s); }} onFilter={(s) => (filter = s)}
+      onOverlay={(k) => (k === 'routes' ? (overlays = { ...overlays, sids: !overlays.sids, stars: !overlays.stars }) : (overlays = { ...overlays, weather: !overlays.weather }))}
+      onStrips={() => (stripsOpen = !stripsOpen)} onLog={() => (logOpen = !logOpen)} onHelp={() => (helpOpen = true)} />
+
+    {#if coachText}<div class="coach"><span class="who">Instructor</span>{coachText}</div>{/if}
+    {#if pendingVoice}
+      <div class="confirm">
+        <div>Heard “{pendingVoice.text}”</div>
+        <div class="row"><button class="go" onclick={() => { send(pendingVoice!.cmds, { voice: true }); pendingVoice = null; }}>Send</button><button onclick={() => (pendingVoice = null)}>Discard</button></div>
+      </div>
+    {/if}
+    <div class="toasts">{#each toasts as t (t.id)}<div class="toast {t.level}">{t.text}</div>{/each}</div>
+    {#if paused}<div class="pausebadge">Paused · Space resumes</div>{/if}
   </div>
   {#if radial && snap}
     <RadialMenu x={radial.x} y={radial.y} cs={radial.title ? `${radial.cs} · ${radial.title}` : radial.cs} items={radial.items ?? radialFor(world, snap, radial.cs)} onPick={pick} onClose={() => (radial = null)} />
@@ -233,13 +252,12 @@
     <div class="modal" role="dialog" aria-label="Pause menu">
       <div class="box">
         <h2>{title}</h2>
-        <button onclick={() => (menuOpen = false)}>Resume</button>
+        <button class="go" onclick={() => (menuOpen = false)}>Resume</button>
         <label>Pilot voices <input type="checkbox" bind:checked={settings.pilotVoices} onchange={() => { saveSettings(); sound.apply(); }} /></label>
         <label>Volume <input type="range" min="0" max="1" step="0.05" bind:value={settings.master} oninput={() => { saveSettings(); sound.apply(); }} /></label>
-        <label>Auto-slow when busy <input type="checkbox" bind:checked={settings.autoSlow} onchange={saveSettings} /></label>
+        <label>Slow down when busy <input type="checkbox" bind:checked={settings.autoSlow} onchange={saveSettings} /></label>
         <label>Push-to-talk voice <input type="checkbox" bind:checked={settings.voiceInput} onchange={saveSettings} /></label>
         {@render menuExtra?.()}
-        <div class="keys">Keys: Tab next aircraft · N most urgent · L/T/G/C/X/K/H/A/S/D/I instructions · Enter command line · right-click radial menu · drag a radar blip to vector · 1–5 views · O routes · W weather · Space pause · ` push-to-talk</div>
         <button onclick={() => (helpOpen = true)}>How to play</button>
         <button class="quit" onclick={onQuit}>End shift</button>
       </div>
@@ -251,32 +269,43 @@
 {/if}
 
 <style>
-  .game { display: grid; grid-template-rows: 44px 1fr minmax(150px, 24vh); height: 100vh; background: var(--bg); color: var(--ink); zoom: var(--scale); }
-  .mid { display: grid; grid-template-columns: minmax(250px, 300px) 1fr auto; min-height: 0; }
-  .scopewrap { position: relative; min-width: 0; min-height: 0; }
-  .bottom { min-height: 0; }
-  .queue { position: absolute; top: 8px; right: 8px; z-index: 5; width: 250px; background: rgba(13, 22, 40, 0.88); border: 1px solid var(--line); padding: 6px; }
-  .queue h4 { margin: 0 0 4px; font: 600 12px var(--ui); color: var(--muted); display: flex; justify-content: space-between; }
-  .queue h4 span { color: var(--dim); }
-  .queue button { display: block; width: 100%; text-align: left; background: none; border: none; border-left: 3px solid var(--dim); color: var(--ink); font: 12px var(--mono); padding: 1px 6px; cursor: pointer; }
-  .queue button b { font-weight: 400; color: var(--ink-strong); margin-right: 4px; }
-  .queue button.urgent { border-left-color: var(--amber); }
-  .queue button.emergency { border-left-color: var(--red); color: var(--red); }
-  .queue button.sel { background: var(--sel-bg); }
-  .coach { position: absolute; left: 12px; top: 12px; z-index: 6; max-width: 420px; background: rgba(13, 22, 40, 0.94); border: 1px solid var(--green); color: var(--ink-strong); padding: 10px 12px; font: 14px/1.2 var(--mono); }
-  .confirm { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 7; background: var(--panel-2); border: 1px solid var(--amber); padding: 8px 12px; font: 13px var(--mono); }
-  .confirm .row { display: flex; gap: 6px; margin-top: 6px; }
-  .confirm button, .box button { background: var(--btn); border: 1px solid var(--line-strong); color: var(--ink-strong); font: 13px var(--mono); padding: 4px 12px; cursor: pointer; }
-  .toasts { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 8; display: flex; flex-direction: column; gap: 4px; align-items: center; pointer-events: none; }
-  .toast { background: rgba(13, 22, 40, 0.94); border: 1px solid var(--line-strong); padding: 4px 12px; font: 13px var(--mono); color: var(--ink-strong); }
-  .toast.caution { border-color: var(--amber); color: var(--amber); }
-  .toast.conflict { border-color: var(--red); color: var(--red); }
-  .pausebadge { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 6; font: 600 15px var(--ui); color: var(--amber); background: rgba(13, 22, 40, 0.9); padding: 6px 12px; border: 1px solid var(--amber); }
-  .modal { position: fixed; inset: 0; z-index: 60; background: rgba(5, 10, 20, 0.7); display: flex; align-items: center; justify-content: center; }
-  .box { width: min(480px, 92vw); background: var(--panel-2); border: 1px solid var(--line-strong); padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; font: 14px var(--mono); }
-  .box h2 { margin: 0 0 6px; font: 600 15px var(--ui); color: var(--green); }
-  .box label { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-  .box .keys { color: var(--muted); font-size: 13px; }
-  .box .quit { border-color: var(--red); color: var(--red); }
+  .game { position: relative; height: 100vh; overflow: hidden; background: var(--bg); color: var(--ink); zoom: var(--scale); }
+  .world { position: absolute; inset: 0; }
+  .drawer { position: absolute; left: 12px; top: 68px; max-height: calc(100% - 230px); display: flex; flex-direction: column; width: 290px; z-index: 8; border-radius: 14px; overflow: hidden; background: var(--glass); backdrop-filter: blur(14px) saturate(1.2); box-shadow: var(--lift); }
+  .side { position: absolute; right: 12px; top: 74px; bottom: 90px; width: 300px; z-index: 8; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+  .side > * { pointer-events: auto; }
+  .alerts { display: flex; flex-direction: column; gap: 4px; }
+  .alert { display: grid; grid-template-columns: 6px auto 1fr; gap: 9px; align-items: center; text-align: left; padding: 7px 12px 7px 8px; border: none; border-radius: 10px;
+    background: var(--glass); backdrop-filter: blur(14px); box-shadow: var(--lift); color: var(--ink); cursor: pointer; font: 500 13px var(--ui); }
+  .alert:hover, .alert.sel { background: var(--glass-hi); }
+  .alert .mark { width: 6px; height: 22px; border-radius: 3px; background: var(--muted); }
+  .alert.urgent .mark { background: var(--amber); }
+  .alert.emergency .mark { background: var(--red); box-shadow: 0 0 10px var(--red); }
+  .alert b { font: 600 13px var(--mono); color: var(--ink-strong); }
+  .alert .what { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .alert.emergency .what { color: var(--red); }
+  .more { font: 500 12px var(--ui); color: var(--muted); padding-left: 10px; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); }
+  .radio { position: absolute; left: 12px; bottom: 14px; width: min(560px, calc(50vw - 230px)); z-index: 9; border-radius: 14px; overflow: hidden; background: var(--glass); backdrop-filter: blur(14px) saturate(1.2); box-shadow: var(--lift); height: 132px; transition: height 0.2s; }
+  .radio.open { height: min(46vh, 420px); }
+  .coach { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); z-index: 9; max-width: 560px; display: flex; flex-direction: column; gap: 3px; padding: 10px 16px; border-radius: 14px;
+    background: var(--glass); backdrop-filter: blur(14px); box-shadow: var(--lift), inset 0 0 0 1px rgba(62, 230, 168, 0.35); color: var(--ink-strong); font: 500 14px/1.4 var(--ui); }
+  .coach .who { font: 600 12px var(--ui); color: var(--green); }
+  .confirm { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 11; padding: 10px 14px; border-radius: 14px; background: var(--glass); backdrop-filter: blur(14px); box-shadow: var(--lift), inset 0 0 0 1px rgba(255, 181, 71, 0.5); font: 500 14px var(--ui); }
+  .confirm .row { display: flex; gap: 6px; margin-top: 8px; }
+  .confirm button, .box button { border: none; border-radius: 10px; background: var(--knob); color: var(--ink-strong); font: 600 13px var(--ui); padding: 8px 14px; cursor: pointer; }
+  .confirm button:hover, .box button:hover { background: var(--glass-hi); }
+  button.go { background: var(--green); color: var(--bg); }
+  button.go:hover { background: var(--green); filter: brightness(1.08); }
+  .toasts { position: absolute; left: 50%; top: 120px; transform: translateX(-50%); z-index: 12; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
+  .toast { padding: 7px 14px; border-radius: 999px; background: var(--glass); backdrop-filter: blur(14px); box-shadow: var(--lift); font: 500 13px var(--ui); color: var(--ink-strong); }
+  .toast.caution { color: var(--amber); }
+  .toast.conflict { color: var(--red); }
+  .pausebadge { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); z-index: 9; font: 600 14px var(--ui); color: var(--bg); background: var(--amber); padding: 6px 16px; border-radius: 999px; box-shadow: var(--lift); }
+  .modal { position: fixed; inset: 0; z-index: 60; background: rgba(5, 10, 20, 0.55); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; }
+  .box { width: min(420px, 92vw); border-radius: 18px; background: var(--glass); backdrop-filter: blur(18px); box-shadow: var(--lift); padding: 20px 22px; display: flex; flex-direction: column; gap: 10px; font: 500 14px var(--ui); }
+  .box h2 { margin: 0 0 6px; font: 600 17px var(--ui); color: var(--ink-strong); }
+  .box label { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--ink); }
+  .box .quit { color: var(--red); }
   .loading { height: 100vh; display: flex; align-items: center; justify-content: center; font: 600 17px var(--ui); color: var(--green); background: var(--bg); }
+  @media (max-width: 1100px) { .drawer { width: 240px; } .side { width: 260px; } }
 </style>

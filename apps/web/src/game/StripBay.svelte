@@ -96,13 +96,13 @@
 </aside>
 
 <style>
-  .bay { height: 100%; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 8px; background: var(--panel); border-right: 1px solid var(--line); }
-  h3 { margin: 2px 4px 4px; font: 600 12px var(--ui); letter-spacing: 1px; color: var(--muted); text-transform: uppercase; display: flex; justify-content: space-between; }
-  h3 span { color: var(--dim); }
-  .group.drop { min-height: 48px; border: 1px dashed transparent; border-radius: 3px; }
+  .bay { min-height: 0; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; scrollbar-width: thin; }
+  h3 { margin: 2px 4px 6px; font: 600 13px var(--ui); color: var(--ink-strong); display: flex; justify-content: space-between; }
+  h3 span { color: var(--muted); font-weight: 500; }
+  .group.drop { min-height: 48px; border: 1px dashed transparent; border-radius: 8px; }
   .group.drop:hover { border-color: var(--line); }
   .strip { display: block; width: 100%; text-align: left; margin: 0 0 4px; padding: 4px 7px 5px 9px; border: none; border-left: 6px solid var(--strip-dep);
-    background: var(--strip-bg); color: var(--ink); font: 13px/1.05 var(--mono); cursor: pointer; border-radius: 2px; }
+    background: var(--strip-bg); color: var(--ink); font: 13px/1.05 var(--mono); cursor: pointer; border-radius: 6px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); }
   .strip.arr { border-left-color: var(--strip-arr); }
   .strip:hover { background: var(--strip-hover); }
   .strip.sel { outline: 2px solid var(--sel); outline-offset: -2px; }
@@ -110,7 +110,7 @@
   .strip.alert { box-shadow: inset 0 0 0 1px var(--amber); }
   .strip.dim { opacity: 0.62; }
   .row1, .row2 { display: flex; gap: 8px; align-items: baseline; }
-  .row1 b { font-weight: 400; font-size: 16px; color: var(--ink-strong); min-width: 82px; }
+  .row1 b { font-weight: 600; font-size: 16px; color: var(--ink-strong); min-width: 82px; }
   .type, .sq { color: var(--muted); }
   .sq { margin-left: auto; }
   .route { color: var(--accent); min-width: 64px; }

@@ -117,11 +117,13 @@
 <style>
   :global(:root) {
     --bg: #070e1c; --panel: #0d1628; --panel-2: #111d34; --btn: #16243f; --line: #22324f; --line-strong: #34496f;
-    --ink: #b9c8de; --ink-strong: #e8f0fb; --muted: #7d90ae; --dim: #4f6080;
-    --green: #4ff0b4; --green-dim: #2f8f72; --accent: #8fc7ff; --amber: #ffb547; --red: #ff5a5a; --sel: #ffffff; --sel-bg: rgba(143, 199, 255, 0.09);
-    --strip-bg: #e9e2cc; --strip-hover: #f3ecd7; --strip-emg: #f6d5cf; --strip-dep: #4a8be0; --strip-arr: #d9a441;
+    --ink: #c9d6e6; --ink-strong: #eef3f8; --muted: #7d90ae; --dim: #4f6080;
+    --green: #3ee6a8; --green-dim: #2f8f72; --accent: #6cb7ff; --amber: #ffb547; --red: #ff5a5a; --sel: #ffffff; --sel-bg: rgba(143, 199, 255, 0.09);
+    --strip-bg: #ede3c8; --strip-hover: #f3ecd7; --strip-emg: #f6d5cf; --strip-dep: #4a8be0; --strip-arr: #d9a441;
     --ui: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    --glass: rgba(14, 26, 43, 0.82); --glass-hi: rgba(30, 48, 74, 0.92); --glass-line: rgba(255, 255, 255, 0.09); --knob: rgba(255, 255, 255, 0.07);
+    --lift: 0 10px 30px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
     color-scheme: dark;
   }
   :global(body) { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--ui); overflow: hidden; }

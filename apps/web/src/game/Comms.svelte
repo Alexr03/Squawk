@@ -103,19 +103,19 @@
   <div class="cmd">
     <span class="prompt">{selected ?? '>'}</span>
     <input bind:this={inputEl} bind:value={line} {oninput} onkeydown={keydown} spellcheck="false" autocomplete="off"
-      placeholder={selected ? 'H270 A40 S210 · LUW · CTO · CLR · TX 27L · CT TWR   (Tab completes, Enter sends)' : 'BAW12 H270 A40 · select an aircraft first to skip the callsign'} aria-label="Command line" />
+      placeholder={selected ? 'Type a command, e.g. H270 · CTO (Tab completes)' : 'Type a callsign and command, e.g. BAW12 H270'} aria-label="Command line" />
     {#if error}<span class="err">{error}</span>{/if}
     {#if suggestions.length}<div class="sugg">{#each suggestions as s}<button onmousedown={(e) => { e.preventDefault(); line = line.replace(/\S*$/, s) + ' '; suggestions = []; inputEl?.focus(); }}>{s}</button>{/each}</div>{/if}
   </div>
 </section>
 
 <style>
-  .comms { display: flex; flex-direction: column; height: 100%; background: var(--panel); border-top: 1px solid var(--line); }
-  .log { flex: 1; overflow-y: auto; padding: 4px 10px; font: 13px/1.15 var(--mono); }
+  .comms { display: flex; flex-direction: column; height: 100%; }
+  .log { flex: 1; overflow-y: auto; padding: 8px 12px 4px; font: 13px/1.3 var(--ui); scrollbar-width: thin; }
   .ln { display: flex; gap: 10px; color: var(--ink); cursor: default; }
-  .ln.sel { background: var(--sel-bg); }
-  .t { color: var(--dim); min-width: 62px; }
-  .who { color: var(--muted); min-width: 70px; }
+  .ln.sel { background: var(--sel-bg); border-radius: 6px; }
+  .t { color: var(--dim); min-width: 62px; font-family: var(--mono); font-size: 12px; }
+  .who { color: var(--muted); min-width: 70px; font-family: var(--mono); font-weight: 600; }
   .txt { flex: 1; }
   .atc .txt { color: var(--green); }
   .auto .txt { color: var(--green-dim); }
@@ -124,11 +124,12 @@
   .caution .txt, .caution .who { color: var(--amber); }
   .conflict .txt, .conflict .who { color: var(--red); }
   .info .txt { color: var(--accent); }
-  .cmd { position: relative; display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-top: 1px solid var(--line); background: var(--panel-2); }
-  .prompt { font: 14px var(--mono); color: var(--green); min-width: 70px; }
+  .cmd { position: relative; display: flex; align-items: center; gap: 8px; margin: 4px 8px 8px; padding: 7px 12px; border-radius: 10px; background: var(--knob); box-shadow: inset 0 0 0 1px var(--glass-line); }
+  .cmd:focus-within { box-shadow: inset 0 0 0 1px var(--green); }
+  .prompt { font: 600 14px var(--mono); color: var(--green); min-width: 70px; }
   input { flex: 1; background: transparent; border: none; outline: none; color: var(--ink-strong); font: 15px var(--mono); }
   input::placeholder { color: var(--dim); }
   .err { color: var(--red); font: 12px var(--mono); }
-  .sugg { position: absolute; bottom: 100%; left: 88px; display: flex; gap: 4px; padding: 4px; background: var(--panel-2); border: 1px solid var(--line); }
-  .sugg button { background: var(--btn); color: var(--ink); border: 1px solid var(--line); font: 12px var(--mono); padding: 1px 6px; cursor: pointer; }
+  .sugg { position: absolute; bottom: calc(100% + 6px); left: 80px; display: flex; gap: 4px; padding: 5px; border-radius: 10px; background: var(--glass-hi); box-shadow: var(--lift); }
+  .sugg button { background: var(--knob); color: var(--ink-strong); border: none; border-radius: 6px; font: 12px var(--mono); padding: 3px 8px; cursor: pointer; }
 </style>

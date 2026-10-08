@@ -1,0 +1,21 @@
+export default async (page, shot) => {
+  await page.waitForTimeout(2500);
+  if (await page.locator('.help').count()) await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: /Free shift/ }).click();
+  await page.waitForTimeout(300);
+  await page.getByRole('button', { name: 'Start shift' }).click();
+  await page.waitForTimeout(4000);
+  if (await page.locator('.help').count()) await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '4 times speed' }).click();
+  await page.waitForTimeout(15000);
+  await page.getByRole('button', { name: '1 times speed' }).click();
+  await shot('60-hud');
+  const a = page.locator('.alert').first();
+  if (await a.count()) await a.click();
+  await page.waitForTimeout(800);
+  await shot('61-selected');
+  await page.getByRole('button', { name: /Radio log/ }).click().catch(() => {});
+  await page.locator('[title="Radio log"]').click().catch(() => {});
+  await page.waitForTimeout(500);
+  await shot('62-log');
+};

@@ -44,11 +44,11 @@
 <style>
   .backdrop { position: fixed; inset: 0; z-index: 40; }
   .ring { position: fixed; z-index: 41; width: 0; height: 0; }
-  .hub { position: absolute; transform: translate(-50%, -50%); width: 96px; height: 96px; border-radius: 50%; background: var(--panel-2); border: 2px solid var(--green);
-    color: var(--ink-strong); display: flex; flex-direction: column; align-items: center; justify-content: center; font: 14px var(--mono); cursor: pointer; box-shadow: 0 0 0 6px rgba(10, 19, 36, 0.6); }
+  .hub { position: absolute; transform: translate(-50%, -50%); width: 96px; height: 96px; border-radius: 50%; background: var(--glass-hi); backdrop-filter: blur(14px); border: 2px solid var(--green);
+    color: var(--ink-strong); display: flex; flex-direction: column; align-items: center; justify-content: center; font: 600 14px var(--mono); cursor: pointer; box-shadow: 0 0 0 6px rgba(10, 19, 36, 0.45), var(--lift); }
   .hub small { color: var(--muted); font-size: 11px; }
-  .item { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; padding: 4px 10px 4px 6px; background: var(--panel-2); color: var(--ink-strong);
-    border: 1px solid var(--line-strong); font: 14px var(--mono); cursor: pointer; border-radius: 3px; display: flex; gap: 6px; align-items: center; }
+  .item { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; padding: 7px 14px 7px 8px; background: var(--glass-hi); backdrop-filter: blur(14px); color: var(--ink-strong); box-shadow: var(--lift);
+    border: 1px solid var(--glass-line); font: 500 14px var(--ui); cursor: pointer; border-radius: 999px; display: flex; gap: 6px; align-items: center; }
   .item:hover, .item:focus-visible { background: var(--green); color: var(--bg); border-color: var(--green); }
   .item.danger { border-color: var(--red); color: var(--red); }
   .item.danger:hover { background: var(--red); color: var(--bg); }

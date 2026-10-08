@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { localHour, seatRole, type World } from '@squawk/sim';
+  import { localHour, type World } from '@squawk/sim';
   import type { Snap } from './client.ts';
   import type { Need } from './needs.ts';
 
@@ -8,79 +8,104 @@
     onFilter: (s: string | null) => void; onSpeed: (v: number) => void; onMenu: () => void; onJump: (seat: string) => void;
     voice: { on: boolean; state: string; listening: boolean };
   }
-  let { world, snap, time, queue, load, filter, speed, canPause, title, onFilter, onSpeed, onMenu, onJump, voice }: Props = $props();
+  let { snap, time, load, speed, canPause, title, onSpeed, onMenu, voice }: Props = $props();
 
-  const UNIT: Record<string, string> = { DEL: 'DEL', GND: 'GND', TWR: 'TWR', DIR: 'DIR', LON: 'LON' };
-  function freq(seat: string) {
-    const role = seatRole(seat);
-    const icao = seat === 'LON' ? world.primary.icao : seat.split(':')[0];
-    return world.byIcao[icao]?.freq[role]?.freq ?? '';
-  }
-  const badge = (seat: string) => queue.filter(n => snap.aircraft.find(a => a.cs === n.cs)?.owner === seat && n.level !== 'routine').length;
-  const hhmmss = $derived.by(() => {
-    const h = localHour(time); const hh = Math.floor(h), mm = Math.floor((h - hh) * 60), ss = Math.floor(time % 60);
-    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+  const clock = $derived.by(() => {
+    const h = localHour(time); const hh = Math.floor(h), mm = Math.floor((h - hh) * 60);
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
   });
+  const secs = $derived(String(Math.floor(time % 60)).padStart(2, '0'));
   const left = $derived(snap.durationS ? Math.max(0, snap.durationS - snap.tick / 4) : null);
   const w = $derived(snap.weather);
+  const moves = $derived(snap.stats.landed + snap.stats.departed);
+  const safety = $derived(snap.stats.sepLoss + snap.stats.runwayLoss + snap.stats.collisions);
 </script>
 
-<header class="top">
-  <button class="menu" onclick={onMenu} title="Pause menu (Esc)">☰</button>
-  <div class="title">{title}</div>
-  <nav class="tabs">
-    <button class:on={filter === null} onclick={() => onFilter(null)}>ALL</button>
-    {#each snap.coverage as seat (seat)}
-      {@const b = badge(seat)}
-      <button class:on={filter === seat} onclick={() => onFilter(filter === seat ? null : seat)} ondblclick={() => onJump(seat)} title="Click to filter, double-click to jump the view">
-        <b>{seat.includes(':') && snap.coverage.some(s => s.split(':')[0] !== seat.split(':')[0] && s !== 'LON') ? seat.replace(':', ' ') : UNIT[seatRole(seat)]}</b>
-        <span class="f">{freq(seat)}</span>
-        {#if b}<span class="badge">{b}</span>{/if}
-      </button>
+<div class="hud-top">
+  <div class="cluster left">
+    <button class="round" onclick={onMenu} title="Pause menu (Esc)" aria-label="Menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" /></svg>
+    </button>
+    <div class="title">{title}</div>
+  </div>
+
+  <div class="pill time">
+    <div class="speeds" role="group" aria-label="Simulation speed">
+      {#if canPause}
+        <button class:on={speed === 0} onclick={() => onSpeed(speed === 0 ? 1 : 0)} title="Pause (Space)" aria-label="Pause">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12" /></svg>
+        </button>
+      {/if}
+      {#each [1, 2, 4] as v}
+        <button class:on={speed === v} onclick={() => onSpeed(v)} title="{v}× speed" aria-label="{v} times speed">
+          {#each Array(v === 4 ? 3 : v) as _}<svg class="chev" viewBox="0 0 12 24" aria-hidden="true"><path d="M3 7l6 5-6 5" /></svg>{/each}
+        </button>
+      {/each}
+    </div>
+    <div class="clock"><b>{clock}</b><span>{secs}</span></div>
+    <div class="wx" title="Weather (ATIS information {w.atis})">
+      <span class="atis">{w.atis}</span>
+      <svg class="wind" viewBox="0 0 24 24" style="transform: rotate({w.wind.dir + 180}deg)" aria-hidden="true"><path d="M12 4v16M7 9l5-5 5 5" /></svg>
+      <span>{w.wind.kt}{w.wind.gust ? `–${w.wind.gust}` : ''} kt</span>
+      {#if w.lvp}<span class="lvp">LVP</span>{/if}
+    </div>
+    {#each snap.apts.slice(0, 1) as as (as.icao)}
+      <div class="rwy" title="Runways in use">
+        <span class="arr">⬇ {as.arr.join(' ')}</span><span class="dep">⬆ {as.dep.join(' ')}</span>
+        {#if as.pendingConfig}<span class="chg" title="Runway change coming">⟳</span>{/if}
+      </div>
     {/each}
-  </nav>
-  <div class="wx">
-    <span class="clock">{hhmmss}</span>
-    <span>INFO <b>{w.atis}</b></span>
-    <span>{String(w.wind.dir).padStart(3, '0')}/{w.wind.kt}{w.wind.gust ? 'G' + w.wind.gust : ''}KT</span>
-    <span>{w.visM >= 9999 ? '10KM' : w.visM + 'M'}{w.lvp ? ' LVP' : ''}</span>
-    {#each snap.apts as as (as.icao)}<span class="rwy">{as.icao.slice(2)} ↓{as.arr.join('/')} ↑{as.dep.join('/')}{as.pendingConfig ? ' ⟳' : ''}{Object.keys(as.closed).length ? ' ✖' : ''}</span>{/each}
-    {#if left !== null}<span class="left">{Math.floor(left / 60)}:{String(Math.floor(left % 60)).padStart(2, '0')}</span>{/if}
   </div>
-  <div class="load" title="Workload">
-    <div class="bar"><div style="width:{Math.round(load * 100)}%" class:hot={load > 0.75} class:warm={load > 0.5}></div></div>
+
+  <div class="cluster right">
+    {#if voice.on}<div class="pill mic" class:live={voice.listening} title="Push-to-talk: {voice.state}"><span class="dot"></span>{voice.listening ? 'Transmitting' : 'Mic ready'}</div>{/if}
+    <div class="pill stats">
+      <div class="stat" title="Movements this shift"><b>{moves}</b><span>moves</span></div>
+      <div class="stat" class:bad={safety > 0} title="Safety events"><b>{safety}</b><span>{safety === 1 ? 'incident' : 'incidents'}</span></div>
+      {#if left !== null}<div class="stat" title="Time left in the shift"><b>{Math.floor(left / 60)}:{String(Math.floor(left % 60)).padStart(2, '0')}</b><span>left</span></div>{/if}
+      <div class="load" title="Workload"><div style="height:{Math.round(load * 100)}%" class:hot={load > 0.75} class:warm={load > 0.5}></div></div>
+    </div>
   </div>
-  {#if voice.on}<div class="mic" class:live={voice.listening} title="Push-to-talk: {voice.state}">● {voice.listening ? 'TX' : 'PTT'}</div>{/if}
-  <div class="speed">
-    {#if canPause}<button class:on={speed === 0} onclick={() => onSpeed(speed === 0 ? 1 : 0)} title="Pause (Space)">❚❚</button>{/if}
-    {#each [1, 2, 4] as v}<button class:on={speed === v} onclick={() => onSpeed(v)}>{v}×</button>{/each}
-  </div>
-</header>
+</div>
 
 <style>
-  .top { display: flex; align-items: center; gap: 10px; padding: 0 8px; height: 44px; background: var(--panel-2); border-bottom: 1px solid var(--line); font: 13px var(--mono); color: var(--ink); white-space: nowrap; overflow: hidden; }
-  .menu { background: none; border: 1px solid var(--line); color: var(--ink); font-size: 14px; width: 32px; height: 30px; cursor: pointer; }
-  .title { font: 600 13px var(--ui); color: var(--green); letter-spacing: 1px; }
-  .tabs { display: flex; gap: 3px; }
-  .tabs button { position: relative; background: var(--btn); border: 1px solid var(--line); color: var(--muted); font: 12px var(--mono); padding: 2px 8px; cursor: pointer; display: flex; gap: 6px; align-items: baseline; }
-  .tabs button b { font-weight: 400; color: var(--ink-strong); }
-  .tabs button.on { border-color: var(--green); color: var(--green); }
-  .tabs .f { font-size: 11px; }
-  .badge { position: absolute; top: -5px; right: -5px; background: var(--amber); color: var(--bg); border-radius: 8px; padding: 0 5px; font-size: 11px; line-height: 15px; }
-  .wx { display: flex; gap: 12px; margin-left: auto; color: var(--muted); }
-  .wx b { color: var(--ink-strong); font-weight: 400; }
-  .clock { color: var(--ink-strong); font-size: 16px; }
-  .rwy { color: var(--accent); }
-  .left { color: var(--ink-strong); }
-  .load { width: 90px; }
-  .bar { height: 8px; background: var(--btn); border: 1px solid var(--line); }
-  .bar div { height: 100%; background: var(--green); transition: width 0.4s; }
-  .bar div.warm { background: var(--amber); }
-  .bar div.hot { background: var(--red); }
-  .mic { color: var(--dim); font-size: 12px; }
+  .hud-top { position: absolute; top: 12px; left: 12px; right: 12px; z-index: 10; display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; pointer-events: none; }
+  .hud-top > * { pointer-events: auto; }
+  .cluster { display: flex; gap: 10px; align-items: center; }
+  .right { justify-content: flex-end; }
+  .pill { display: flex; align-items: center; gap: 14px; padding: 6px 14px; border-radius: 999px; background: var(--glass); backdrop-filter: blur(14px) saturate(1.2); box-shadow: var(--lift); color: var(--ink); font: 500 13px var(--ui); }
+  .round { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--glass); backdrop-filter: blur(14px); box-shadow: var(--lift); color: var(--ink-strong); cursor: pointer; display: grid; place-items: center; }
+  .round:hover { color: var(--green); }
+  .title { font: 600 14px var(--ui); color: var(--ink-strong); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); }
+  svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .time { padding: 5px 16px 5px 6px; }
+  .speeds { display: flex; gap: 2px; background: var(--knob); border-radius: 999px; padding: 2px; }
+  .speeds button { height: 30px; min-width: 34px; padding: 0 8px; border: none; border-radius: 999px; background: transparent; color: var(--ink); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .speeds button.on { background: var(--green); color: var(--bg); }
+  .speeds .chev { width: 7px; height: 16px; margin: 0 -1px; stroke-width: 2.4; }
+  .clock b { font: 600 22px/1 var(--mono); color: var(--ink-strong); letter-spacing: 0.5px; }
+  .clock span { font: 500 13px var(--mono); color: var(--muted); margin-left: 2px; }
+  .wx { display: flex; align-items: center; gap: 6px; color: var(--ink); }
+  .atis { width: 22px; height: 22px; border-radius: 6px; background: var(--knob); display: grid; place-items: center; font: 700 12px var(--mono); color: var(--accent); }
+  .wind { width: 16px; height: 16px; color: var(--accent); }
+  .lvp { color: var(--amber); font-weight: 700; }
+  .rwy { display: flex; gap: 8px; font: 600 13px var(--mono); }
+  .arr { color: var(--accent); }
+  .dep { color: var(--green); }
+  .chg { color: var(--amber); }
+  .stats { gap: 16px; border-radius: 16px; padding: 6px 12px 6px 16px; }
+  .stat { display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
+  .stat b { font: 600 17px var(--mono); color: var(--ink-strong); }
+  .stat span { font: 500 11px var(--ui); color: var(--muted); }
+  .stat.bad b { color: var(--red); }
+  .load { width: 8px; height: 30px; border-radius: 4px; background: var(--knob); display: flex; align-items: flex-end; overflow: hidden; }
+  .load div { width: 100%; background: var(--green); transition: height 0.5s; }
+  .load div.warm { background: var(--amber); }
+  .load div.hot { background: var(--red); }
+  .mic { gap: 8px; font-size: 12px; color: var(--muted); }
+  .mic .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
   .mic.live { color: var(--red); }
-  .speed { display: flex; gap: 3px; }
-  .speed button { background: var(--btn); border: 1px solid var(--line); color: var(--ink); font: 12px var(--mono); padding: 2px 7px; cursor: pointer; }
-  .speed button.on { background: var(--green); color: var(--bg); border-color: var(--green); }
-  @media (max-width: 1100px) { .title, .tabs .f, .load { display: none; } }
+  .mic.live .dot { background: var(--red); box-shadow: 0 0 8px var(--red); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (max-width: 1100px) { .title, .rwy { display: none; } }
 </style>
