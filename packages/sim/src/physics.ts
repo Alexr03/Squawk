@@ -108,6 +108,9 @@ function clearance(st: State, apt: Apt, ac: Aircraft): { d: number; by: string |
       const o = st.aircraft.find(x => x.cs === owner);
       if (!o || o.ghost === ac.cs) continue;
       if (k === n ? following(apt, ac, o, j) : (o.path.includes(n) && following(apt, ac, o, j))) continue;
+      // Waiting on each other (someone behind reserved a node ahead of us, or two meeting at a merge): the one nearer that
+      // node goes first. The other is still held back by the traffic check, so this can't drive anyone into anyone.
+      if (o.blockedBy === ac.cs && (dist(ac, apt.nodes[k]) - dist(o, apt.nodes[k]) || (ac.cs < o.cs ? -1 : 1)) < 0) continue;
       if (k !== n && ac.path.slice(Math.max(0, ac.pi - 1), j).includes(k)) continue;
       return { d: d - (t.spanM / 2 + 14), by: owner, at: j };
     }

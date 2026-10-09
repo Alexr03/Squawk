@@ -177,8 +177,10 @@ export function groundRules(world: World, st: State) {
       return;
     }
     const gkey = `${a.cs}|${b.cs}|g`;
-    if (!(a.blockedBy === b.cs && b.blockedBy === a.cs) && gkey in st.sepActive) delete st.sepActive[gkey];
-    if (a.blockedBy === b.cs && b.blockedBy === a.cs) {
+    // Stuck on each other: both stopped a while, each waiting for the other (not just a moment's wait while one rolls past).
+    const stuck = a.blockedBy === b.cs && b.blockedBy === a.cs && a.stoppedS >= 10 && b.stoppedS >= 10;
+    if (!stuck && gkey in st.sepActive) delete st.sepActive[gkey];
+    if (stuck) {
       const key = `${a.cs}|${b.cs}|g`;
       if (!(key in st.sepActive)) {
         st.sepActive[key] = st.tick;

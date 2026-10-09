@@ -194,3 +194,13 @@ test('two departures on top of each other at one holding point: one of them can 
   st.aircraft = [a, b];
   expect([lineupBlocked(world, st, a), lineupBlocked(world, st, b)].sort()).toEqual([false, true]);
 });
+
+test('taxiing aircraft never sit waiting on each other: one reserving nodes ahead of another that pulled in front, or two meeting at a merge', () => {
+  const dec: DayPack = JSON.parse(readFileSync(new URL('../../../data/days/EGLL-2025-12-17.json', import.meta.url), 'utf8'));
+  const c = cfg({ days: [dec], start: Date.parse('2025-12-17T14:00:00Z') / 1000, durationS: 40 * 60, traffic: 1 });
+  let stuck = 0;
+  run(createShift(world, c), c, st => {
+    for (const a of st.aircraft) if (a.onGround && a.stoppedS > 60 && a.blockedBy && find(st, a.blockedBy)?.blockedBy === a.cs) stuck++;
+  });
+  expect(stuck / 4).toBeLessThan(30); // aircraft-seconds; this was about 300 before
+});
