@@ -23,13 +23,19 @@ function blip(freq: number, dur: number, gain: number, type: OscillatorType = 's
   o.stop(t + dur + 0.02);
 }
 
+/** A soft struck note: the pitch plus a quieter overtone, so buttons ring like glass rather than beep. */
+function note(freq: number, dur: number, gain: number, delay = 0) {
+  blip(freq, dur, gain, 'sine', undefined, delay);
+  blip(freq * 2.76, dur * 0.4, gain * 0.25, 'sine', undefined, delay);
+}
+
 export const uiSound = {
-  click: () => blip(1250, 0.05, 0.16, 'triangle', 900),
-  confirm: () => { blip(660, 0.09, 0.16, 'sine'); blip(990, 0.14, 0.14, 'sine', undefined, 0.07); },
-  on: () => blip(700, 0.08, 0.15, 'sine', 1050),
-  off: () => blip(900, 0.08, 0.13, 'sine', 600),
-  hover: () => { const n = performance.now(); if (n - lastHover > 60) { lastHover = n; blip(1800, 0.025, 0.05, 'sine'); } },
-  tab: () => blip(980, 0.045, 0.12, 'triangle'),
+  click: () => { blip(1500, 0.04, 0.14, 'triangle', 800); blip(220, 0.05, 0.1, 'sine', 120); },
+  confirm: () => { note(587, 0.18, 0.15); note(880, 0.3, 0.14, 0.07); note(1175, 0.4, 0.1, 0.14); },
+  on: () => { note(698, 0.14, 0.14); note(1047, 0.22, 0.13, 0.06); },
+  off: () => { note(1047, 0.14, 0.12); note(698, 0.22, 0.12, 0.06); },
+  hover: () => { const n = performance.now(); if (n - lastHover > 60) { lastHover = n; blip(2400, 0.02, 0.035, 'sine'); } },
+  tab: () => { blip(1100, 0.05, 0.1, 'triangle', 1400); },
 };
 
 const PRIMARY = /^(start shift|continue|resume|send|begin shift|play a call|again)$/i;

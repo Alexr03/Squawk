@@ -57,6 +57,8 @@
   const sound = new Sound();
   let toastId = 0;
 
+  $effect(() => { sound.setPaused(paused); });
+
   const queue = $derived(snap ? needs(world, snap) : []);
   const load = $derived(snap ? workload(snap, queue) : 0);
   const selAc = $derived(snap && selected ? find(snap, selected) ?? null : null);
@@ -68,7 +70,7 @@
       // The UI sees this player's seats as the coverage (in co-op the sim covers everyone's).
       s = { ...s, coverage: client.seats };
       snap = s;
-      sound.update(world, s);
+      sound.update(world, s, scope?.listener() ?? null);
       sound.music.setIntensity(workload(s, queue));
       if (selected && !find(s, selected)) selected = null;
       // Auto-slow when the queue gets long.

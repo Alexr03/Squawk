@@ -62,7 +62,7 @@
 </script>
 
 <svelte:window onkeydown={esc} />
-{#snippet slider(label: string, desc: string, key: 'master' | 'voice' | 'fx' | 'ambient' | 'music')}
+{#snippet slider(label: string, desc: string, key: 'master' | 'voice' | 'fx' | 'ambient' | 'aircraft' | 'music')}
   <div class="row">
     <div class="lab"><b>{label}</b><span>{desc}</span></div>
     <div class="ctl"><input type="range" min="0" max="1" step="0.05" bind:value={settings[key]} aria-label={label} /><output>{pct(settings[key])}</output></div>
@@ -98,7 +98,8 @@
           {@render slider('Radio voices', 'Pilots (and you, if you turn that on)', 'voice')}
           {@render slider('Chimes and alerts', 'New strips, requests, conflict alarms', 'fx')}
           {@render slider('Tower cab', 'A quiet room tone under the radio', 'ambient')}
-          {@render slider('Music', 'Calm ambient score that builds when you are busy', 'music')}
+          {@render slider('Aircraft and weather', 'Engines, tyres, wind and rain around the airfield', 'aircraft')}
+          {@render slider('Music', 'A tense score that follows your workload and never repeats', 'music')}
           <div class="row">
             <div class="lab"><b>Test the radio</b><span>A pilot checks in with your current volumes</span></div>
             <div class="ctl"><button class="act" class:playing onclick={hear}>{#if playing}<span class="eq"><i></i><i></i><i></i></span>Transmitting{:else}Play a call{/if}</button></div>

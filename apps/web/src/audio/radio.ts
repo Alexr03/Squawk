@@ -3,7 +3,7 @@ import { settings } from '../lib/settings.svelte.ts';
 // Web Audio, so the "radio" is faked: a soft squelch click + a faint hiss under the
 // speech for its duration, then a squelch tail. Everything else is synthesised.
 
-export type ChimeKind = 'strip' | 'request' | 'conflict' | 'alarm' | 'emergency' | 'handoff' | 'click' | 'call';
+export type ChimeKind = 'strip' | 'request' | 'conflict' | 'alarm' | 'emergency' | 'handoff' | 'click' | 'call' | 'caution' | 'penalty';
 
 export interface SayOptions {
   /** Speaker identity (callsign, or ATC position). Picks a stable voice/pitch/rate. */
@@ -374,27 +374,53 @@ export function createRadioAudio(): RadioAudio {
     o.stop(t + dur + 0.02);
   }
 
+  /** A struck-metal note: a fundamental with an inharmonic overtone that dies faster, like a cockpit chime or a small bell. */
+  function bell(freq: number, start: number, dur: number, gain = 0.2, bright = 1) {
+    const c = audio(), t = c.currentTime + start;
+    for (const [mul, k, d] of [[1, 1, 1], [2.76, 0.32 * bright, 0.45], [5.4, 0.12 * bright, 0.2]] as const) {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.value = freq * mul;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(gain * k, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur * d);
+      o.connect(g).connect(fxBus);
+      o.start(t); o.stop(t + dur * d + 0.02);
+    }
+  }
+
+  /** A short wooden-ish tick: filtered noise plus a quick sine drop. */
+  function tick(start: number, freq: number, gain: number) {
+    const c = audio(), t = c.currentTime + start;
+    const src = noiseSource(), bp = c.createBiquadFilter(), g = c.createGain();
+    bp.type = 'bandpass'; bp.frequency.value = freq * 2; bp.Q.value = 2;
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+    src.connect(bp).connect(g).connect(fxBus); src.start(t); src.stop(t + 0.04);
+    tone(freq, start, 0.04, 'sine', gain * 0.7, freq * 0.6);
+  }
+
   const chimes: Record<Exclude<ChimeKind, 'alarm'>, () => void> = {
-    strip: () => {
-      tone(660, 0, 0.07, 'sine', 0.2);
-      tone(990, 0.08, 0.1, 'sine', 0.2);
-    },
-    request: () => {
-      tone(784, 0, 0.18, 'triangle', 0.3);
-      tone(1046, 0.16, 0.3, 'triangle', 0.3);
-    },
+    // A new strip: two soft bell notes, rising.
+    strip: () => { bell(659, 0, 0.5, 0.16); bell(988, 0.09, 0.7, 0.15); },
+    // A request is waiting: three rising notes, hard to miss without being alarming.
+    request: () => { bell(784, 0, 0.5, 0.2); bell(988, 0.13, 0.5, 0.2); bell(1319, 0.26, 0.9, 0.22); },
+    // A conflict starting: triple beep, stacked a fifth apart so it cuts through the music.
     conflict: () => {
-      for (let i = 0; i < 3; i++) tone(1000, i * 0.14, 0.08, 'square', 0.06);
+      for (let i = 0; i < 3; i++) { tone(1175, i * 0.13, 0.09, 'square', 0.07); tone(1760, i * 0.13, 0.09, 'square', 0.04); }
     },
-    // Mayday / Pan: unlike any routine chime and louder than all of them. Two rising whoops, then three hard beeps.
+    // Mayday / Pan: nothing like a routine chime and louder than all of them. Three falling klaxon whoops, then hard beeps.
     emergency: () => {
-      for (let i = 0; i < 2; i++) tone(500, i * 0.42, 0.38, 'sawtooth', 0.32, 1500);
-      for (let i = 0; i < 3; i++) tone(1500, 0.9 + i * 0.16, 0.1, 'square', 0.3);
+      for (let i = 0; i < 3; i++) { tone(1400, i * 0.36, 0.34, 'sawtooth', 0.28, 520); tone(1405, i * 0.36, 0.34, 'square', 0.1, 525); }
+      for (let i = 0; i < 4; i++) tone(1500, 1.2 + i * 0.13, 0.08, 'square', 0.3);
     },
-    handoff: () => tone(523, 0, 0.22, 'sine', 0.25, 784),
-    click: () => tone(2200, 0, 0.015, 'square', 0.08),
-    // A pilot calling you, with the voices off: a squelch blip and a soft two-note 'ding-dong' like a cockpit chime.
-    call: () => { squelch('open'); tone(880, 0.03, 0.12, 'sine', 0.16); tone(660, 0.16, 0.18, 'sine', 0.14); },
+    // Handing over: a low settled two-note.
+    handoff: () => { bell(523, 0, 0.45, 0.2); bell(392, 0.12, 0.7, 0.18); },
+    click: () => tick(0, 1900, 0.09),
+    // A pilot calling you, with the voices off: a squelch blip and a cockpit-style 'ding-dong'.
+    call: () => { squelch('open'); bell(880, 0.04, 0.4, 0.17, 0.7); bell(659, 0.2, 0.6, 0.15, 0.7); },
+    // Something to look at but not an emergency: one falling two-note.
+    caution: () => { bell(1047, 0, 0.35, 0.16); bell(784, 0.14, 0.55, 0.16); },
+    // You lost points: a dull low knock.
+    penalty: () => { tone(160, 0, 0.28, 'triangle', 0.3, 80); tone(120, 0.02, 0.3, 'sine', 0.3, 60); },
   };
 
   return {
@@ -432,12 +458,16 @@ export function createRadioAudio(): RadioAudio {
       if (kind !== 'alarm') return chimes[kind]();
       if (alarmTimer) return;
       // STCA-style two-tone, repeating until stopAlarm().
+      let n = 0;
       const cycle = () => {
-        tone(950, 0, 0.18, 'square', 0.06);
-        tone(750, 0.22, 0.18, 'square', 0.06);
+        const hi = Math.min(n++, 8) / 8;               // gets more insistent the longer it runs
+        for (let i = 0; i < 2; i++) {
+          tone(1010 + 90 * hi, i * 0.2, 0.15, 'square', 0.055 + 0.03 * hi);
+          tone(780 + 60 * hi, i * 0.2 + 0.1, 0.1, 'square', 0.05 + 0.03 * hi);
+        }
       };
       cycle();
-      alarmTimer = setInterval(cycle, 800);
+      alarmTimer = setInterval(cycle, 760);
     },
 
     crash() {
@@ -462,6 +492,16 @@ export function createRadioAudio(): RadioAudio {
       rg.gain.exponentialRampToValueAtTime(0.001, t + 3);
       rumble.connect(lp).connect(rg).connect(fxBus);
       rumble.start(t); rumble.stop(t + 3.1);
+      // Tearing metal, then a second, lower blast as the fuel goes.
+      const crunch = noiseSource(), cb = c.createBiquadFilter(), dg = c.createGain();
+      cb.type = 'bandpass'; cb.Q.value = 1.4;
+      cb.frequency.setValueAtTime(3200, t); cb.frequency.exponentialRampToValueAtTime(500, t + 1.2);
+      dg.gain.setValueAtTime(0.5, t); dg.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+      crunch.connect(cb).connect(dg).connect(fxBus); crunch.start(t); crunch.stop(t + 1.5);
+      const t2 = t + 0.9, blast = c.createOscillator(), bgn = c.createGain();
+      blast.frequency.setValueAtTime(52, t2); blast.frequency.exponentialRampToValueAtTime(24, t2 + 1.4);
+      bgn.gain.setValueAtTime(0.0001, t); bgn.gain.setValueAtTime(0.7, t2); bgn.gain.exponentialRampToValueAtTime(0.001, t2 + 1.6);
+      blast.connect(bgn).connect(fxBus); blast.start(t); blast.stop(t2 + 1.7);
       // Fire: a roar that swells after the boom, with random crackles on top, dying away over ~7 s.
       const roar = noiseSource(brown);
       const rl = c.createBiquadFilter();
@@ -504,20 +544,22 @@ export function createRadioAudio(): RadioAudio {
       // Two-tone (hi-lo) siren, distant and soft: a square LFO swings the pitch between ~960 and ~770 Hz.
       const t = c.currentTime;
       const o = c.createOscillator();
-      o.type = 'triangle';
+      o.type = 'sawtooth';
       o.frequency.value = 865;
       const lfo = c.createOscillator();
       lfo.type = 'square';
       lfo.frequency.value = 0.9;
+      const glide = c.createBiquadFilter();           // rounds the square so the pitch slides between the two tones
+      glide.type = 'lowpass'; glide.frequency.value = 7;
       const depth = c.createGain();
       depth.gain.value = 95;
-      lfo.connect(depth).connect(o.frequency);
+      lfo.connect(glide).connect(depth).connect(o.frequency);
       const lp = c.createBiquadFilter();
       lp.type = 'lowpass';
-      lp.frequency.value = 1800;
+      lp.frequency.value = 1500;
       const out = c.createGain();
       out.gain.setValueAtTime(0, t);
-      out.gain.setTargetAtTime(0.05, t, 0.3);
+      out.gain.setTargetAtTime(0.045, t, 0.3);
       o.connect(lp).connect(out).connect(fxBus);
       o.start(t); lfo.start(t);
       sirenNodes = { out, stop: (at) => { o.stop(at); lfo.stop(at); } };
