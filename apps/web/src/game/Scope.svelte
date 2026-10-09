@@ -439,6 +439,8 @@
   function dbl() { if (taxiEdit) onTaxiDone(true); }
 
   export function currentTaxiPath() { return taxiPath(); }
+  /** Where the camera is, for placing sounds. */
+  export function listener() { return scene ? scene.getView() : null; }
   export function zoomTo(cx: number, cy: number, m: number) { if (scene) anim = { from: scene.getView(), to: { cx, cy, mpp: m }, t0: performance.now() }; }
 </script>
 
