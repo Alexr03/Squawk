@@ -118,7 +118,7 @@ export interface Spawn { at: number; kind: 'arr' | 'dep'; apt: string; cs: strin
 export interface ScoreEvent {
   tick: number;
   kind: 'seploss' | 'wake' | 'runway' | 'incursion' | 'collision' | 'readback' | 'goaround' | 'late-handoff' | 'early-handoff'
-    | 'unanswered' | 'clearance-occupied' | 'taxi-conflict' | 'gridlock' | 'emergency' | 'missed-approach' | 'stand-wait' | 'bad-rt';
+    | 'unanswered' | 'taxi-conflict' | 'gridlock' | 'emergency' | 'missed-approach';
   severity: number;            // 1 minor .. 5 incident
   text: string;
   cs: string[];
@@ -205,15 +205,14 @@ export interface Stats {
   depDelayS: number; arrDelayS: number; holdS: number; extraTrackNm: number; fuelKg: number;
   goArounds: number; transmissions: number; congestedS: number;
   unanswered: number; lateHandoffs: number; earlyHandoffs: number; readbackMissed: number; readbackCaught: number;
-  sepLoss: number; runwayLoss: number; incursions: number; wakeInf: number; collisions: number; taxiConflicts: number;
+  sepLoss: number; runwayLoss: number; wakeInf: number; collisions: number; taxiConflicts: number;
   emergencies: number; emergenciesHandled: number;
-  badRt: number;
 }
 
 export const newStats = (): Stats => ({
   landed: 0, departed: 0, spawned: 0, depDelayS: 0, arrDelayS: 0, holdS: 0, extraTrackNm: 0, fuelKg: 0,
   goArounds: 0, transmissions: 0, congestedS: 0, unanswered: 0, lateHandoffs: 0, earlyHandoffs: 0, readbackMissed: 0, readbackCaught: 0,
-  sepLoss: 0, runwayLoss: 0, incursions: 0, wakeInf: 0, collisions: 0, taxiConflicts: 0, emergencies: 0, emergenciesHandled: 0, badRt: 0,
+  sepLoss: 0, runwayLoss: 0, wakeInf: 0, collisions: 0, taxiConflicts: 0, emergencies: 0, emergenciesHandled: 0,
 });
 
 export function rand(st: State): number { // mulberry32 with state kept in State
