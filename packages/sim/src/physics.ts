@@ -4,6 +4,7 @@ import { angleDiff, bearing, dist, holdShape, KT, NM, norm360, segDist, tas, tur
 import { DT, rand, ticks, type Aircraft, type State } from './state.ts';
 import { along, glidepath, lateral, pointOnEnd, route, routeToRunway, runwayAt, type Apt, type EndInfo, type World } from './world.ts';
 import { emergencyStop } from './incidents.ts';
+import { taxiTarget } from './pilot.ts';
 
 const MS = (kt: number) => kt * KT;
 
@@ -203,7 +204,7 @@ export function moveGround(world: World, st: State, ac: Aircraft) {
       const rest = stepToward(ac, target, MS(ac.gs) * DT, true);
       if (rest > 0 || dist(ac, target) < 0.5) {
         // Swing the nose to the requested direction (or along the lane), then wait for taxi.
-        const want = faceHeading(apt, ac);
+        const want = faceHeading(world, apt, ac);
         ac.gs = 0;
         ac.hdg = turnToward(ac.hdg, want, 6 * DT);
         if (Math.abs(angleDiff(ac.hdg, want)) < 2) { ac.phase = 'pushed'; ac.path = [ac.path[1]]; ac.pi = 0; ac.claims = [ac.path[0]]; }
@@ -351,12 +352,12 @@ export function moveGround(world: World, st: State, ac: Aircraft) {
   }
 }
 
-function faceHeading(apt: Apt, ac: Aircraft): number {
+function faceHeading(world: World, apt: Apt, ac: Aircraft): number {
   if (ac.face) return { N: 0, E: 90, S: 180, W: 270 }[ac.face];
-  // Nose along the first leg of the route the aircraft will actually taxi, so it never has to turn round.
+  // Nose along the first leg of the route the aircraft will actually taxi, so it never has to turn round: towards the
+  // holding point a taxi clearance to its runway will pick (not just the runway's first one, which can be the other way).
   const n = ac.path[1];
-  const end = ac.runway ? apt.ends[ac.runway] : null;
-  const goal = end ? end.front[0] ?? end.holds[0] : undefined;
+  const goal = ac.runway && apt.ends[ac.runway] ? taxiTarget(world, ac, ac.runway) ?? undefined : undefined;
   const r = goal !== undefined ? route(apt, n, goal) : null;
   if (r && r.length > 1) return bearing(apt.nodes[n], apt.nodes[r[1]]);
   const lane = apt.adj[n].find(a => !apt.nodes[a.to].stand);
