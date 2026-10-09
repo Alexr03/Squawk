@@ -77,8 +77,8 @@ export function routeStart(world: World, ac: Aircraft): number {
   return best;
 }
 function nearestOf(nodes: { x: number; y: number }[], p: { x: number; y: number }, ids: number[]) {
-  // Prefer continuing to the node ahead so the aircraft doesn't U-turn.
-  return dist(nodes[ids[1]], p) < 5 ? ids[1] : ids[1];
+  // The node ahead, so the aircraft doesn't U-turn; unless it is still on the one behind, where the new route can branch.
+  return dist(nodes[ids[0]], p) < 5 ? ids[0] : ids[1];
 }
 
 export function validate(world: World, st: State, seat: SeatId, ac: Aircraft | undefined, c: Command): string | null {
