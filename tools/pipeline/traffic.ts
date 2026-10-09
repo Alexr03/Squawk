@@ -58,7 +58,7 @@ async function opensky(p: string): Promise<string> {
     console.error(`  GET ${p} -> ${res.status}${left ? ` (credits left ${left})` : ''}`);
     if (res.ok) return await res.text();
     if (res.status === 404) return '[]';
-    if (res.status === 401) { token = null; continue; }
+    if (res.status === 401 && attempt < 2) { token = null; continue; } // a stale token: one fresh one, then give up like anything else
     if (attempt >= 4 || (res.status !== 429 && res.status < 500)) throw new Error(`OpenSky ${p}: HTTP ${res.status} ${await res.text()}`);
     const wait = Number(res.headers.get('x-rate-limit-retry-after-seconds') ?? 0);
     if (wait > 600) throw new Error(`OpenSky credits exhausted; retry in ${Math.round(wait / 60)} min`);
