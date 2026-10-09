@@ -352,12 +352,16 @@ export function moveGround(world: World, st: State, ac: Aircraft) {
   }
 }
 
+const faceGoal = new Map<string, number | null>();
 function faceHeading(world: World, apt: Apt, ac: Aircraft): number {
   if (ac.face) return { N: 0, E: 90, S: 180, W: 270 }[ac.face];
   // Nose along the first leg of the route the aircraft will actually taxi, so it never has to turn round: towards the
   // holding point a taxi clearance to its runway will pick (not just the runway's first one, which can be the other way).
   const n = ac.path[1];
-  const goal = ac.runway && apt.ends[ac.runway] ? taxiTarget(world, ac, ac.runway) ?? undefined : undefined;
+  // Depends only on the push point and the runway (the graph, not the traffic), so it's worked out once per pair.
+  const key = `${apt.icao}:${n}:${ac.runway}`;
+  if (ac.runway && apt.ends[ac.runway] && !faceGoal.has(key)) faceGoal.set(key, taxiTarget(world, ac, ac.runway));
+  const goal = faceGoal.get(key) ?? undefined;
   const r = goal !== undefined ? route(apt, n, goal) : null;
   if (r && r.length > 1) return bearing(apt.nodes[n], apt.nodes[r[1]]);
   const lane = apt.adj[n].find(a => !apt.nodes[a.to].stand);
