@@ -19,7 +19,7 @@ export interface SceneOptions {
   pixelSize?: number; quality?: 'low' | 'high'; /** tilt-shift depth of field, haze and vignette */ depth?: boolean;
   /** SMAA, soft (PCF) shadows and softer light falloff; off is the crisp pixel-art look */ smooth?: boolean;
 }
-export interface Weather { rain: number; visM: number; cloud: number; windKt?: number; cells?: { x: number; y: number; r: number; intensity: number }[] }
+export interface Weather { rain: number; visM: number; cloud: number; windKt?: number; windDir?: number; cells?: { x: number; y: number; r: number; intensity: number }[] }
 export interface IncidentView { id: string; x: number; y: number; fire: number; kind: 'crash' | 'emergency'; resolved: boolean }
 export interface Overlays { sids?: boolean; stars?: boolean; weather?: boolean; ctr?: boolean; rings?: boolean }
 export interface Scene {
@@ -402,11 +402,12 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
         smoke.set(inc.id, puffs);
       }
       const strength = inc.resolved ? 0 : Math.max(inc.fire, inc.kind === 'crash' ? 0.25 : 0.08);
-      const wind = weather.cells ? 1 : 1;
+      // Downwind, further the stronger it blows (the wind's direction is where it comes from).
+      const toward = ((weather.windDir ?? 270) + 180) * RAD, blow = 0.4 + (weather.windKt ?? 8) / 12;
       puffs.forEach((sp, k) => {
         const life = ((t * 0.12 + k / puffs!.length) % 1), ph = hashStr(inc.id + 's' + k);
-        const h = life * 260, drift = life * 120 * wind;
-        sp.position.set(inc.x + drift + (ph - 0.5) * 30 * (1 + life), 8 + h, -(inc.y + drift * 0.4 + (ph - 0.5) * 30));
+        const h = life * 260, drift = life * 120 * blow;
+        sp.position.set(inc.x + Math.sin(toward) * drift + (ph - 0.5) * 30 * (1 + life), 8 + h, -(inc.y + Math.cos(toward) * drift + (ph - 0.5) * 30));
         const size = 22 + life * 90;
         sp.scale.set(size, size, 1);
         sp.material.opacity = strength * 0.55 * (1 - life) * Math.min(1, life * 6);
@@ -518,10 +519,21 @@ export function createScene(canvas: HTMLCanvasElement, packs: AirportPack[], opt
       });
     },
     dispose() {
+      // Geometry, materials and their textures (shader uniforms included), each once: renderer.dispose() frees none of them.
+      const freed = new Set<{ dispose(): void }>();
+      const free = (x: unknown) => { if (x && typeof (x as { dispose?: unknown }).dispose === 'function' && !freed.has(x as never)) { freed.add(x as never); (x as { dispose(): void }).dispose(); } };
+      scene.traverse(o => {
+        const m = o as THREE.Mesh;
+        free(m.geometry);
+        for (const mat of [m.material ?? []].flat()) {
+          for (const v of Object.values(mat)) if (v instanceof THREE.Texture) free(v);
+          for (const u of Object.values((mat as THREE.ShaderMaterial).uniforms ?? {})) if (u?.value instanceof THREE.Texture) free(u.value);
+          free(mat);
+        }
+      });
       composer.dispose();
       renderer.dispose();
       overlay.remove();
-      scene.traverse(o => { const m = o as THREE.Mesh; m.geometry?.dispose(); });
     },
   };
   applyLighting();
