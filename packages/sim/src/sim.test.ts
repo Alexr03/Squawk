@@ -5,7 +5,7 @@ import { project } from './predict.ts';
 import { separation } from './rules.ts';
 import { pointOnEnd } from './world.ts';
 import { describe, expect, test } from 'vitest';
-import { buildWorld, createShift, debrief, depGap, DIFFICULTY, geo, hashState, issue, replay, step, find, type AirportPack, type DayPack, type ShiftConfig, type State } from './index.ts';
+import { buildWorld, createShift, debrief, depGap, DIFFICULTY, flowPenalty, geo, hashState, issue, replay, route, step, find, taxiTarget, type AirportPack, type DayPack, type ShiftConfig, type State } from './index.ts';
 
 const pack: AirportPack = JSON.parse(readFileSync(new URL('../../../data/airports/EGLL/airport.json', import.meta.url), 'utf8'));
 const day: DayPack = JSON.parse(readFileSync(new URL('../../../data/days/EGLL-2026-08-28.json', import.meta.url), 'utf8'));
@@ -210,4 +210,21 @@ test('stand sizes: an aircraft fits a stand built for its wake category or large
   expect(['L', 'M', 'H', 'J'].map(w => standFits('H', w))).toEqual([true, true, true, false]);
   expect(['L', 'M', 'H', 'J'].map(w => standFits('L', w))).toEqual([true, false, false, false]);
   expect(standFits('J', 'J')).toBe(true);
+});
+
+test("the player's taxi clearances take the shortest route; only AI ground controllers route round oncoming traffic", () => {
+  const c = cfg({ coverage: ['EGLL:GND', 'EGLL:DEL'] });
+  const st = createShift(world, c);
+  while (!st.aircraft.some(a => a.kind === 'dep' && a.onGround)) step(world, c, st);
+  const ac = st.aircraft.find(a => a.kind === 'dep' && a.onGround)!, apt = world.primary;
+  const s = apt.standByRef[ac.stand!];
+  Object.assign(ac, { phase: 'pushed', x: apt.nodes[s.pushNode].x, y: apt.nodes[s.pushNode].y, path: [s.pushNode], pi: 0, owner: 'EGLL:GND', freq: 'EGLL:GND', checkedIn: true, cleared: { ...ac.cleared, dl: true, push: true } });
+  const goal = taxiTarget(world, ac, ac.runway!)!, shortest = route(apt, s.pushNode, goal)!;
+  // Someone (AI-worked) coming the other way along that whole route.
+  const o = { ...st.aircraft.find(a => a !== ac)!, cs: 'ONCOMING', phase: 'taxi' as const, onGround: true, owner: 'EGLL:TWR', path: [...shortest].reverse(), pi: 1 };
+  st.aircraft = [ac, o];
+  expect(issue(world, st, [{ cs: ac.cs, verb: 'taxi', to: ac.runway!, via: [] }])).toBeNull();
+  const sent = st.pending.flatMap(q => q.cs === ac.cs ? q.apply ?? [] : []).find(x => x.verb === 'taxi') as { nodes: number[] };
+  expect(sent.nodes).toEqual(shortest);
+  expect(route(apt, s.pushNode, goal, { penalty: flowPenalty(st, apt, ac) })).not.toEqual(shortest); // what the AI would do
 });

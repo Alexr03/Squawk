@@ -2,7 +2,7 @@
   import { dayClock } from '../lib/settings.svelte.ts';
   import { onMount } from 'svelte';
   import { createScene, type Scene } from '@squawk/render';
-  import { find, flowPenalty, geo, route, routeStart, startHdg, taxiTarget, viaNames, type Aircraft, type Command, type XY } from '@squawk/sim';
+  import { find, geo, route, routeStart, startHdg, taxiTarget, viaNames, type Aircraft, type Command, type XY } from '@squawk/sim';
   import { flightPlan, withCommands, type FlightPlan } from './flightplan.ts';
   import { viewFor } from './views.ts';
   import type { ShiftClient } from './client.ts';
@@ -364,7 +364,7 @@
     if (taxiMemo?.key === key) return taxiMemo.path;
     const tapt = world.byIcao[ac.apt] ?? apt;
     const tgt = taxiTarget(world, ac, to);
-    const path = tgt === null ? null : route(tapt, routeStart(world, ac), tgt, { penalty: flowPenalty(client.snap!, tapt, ac), hdg: startHdg(ac) });
+    const path = tgt === null ? null : route(tapt, routeStart(world, ac), tgt, { hdg: startHdg(ac) }) // the shortest route, as the sim gives the player;
     taxiMemo = { key, path };
     return path;
   }
