@@ -14,11 +14,13 @@ export class Sound {
   airfield = sharedAirfield;
   private lastRadio = 0;
   private seenAlerts = { tick: -1, n: 0 };
+  private seenEvents = { tick: -1, n: 0 };
   private alarm = false;
   private known = new Set<string>();
   private heard = new Set<string>();
   private vehPos = new Map<string, { x: number; y: number }>();
   private unlocked = false;
+  private primed = false;
   private emergencies = new Set<string>();
 
   unlock() {
@@ -84,7 +86,12 @@ export class Sound {
     if (moving) this.radio.siren();
     for (const a of unseen(snap.alerts, this.seenAlerts)) {
       if (a.level === 'conflict') { this.radio.chime('conflict'); this.music.alert('conflict'); }
+      else if (a.level === 'caution' && /hand off/.test(a.text)) this.radio.chime('caution'); // other cautions are score events, which knock below
     }
+    // Points lost on aircraft the player works: a low knock (the same events that pop up on the scope).
+    const fresh = unseen(snap.events, this.seenEvents);
+    if (this.primed && fresh.some(e => !e.ai && e.severity >= 2)) this.radio.chime('penalty');
+    this.primed = true; // events already in the log when the shift (or a replay) loads stay silent
     const conflict = snap.aircraft.some(a => a.alert === 'conflict' && snap.coverage.includes(a.owner));
     if (conflict && !this.alarm) { this.radio.chime('alarm'); this.alarm = true; }
     if (!conflict && this.alarm) { this.radio.stopAlarm(); this.alarm = false; }
