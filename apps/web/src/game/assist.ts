@@ -97,7 +97,7 @@ export interface Pop { x: number; y: number; text: string; good: boolean; t0: nu
 export class Feedback {
   pops: Pop[] = [];
   private phase = new Map<string, string>();
-  private lastEvent = 0;
+  private seen = { tick: -1, n: 0 };
   update(snap: Snap, now: number) {
     for (const a of snap.aircraft) {
       const prev = this.phase.get(a.cs);
@@ -108,13 +108,19 @@ export class Feedback {
       else if (a.phase === 'goaround') this.add(a, '− Go-around', false, now);
       else if (prev === 'taxiin' && a.phase === 'parked') this.add(a, '+ On stand', true, now);
     }
-    for (const e of snap.events) {
-      if (e.tick <= this.lastEvent) continue;
-      this.lastEvent = e.tick;
+    for (const e of unseen(snap.events, this.seen)) {
       if (e.ai || e.x === undefined || e.severity < 2) continue;
       this.pops.push({ x: e.x, y: e.y!, text: e.kind === 'seploss' ? '− Separation' : e.kind === 'runway' ? '− Runway' : e.kind === 'wake' ? '− Wake' : '− ' + e.kind, good: false, t0: now });
     }
     this.pops = this.pops.filter(p => now - p.t0 < 2200);
   }
   private add(a: Aircraft, text: string, good: boolean, now: number) { this.pops.push({ x: a.x, y: a.y, text, good, t0: now }); }
+}
+
+/** Entries not handled yet from a log stamped by tick, where several can share a tick: `seen` keeps the last tick and how many at it. */
+export function unseen<T extends { tick: number }>(list: T[], seen: { tick: number; n: number }): T[] {
+  const last = list.reduce((m, e) => Math.max(m, e.tick), seen.tick);
+  const out = [...list.filter(e => e.tick === seen.tick).slice(seen.n), ...list.filter(e => e.tick > seen.tick)];
+  seen.n = list.filter(e => e.tick === last).length; seen.tick = last;
+  return out;
 }

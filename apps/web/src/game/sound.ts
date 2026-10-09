@@ -4,13 +4,14 @@ import type { Radio, World } from '@squawk/sim';
 import { createRadioAudio, type RadioAudio } from '../audio/radio.ts';
 import { music as sharedMusic } from '../audio/music.ts';
 import { settings } from '../lib/settings.svelte.ts';
+import { unseen } from './assist.ts';
 import type { Snap } from './client.ts';
 
 export class Sound {
   radio: RadioAudio = createRadioAudio();
   music = sharedMusic;
   private lastRadio = 0;
-  private lastAlert = 0;
+  private seenAlerts = { tick: -1, n: 0 };
   private alarm = false;
   private known = new Set<string>();
   private heard = new Set<string>();
@@ -73,9 +74,7 @@ export class Sound {
     const moving = snap.vehicles.some(v => { const p = this.vehPos.get(v.id); return v.kind === 'fire' && !!p && Math.hypot(v.x - p.x, v.y - p.y) > 0.5; });
     this.vehPos = new Map(snap.vehicles.map(v => [v.id, { x: v.x, y: v.y }]));
     if (moving) this.radio.siren();
-    for (const a of snap.alerts) {
-      if (a.tick <= this.lastAlert) continue;
-      this.lastAlert = a.tick;
+    for (const a of unseen(snap.alerts, this.seenAlerts)) {
       if (a.level === 'conflict') this.radio.chime('conflict');
     }
     const conflict = snap.aircraft.some(a => a.alert === 'conflict' && snap.coverage.includes(a.owner));
