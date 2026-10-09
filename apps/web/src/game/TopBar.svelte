@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { localHour, type World } from '@squawk/sim';
+  import { localHour } from '@squawk/sim';
   import type { Snap } from './client.ts';
-  import type { Need } from './needs.ts';
   import { settings } from '../lib/settings.svelte.ts';
 
   interface Props {
-    world: World; snap: Snap; time: number; queue: Need[]; load: number; filter: string | null; speed: number; canPause: boolean; title: string;
-    onFilter: (s: string | null) => void; onSpeed: (v: number) => void; onMenu: () => void; onJump: (seat: string) => void;
+    snap: Snap; time: number; load: number; speed: number; canPause: boolean; title: string;
+    onSpeed: (v: number) => void; onMenu: () => void;
     voice: { on: boolean; state: string; listening: boolean };
   }
   let { snap, time, load, speed, canPause, title, onSpeed, onMenu, voice }: Props = $props();

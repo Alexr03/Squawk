@@ -264,8 +264,8 @@
         {queue} onAction={(cs, a) => { selected = cs; if (a.cmds) send(a.cmds); else if (a.taxi) send([a.taxi.greens ? { cs, verb: 'greens', to: a.taxi.to } : { cs, verb: 'taxi', to: a.taxi.to, via: [] }]); }} />
     </div>
 
-    <TopBar {world} {snap} time={dayClock(snap.start + snap.tick / 4, client.cfg.start)} {queue} {load} {filter} {speed} {canPause} {title} {voice}
-      onFilter={(s) => (filter = s)} onSpeed={setSpeed} onMenu={() => (menuOpen = true)} onJump={jump} />
+    <TopBar {snap} time={dayClock(snap.start + snap.tick / 4, client.cfg.start)} {load} {speed} {canPause} {title} {voice}
+      onSpeed={setSpeed} onMenu={() => (menuOpen = true)} />
 
     {#if stripsOpen}
       <div class="drawer">
