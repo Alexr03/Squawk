@@ -185,6 +185,7 @@ function resolve(world: World, st: State, inc: Incident) {
   for (const ac of st.aircraft) if (inc.cs.includes(ac.cs) && (ac.phase === 'wreck' || ac.phase === 'stopped')) ac.phase = 'gone';
   for (const v of st.vehicles) if (v.id.startsWith(`fire-${inc.id}-`)) v.until = st.tick;
   if (!inc.runway) return;
+  if (st.incidents.some(i => !i.resolved && i.apt === inc.apt && i.runway === inc.runway)) return; // something else still on it
   if (towerIsAi(st, inc.apt)) reopenRunway(world, st, inc.apt, inc.runway);
   else st.alerts.push({ tick: st.tick, level: 'info', text: `Runway ${inc.runway} is clear: reopen it when you are ready` });
 }

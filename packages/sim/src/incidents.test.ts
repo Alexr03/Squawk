@@ -76,6 +76,22 @@ describe('crashes', () => {
     expect(isClosed(st, 'EGLL', pair)).toBe(false);
   });
 
+  test('two incidents on one runway: the AI tower keeps it closed until both are cleared', () => {
+    const c = cfg();
+    const st = createShift(world, c);
+    const { pair } = crashOnRunway(st, c);
+    steps(st, c, 4 * 60); // the second one happens a minute later, so the first clears first
+    const [x, y] = st.aircraft.filter(a => a.kind === 'dep' && a.onGround && a.phase !== 'wreck').slice(0, 2);
+    const end = apt.ends['27L'], p = { x: end.thr.x + end.ux * 2200, y: end.thr.y + end.uy * 2200 };
+    Object.assign(x, { x: p.x, y: p.y }); Object.assign(y, { x: p.x + 20, y: p.y });
+    crash(world, st, x, y, false);
+    expect(until(st, c, () => st.incidents[0].resolved, 4 * 900)).toBe(true);
+    expect(st.incidents.find(i => !i.resolved)?.runway).toBe(pair);
+    expect(isClosed(st, 'EGLL', pair)).toBe(true);
+    expect(until(st, c, () => st.incidents.every(i => i.resolved), 4 * 900)).toBe(true);
+    expect(isClosed(st, 'EGLL', pair)).toBe(false);
+  });
+
   test('a closed runway: AI arrivals and departures move to the runway still open', () => {
     const c = cfg({ coverage: ['EGLL:TWR'] });
     const st = createShift(world, c);
