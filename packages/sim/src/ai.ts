@@ -248,6 +248,12 @@ function tower(world: World, st: State, ac: Aircraft) {
   const apt = aptOf(world, ac);
   const elev = elevation(apt);
   if (ac.kind === 'arr') {
+    // Caught up with the one ahead on final (inside 1.5 nm and still gaining): off the approach before it gets any closer.
+    if (ac.phase === 'final' && ac.checkedIn) {
+      const thr = apt.ends[ac.runway!].thr, mine = dist(ac, thr);
+      const ahead = st.aircraft.find(o => o !== ac && !o.onGround && o.runway === ac.runway && o.phase === 'final' && dist(o, thr) < mine && mine - dist(o, thr) < 1.5 * NM && ac.gs > o.gs);
+      if (ahead) { say(world, st, ac, [{ cs: ac.cs, verb: 'goaround' }]); return; }
+    }
     if (ac.phase === 'final' && !ac.cleared.land && ac.checkedIn) {
       const end = apt.ends[ac.runway!];
       const toThr = dist(ac, end.thr) / NM;
