@@ -101,12 +101,12 @@ export class Radar {
   }
 
   /** Taxiway letters (yellow-on-black signs), holding points and stands, when zoomed in on the ground. */
-  private drawGroundLabels(F: RadarFrame) {
+  private drawGroundLabels(F: RadarFrame): { x: number; y: number; w: number; h: number }[] {
     const { ctx } = this;
     const a0 = ctx.globalAlpha;
     const stands = F.mpp < 1.1;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
-    const placed: { x: number; y: number; w: number; h: number }[] = [];
+    const placed: { x: number; y: number; w: number; h: number }[] = [], rwys: typeof placed = [];
     // Aircraft win: a sign never sits on top of a plane (reserve each one, with its callsign tag below it).
     for (const ac of F.aircraft) { const q = F.screenOf(ac), r = Math.max(10, F.sizeOf(ac)); if (q.x > -40 && q.y > -40 && q.x < F.w + 40 && q.y < F.h + 40) placed.push({ x: q.x - r, y: q.y - r, w: 2 * r, h: 2 * r + 16 }); }
     for (const pk of this.packs) for (const l of pk.labels) {
@@ -121,7 +121,7 @@ export class Radar {
       placed.push({ x, y, w, h });
       // Airfield sign colours: location (taxiway) black on yellow, mandatory (holding point) white on red.
       // Runways: white designator on a dark plate with a white outline.
-      if (l.kind === 'rwy') { ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(8,12,20,0.85)'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(x + 0.75, y + 0.75, w - 1.5, h - 1.5); ctx.fillStyle = '#fff'; ctx.fillText(l.text, Math.round(p.x), Math.round(p.y) + 1); continue; }
+      if (l.kind === 'rwy') { rwys.push({ x, y, w, h }); ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(8,12,20,0.85)'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(x + 0.75, y + 0.75, w - 1.5, h - 1.5); ctx.fillStyle = '#fff'; ctx.fillText(l.text, Math.round(p.x), Math.round(p.y) + 1); continue; }
       ctx.fillStyle = l.kind === 'twy' ? '#f5c518' : l.kind === 'hold' ? '#c8102e' : 'rgba(10,18,32,0.7)';
       ctx.globalAlpha = a0 * (l.kind === 'stand' ? 0.85 : 0.95);
       ctx.fillRect(x, y, w, h);
@@ -129,6 +129,7 @@ export class Radar {
       ctx.fillText(l.text, Math.round(p.x), Math.round(p.y) + 1);
     }
     ctx.globalAlpha = a0;
+    return rwys;
   }
 
   /** Where each aircraft's label was drawn last frame (screen px), so clicking a tag selects its aircraft. */
@@ -303,7 +304,7 @@ export class Radar {
     if (fade < 1) { // airport tier: small callsign labels and selection brackets
       ctx.globalAlpha = Math.max(0, 1 - fade * 2.5);
       ctx.font = SMALL_FONT; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
-      if (F.mpp < 9) this.drawGroundLabels(F);
+      if (F.mpp < 9) boxes.push(...this.drawGroundLabels(F)); // data tags keep clear of the runway designators
       ctx.font = SMALL_FONT; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
       for (const ac of list) {
         if (ac.cs.startsWith("~")) continue; // parked scenery, no label

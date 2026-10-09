@@ -347,11 +347,14 @@
     const end = S(tapt.nodes[path[path.length - 1]]);
     ctx.globalAlpha = 1;
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(end.x, end.y, 5, 0, Math.PI * 2); ctx.fill();
-    ctx.font = "600 12px 'IBM Plex Sans', system-ui, sans-serif"; ctx.textBaseline = 'middle';
-    const w = ctx.measureText(label).width;
-    const lx = Math.min(end.x + 10, wrap.clientWidth - w - 20), ly = end.y - 18;
-    ctx.fillStyle = 'rgba(7,14,28,0.88)'; ctx.fillRect(lx, ly - 11, w + 14, 22);
-    ctx.fillStyle = col; ctx.fillText(label, lx + 7, ly);
+    // The caption goes at the far end; a route ending right by the aircraft (a line-up) would put it on top of its label.
+    if (Math.hypot(end.x - a.x, end.y - a.y) > 80) {
+      ctx.font = "600 12px 'IBM Plex Sans', system-ui, sans-serif"; ctx.textBaseline = 'middle';
+      const w = ctx.measureText(label).width;
+      const lx = Math.min(end.x + 10, wrap.clientWidth - w - 20), ly = end.y - 18;
+      ctx.fillStyle = 'rgba(7,14,28,0.88)'; ctx.fillRect(lx, ly - 11, w + 14, 22);
+      ctx.fillStyle = col; ctx.fillText(label, lx + 7, ly);
+    }
     ctx.restore();
   }
   /** The taxi route a drop would give (same routing as the sim), cached while the drag stays on one target. */
