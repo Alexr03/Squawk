@@ -1,6 +1,7 @@
 // Crisp 2D radar scope drawn on an overlay canvas: map underlay, scope symbology, blips and data tags.
 import type { AircraftView, AirportPack, XY } from '@squawk/sim/types';
 import { holdShape, NM, racetrack, windKtAt } from '@squawk/sim/geo';
+import { hash } from './fx.ts';
 
 export const TAG_FONT = "500 11.5px 'IBM Plex Mono', ui-monospace, Consolas, monospace";
 export const SMALL_FONT = "500 10px 'IBM Plex Mono', ui-monospace, Consolas, monospace";
@@ -40,7 +41,6 @@ export interface RadarFrame {
 type Label = { x: number; y: number; text: string; kind: 'rwy' | 'twy' | 'hold' | 'stand' };
 interface PackPaths { pack: AirportPack; off: XY; aprons: Path2D; rwys: Path2D; bldgs: Path2D; twy: Path2D; labels: Label[] }
 
-function hash(n: number) { n = Math.imul(n ^ (n >>> 15), 0x2c1b3c6d); n = Math.imul(n ^ (n >>> 12), 0x297a2d39); return ((n ^ (n >>> 15)) >>> 0) / 4294967296; }
 
 export class Radar {
   private packs: PackPaths[];

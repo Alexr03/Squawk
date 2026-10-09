@@ -1,6 +1,9 @@
 // Shaders: glowing light points, ground light pools, and the low-res grade pass (fog, rain, cloud shadows).
 import * as THREE from 'three';
 
+/** Integer hash to 0..1, for stable per-object variation. */
+export function hash(n: number) { n = Math.imul(n ^ (n >>> 15), 0x2c1b3c6d); n = Math.imul(n ^ (n >>> 12), 0x297a2d39); return ((n ^ (n >>> 15)) >>> 0) / 4294967296; }
+
 /** Shared per-frame uniforms for every light material. */
 export const lightUniforms = {
   uPxPerM: { value: 1 },

@@ -4,12 +4,11 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { AirportPack, RunwayPack, XY } from '@squawk/sim/types';
 import { segDist } from '@squawk/sim/geo';
-import { lightMaterial } from './fx.ts';
+import { hash, lightMaterial } from './fx.ts';
 import { buildScenery, type SceneryWorld } from './scenery.ts';
 
 export const Y = { grass: 0, map: 0.05, twy: 0.1, apron: 0.16, rwyBase: 0.2, rwy: 0.24, line: 0.3, pool: 0.34, light: 0.6 };
 
-function hash(n: number) { n = Math.imul(n ^ (n >>> 15), 0x2c1b3c6d); n = Math.imul(n ^ (n >>> 12), 0x297a2d39); return ((n ^ (n >>> 15)) >>> 0) / 4294967296; }
 
 // ---------------------------------------------------------------- ground
 

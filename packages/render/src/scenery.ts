@@ -2,7 +2,7 @@
 // World mapping as in world.ts: pack (x east, y north) -> three (x, up, -y).
 import * as THREE from 'three';
 import type { Scenery, SceneryAreaKind, SceneryRoadKind, XY } from '@squawk/sim/types';
-import { lightMaterial, lightUniforms } from './fx.ts';
+import { hash, lightMaterial, lightUniforms } from './fx.ts';
 
 const AREA_KINDS: SceneryAreaKind[] = ['residential', 'industrial', 'commercial', 'retail', 'farmland', 'grass', 'forest', 'water', 'parking', 'construction', 'paved', 'railway'];
 const AREA_COL: Record<SceneryAreaKind, string[]> = {
@@ -24,7 +24,6 @@ export interface SceneryWorld {
   cars: THREE.Points<THREE.BufferGeometry, THREE.ShaderMaterial>;
 }
 
-function hash(n: number) { n = Math.imul(n ^ (n >>> 15), 0x2c1b3c6d); n = Math.imul(n ^ (n >>> 12), 0x297a2d39); return ((n ^ (n >>> 15)) >>> 0) / 4294967296; }
 const signedArea = (p: XY[]) => { let s = 0; for (let i = 0, j = p.length - 1; i < p.length; j = i++) s += (p[j].x - p[i].x) * (p[j].y + p[i].y); return s / 2; };
 
 const GLSL_NOISE = /* glsl */ `
