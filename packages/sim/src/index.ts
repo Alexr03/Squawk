@@ -1,5 +1,5 @@
 // Squawk sim core: pure TypeScript, no DOM. Deterministic 4 Hz tick, seeded RNG; commands are the only input.
-import { TYPES } from './aircraft.ts';
+import { standFits, TYPES } from './aircraft.ts';
 import { aiStep } from './ai.ts';
 import { dist, NM } from './geo.ts';
 import { emergencies, emergencyAftermath, nordo, runwayConfig, scheduleNextEmergency, approachChecks } from './events.ts';
@@ -47,7 +47,7 @@ export function createShift(world: World, cfg: ShiftConfig): State {
     // A living apron: parked aircraft on about half the stands (they give way when a stand is needed).
     // Each parked aircraft is a real airline + type pairing from the day, sized for the stand, its airline's terminal preferred.
     const mix = realMix(cfg.days[i]);
-    const fits = (s: (typeof apt.stands)[number], type: string) => { const w = TYPES[type]?.wake; return s.maxWake === 'J' || (s.maxWake === 'H' ? w !== 'J' : w === 'L' || w === 'M'); };
+    const fits = (s: (typeof apt.stands)[number], type: string) => standFits(s.maxWake, TYPES[type]?.wake);
     for (const s of apt.stands) if (rand(st) < 0.45) {
       const sized = mix.filter(f => fits(s, f.type));
       const local = sized.filter(f => apt.pack.airlineTerminals[f.operator] === s.terminal);

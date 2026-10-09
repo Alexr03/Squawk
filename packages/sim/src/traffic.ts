@@ -1,5 +1,5 @@
 // Traffic: schedule from real day packs (or synthetic), SID/STAR choice by direction, stands, spawning.
-import { TYPES } from './aircraft.ts';
+import { standFits, TYPES } from './aircraft.ts';
 import { AIRLINES } from './airlines.ts';
 import { angleDiff, bearing, dist, fromBearing, NM } from './geo.ts';
 import { DT, pick, rand, seatId, ticks, type Aircraft, type ShiftConfig, type Spawn, type State } from './state.ts';
@@ -119,7 +119,7 @@ export function synthDay(apt: Apt, from: number, to: number, st: State, perHour 
     for (let t = from; t < to; t += (3600 / perHour) * (0.5 + rand(st))) {
       // A real flight's airline, aircraft and destination together; a fresh flight number in that airline's style.
       const f = pick(st, pool.length ? pool : mix);
-      const m = /^[A-Z]{3}(d+)([A-Z]*)$/.exec(f.cs);
+      const m = /^[A-Z]{3}(\d+)([A-Z]*)$/.exec(f.cs);
       const digits = Math.max(1, Math.min(4, m ? m[1].length : 3));
       let n = String(1 + Math.floor(rand(st) * 9)); for (let i = 1; i < digits; i++) n += Math.floor(rand(st) * 10);
       const sfx = m?.[2] ? String.fromCharCode(65 + Math.floor(rand(st) * 26)).repeat(Math.min(2, m[2].length)) : '';
@@ -133,7 +133,7 @@ export function synthDay(apt: Apt, from: number, to: number, st: State, perHour 
 
 function freeStand(world: World, st: State, apt: Apt, operator: string, wake: string, kind: 'arr' | 'dep', prefer?: string): string | null {
   const as = st.apts.find(a => a.icao === apt.icao)!;
-  const ok = (s: Apt['stands'][number]) => !as.standOcc[s.ref] && (wake !== 'J' || s.maxWake === 'J') && (wake !== 'H' || s.maxWake !== 'M');
+  const ok = (s: Apt['stands'][number]) => !as.standOcc[s.ref] && standFits(s.maxWake, wake);
   const term = apt.terminalFor(operator);
   // Departures take over a parked aircraft; arrivals prefer an empty stand.
   const tiers = kind === 'dep'
@@ -225,7 +225,7 @@ function spawnOne(world: World, st: State, sp: Spawn): Aircraft | null {
 /** Arrivals appear at their STAR entry, or part-way along if they land soon after the shift starts. */
 function placeArrival(world: World, st: State, apt: Apt, ac: Aircraft, fixes: string[], entryAlt: number, landAt: number, initial: boolean): boolean {
   const nowU = st.start + st.tick * DT;
-  const remaining = landAt - nowU;
+  const remaining = Math.max(0, landAt - nowU); // a retried spawn may already be past its landing time
   const end = apt.ends[ac.runway!];
   const stackFix = apt.fixes[ac.stack!];
   const trans = transition(apt, stackFix, end);

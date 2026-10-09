@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { lineupBlocked, stackLevel } from './ai.ts';
+import { standFits } from './aircraft.ts';
 import { project } from './predict.ts';
 import { separation } from './rules.ts';
 import { pointOnEnd } from './world.ts';
@@ -203,4 +204,10 @@ test('taxiing aircraft never sit waiting on each other: one reserving nodes ahea
     for (const a of st.aircraft) if (a.onGround && a.stoppedS > 60 && a.blockedBy && find(st, a.blockedBy)?.blockedBy === a.cs) stuck++;
   });
   expect(stuck / 4).toBeLessThan(30); // aircraft-seconds; this was about 300 before
+});
+
+test('stand sizes: an aircraft fits a stand built for its wake category or larger', () => {
+  expect(['L', 'M', 'H', 'J'].map(w => standFits('H', w))).toEqual([true, true, true, false]);
+  expect(['L', 'M', 'H', 'J'].map(w => standFits('L', w))).toEqual([true, false, false, false]);
+  expect(standFits('J', 'J')).toBe(true);
 });

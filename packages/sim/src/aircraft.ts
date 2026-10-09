@@ -57,3 +57,7 @@ export const TYPES: Record<string, AircraftType> = {
 };
 
 export const KNOWN_TYPES = Object.keys(TYPES);
+
+const SIZE: Record<string, number> = { L: 0, M: 1, H: 2, J: 3 };
+/** Can a stand built for aircraft up to `maxWake` take one of this wake category? */
+export const standFits = (maxWake: string, wake: string | undefined) => (SIZE[wake ?? 'M'] ?? 1) <= (SIZE[maxWake] ?? 3);
