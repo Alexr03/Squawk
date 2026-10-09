@@ -55,6 +55,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     } else if (m.t === 'stop') { st = null; }
     else if (m.t === 'debug' && world && st) { debug(world, st, m.what, m.cs, m.nature); post({ t: 'snap', st: snapshot(st) }); }
   } catch (err) {
+    if (m.t === 'cmd') post({ t: 'cmd', id: m.id, err: 'That instruction failed (an error in the sim)' }); // don't leave the sender waiting
     post({ t: 'error', msg: String((err as Error)?.stack ?? err) });
   }
 };
