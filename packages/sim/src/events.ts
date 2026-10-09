@@ -7,7 +7,7 @@ import { updateIncidents } from './incidents.ts';
 import { DT, pick, rand, seatId, ticks, type Aircraft, type State } from './state.ts';
 import type { Nature } from './types.ts';
 import { chooseConfig } from './weather.ts';
-import { finalPoint, type World } from './world.ts';
+import { finalPoint, glidepath, type World } from './world.ts';
 
 export function scheduleNextEmergency(st: State) {
   const perHour = st.difficulty.emergencies;
@@ -19,7 +19,8 @@ export function emergencies(world: World, st: State) {
   scheduleNextEmergency(st);
   // Prefer aircraft the player is working.
   const cands = st.aircraft.filter(a => !a.emergency && !a.onGround && (a.phase === 'arrival' || a.phase === 'stack' || (a.phase === 'climb' && a.alt > 2500 && a.alt < 9000)));
-  const mine = cands.filter(a => st.coverage.includes(a.owner) || st.coverage.some(s => s.endsWith(':TWR')));
+  // (Covering an airport's Tower counts its arrivals and climbing departures too: they come to the tower.)
+  const mine = cands.filter(a => st.coverage.includes(a.owner) || st.coverage.includes(seatId(a.apt, 'TWR')));
   const pool = mine.length ? mine : cands;
   if (!pool.length) return;
   declare(world, st, pick(st, pool));
@@ -107,7 +108,6 @@ export function runwayConfig(world: World, st: State) {
         if (ac.kind === 'dep' && ['stand', 'pushing', 'pushed'].includes(ac.phase)) ac.runway = as.dep[0];
       }
     }
-    for (const [pair, until] of Object.entries(as.closed)) if (until <= st.tick) { delete as.closed[pair]; st.alerts.push({ tick: st.tick, level: 'info', text: `Runway ${pair} open` }); }
   }
 }
 
@@ -117,7 +117,7 @@ export function approachChecks(world: World, st: State) {
     if (ac.phase !== 'final' || !ac.nav.established || ac.onGround) continue;
     const apt = aptOf(world, ac), end = apt.ends[ac.runway!];
     const toThr = dist(ac, end.thr) / NM;
-    const gsAlt = elevation(apt) + 50 + toThr * NM * Math.tan((end.ils?.gsDeg ?? 3) * Math.PI / 180) * 3.28084;
+    const gsAlt = glidepath(apt, end, toThr * NM);
     if (toThr < 3.5 && ac.alt > gsAlt + 700) {
       event(st, { kind: 'missed-approach', severity: 1, text: `${ac.cs} unstable approach (too high), going around`, cs: [ac.cs] });
       goAround(world, st, ac, true);

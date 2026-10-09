@@ -3,7 +3,7 @@
 import { TYPES } from './aircraft.ts';
 import { angleDiff, bearing, dist, holdShape, KT, NM, norm360, racetrack, tas, turnRate } from './geo.ts';
 import type { Aircraft } from './state.ts';
-import { along, lateral, type World } from './world.ts';
+import { along, glidepath, lateral, type World } from './world.ts';
 
 export interface Pt { x: number; y: number; alt: number }
 
@@ -58,7 +58,7 @@ export function project(world: World, ac: Aircraft, secs = 240, step = 10): Pt[]
       }
       if (established) {
         want = norm360(end.hdgTrue - Math.max(-30, Math.min(30, (xt / NM) * 40)));
-        const gsAlt = apt.pack.elevationFt + 50 + toThr * Math.tan((end.ils?.gsDeg ?? 3) * Math.PI / 180) * 3.28084;
+        const gsAlt = glidepath(apt, end, toThr);
         if (alt >= gsAlt - 60) onGs = true;
         if (onGs) alt = Math.max(gsAlt, alt - 2500 / 60 * sub);
         if (toThr < 0) break; // landed

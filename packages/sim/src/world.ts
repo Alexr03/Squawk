@@ -241,6 +241,9 @@ export function pathLength(apt: Apt, path: number[]) {
 
 // ------------------------------------------------------------------ approach geometry
 
+/** Glidepath altitude (ft) at a distance (m) before the threshold: 50 ft over it, then up at the ILS angle. */
+export const glidepath = (apt: Apt, end: EndInfo, toThrM: number) => apt.pack.elevationFt + 50 + toThrM * Math.tan((end.ils?.gsDeg ?? 3) * Math.PI / 180) * 3.28084;
+
 /** Point on the extended centreline of an arrival end, nm before the threshold. */
 export const finalPoint = (e: EndInfo, nm: number): XY => ({ x: e.thr.x - e.ux * nm * NM, y: e.thr.y - e.uy * nm * NM });
 

@@ -2,7 +2,7 @@
 import { TYPES } from './aircraft.ts';
 import { angleDiff, bearing, dist, holdShape, KT, NM, norm360, segDist, tas, turnRate, windKtAt } from './geo.ts';
 import { DT, rand, ticks, type Aircraft, type State } from './state.ts';
-import { along, lateral, pointOnEnd, route, routeToRunway, runwayAt, type Apt, type EndInfo, type World } from './world.ts';
+import { along, glidepath, lateral, pointOnEnd, route, routeToRunway, runwayAt, type Apt, type EndInfo, type World } from './world.ts';
 import { emergencyStop } from './incidents.ts';
 
 const MS = (kt: number) => kt * KT;
@@ -465,7 +465,7 @@ export function moveAir(world: World, st: State, ac: Aircraft) {
     }
     if (nav.established) {
       wantHdg = crab(st, ac, course - Math.max(-30, Math.min(30, (xt / NM) * 40)));
-      gsAlt = elev + 50 + toThr * Math.tan((end.ils?.gsDeg ?? 3) * Math.PI / 180) * 3.28084;
+      gsAlt = glidepath(apt, end, toThr);
       if (!nav.gs && ac.alt >= gsAlt - 60) nav.gs = true;
     }
   }
