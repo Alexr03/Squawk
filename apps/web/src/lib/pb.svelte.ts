@@ -45,7 +45,9 @@ function merge(a: Progress, b: Progress): Progress {
   for (const [k, v] of Object.entries(b.passed)) if (!passed[k] || v.score > passed[k].score) passed[k] = v;
   const bests = { ...a.bests };
   for (const [k, v] of Object.entries(b.bests)) bests[k] = Math.max(bests[k] ?? 0, v);
-  return { ratings: [...new Set([...a.ratings, ...b.ratings])], passed, bests, daily: { ...b.daily, ...a.daily }, shifts: Math.max(a.shifts, b.shifts) };
+  const daily = { ...a.daily };
+  for (const [k, v] of Object.entries(b.daily)) if (!daily[k] || v.score > daily[k].score) daily[k] = v;
+  return { ratings: [...new Set([...a.ratings, ...b.ratings])], passed, bests, daily, shifts: Math.max(a.shifts, b.shifts) };
 }
 
 let profileId: string | null = null;
