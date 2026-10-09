@@ -50,6 +50,16 @@ describe('signalling rooms', () => {
     expect((await call(env, 'PUT', `/room/${code}/offer`, 'x'.repeat(20000))).status).toBe(400);
   });
 
+  it('budgets room writes per address, so nobody can loop them', async () => {
+    const env = { SQUAWK: kv() };
+    const { code } = await (await call(env, 'POST', '/room')).json();
+    let ok = 1;
+    for (let i = 0; i < 60; i++) if ((await call(env, 'PUT', `/room/${code}/offer`, { id: `x${i}` })).status === 200) ok++;
+    expect(ok).toBe(40);
+    expect((await call(env, 'POST', '/room')).status).toBe(429);
+    expect((await call(env, 'POST', '/room', undefined, '9.9.9.9')).status).toBe(200); // someone else is unaffected
+  });
+
   it('answers CORS preflight for any origin', async () => {
     const r = await call({ SQUAWK: kv() }, 'OPTIONS', '/room');
     expect(r.status).toBe(204);

@@ -15,6 +15,7 @@ const KV_MIN_TTL = 60;   // KV's shortest expiry; the 30 s window is checked aga
 const ROOM_TTL = 600;
 const MAX_BODY = 16_384; // an SDP code is ~1 kB
 const GRADES = ['S', 'A', 'B', 'C', 'D'];
+const ROOM_WRITES = 40;  // co-op signalling writes one address may make per ROOM_TTL (a session needs a handful)
 
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, PUT, OPTIONS', 'access-control-allow-headers': 'content-type' };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...CORS } });
@@ -26,9 +27,22 @@ async function body(req: Request): Promise<Record<string, unknown> | null> {
   try { const v = JSON.parse(text); return v && typeof v === 'object' && !Array.isArray(v) ? v : null; } catch { return null; }
 }
 
+const getJSON = async <T>(env: Env, key: string, missing: T): Promise<T> => { const v = await env.SQUAWK.get(key); return v === null ? missing : JSON.parse(v) as T; };
+
 async function board(env: Env, date: string): Promise<Entry[]> {
-  return JSON.parse((await env.SQUAWK.get(`daily:${date}`)) ?? '[]') as Entry[];
+  return getJSON<Entry[]>(env, `daily:${date}`, []);
 }
+
+/** Room writes are budgeted per address, so nobody can loop them and use up the day's KV writes. Costs one write itself. */
+async function roomWriteAllowed(req: Request, env: Env): Promise<boolean> {
+  const key = `rlw:${req.headers.get('cf-connecting-ip') ?? 'unknown'}`, now = Date.now();
+  const v = await getJSON<{ n: number; since: number } | null>(env, key, null);
+  const cur = v && now - v.since < ROOM_TTL * 1000 ? v : { n: 0, since: now };
+  if (cur.n >= ROOM_WRITES) return false;
+  await env.SQUAWK.put(key, JSON.stringify({ n: cur.n + 1, since: cur.since }), { expirationTtl: ROOM_TTL });
+  return true;
+}
+const busy = () => fail(429, 'Too many room requests; try again in a few minutes');
 
 async function submit(req: Request, env: Env, date: string): Promise<Response> {
   const ip = req.headers.get('cf-connecting-ip') ?? 'unknown';
@@ -54,10 +68,11 @@ async function room(req: Request, env: Env, code: string, rest: string[]): Promi
   const ttl = { expirationTtl: ROOM_TTL };
   const [what, peer] = rest;
   if (what === 'offer' && rest.length === 1) {
-    if (req.method === 'GET') return json(JSON.parse((await env.SQUAWK.get(`${roomKey(code)}:offer`)) ?? 'null')); // null: no invite yet (200, so polling stays quiet)
+    if (req.method === 'GET') return json(await getJSON(env, `${roomKey(code)}:offer`, null)); // null: no invite yet (200, so polling stays quiet)
     if (req.method === 'PUT') {
       const b = await body(req);
       if (!b) return fail(400, 'Expected a JSON object');
+      if (!(await roomWriteAllowed(req, env))) return busy();
       await env.SQUAWK.put(`${roomKey(code)}:offer`, JSON.stringify(b), ttl);
       await env.SQUAWK.put(roomKey(code), '1', ttl); // the host's activity keeps the room alive
       return json({ ok: true });
@@ -65,22 +80,24 @@ async function room(req: Request, env: Env, code: string, rest: string[]): Promi
   }
   if (what === 'answer' && rest.length === 2 && /^[a-z0-9]{1,16}$/i.test(peer)) {
     const key = `${roomKey(code)}:answer:${peer}`;
-    if (req.method === 'GET') return json(JSON.parse((await env.SQUAWK.get(key)) ?? 'null'));
+    if (req.method === 'GET') return json(await getJSON(env, key, null));
     if (req.method === 'PUT') {
       if (await env.SQUAWK.get(key)) return fail(409, 'That invite is taken');
       const b = await body(req);
       if (!b) return fail(400, 'Expected a JSON object');
+      if (!(await roomWriteAllowed(req, env))) return busy();
       await env.SQUAWK.put(key, JSON.stringify(b), ttl);
-      const peers = JSON.parse((await env.SQUAWK.get(`${roomKey(code)}:peers`)) ?? '[]') as string[];
+      const peers = await getJSON<string[]>(env, `${roomKey(code)}:peers`, []);
       await env.SQUAWK.put(`${roomKey(code)}:peers`, JSON.stringify([...peers, peer].slice(-32)), ttl);
       return json({ ok: true });
     }
   }
-  if (what === 'peers' && rest.length === 1 && req.method === 'GET') return json({ peers: JSON.parse((await env.SQUAWK.get(`${roomKey(code)}:peers`)) ?? '[]') });
+  if (what === 'peers' && rest.length === 1 && req.method === 'GET') return json({ peers: await getJSON<string[]>(env, `${roomKey(code)}:peers`, []) });
   return fail(405, 'Not allowed');
 }
 
-async function newRoom(env: Env): Promise<Response> {
+async function newRoom(req: Request, env: Env): Promise<Response> {
+  if (!(await roomWriteAllowed(req, env))) return busy();
   for (let i = 0; i < 8; i++) {
     const code = Array.from(crypto.getRandomValues(new Uint8Array(6)), n => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[n % 24]).join('');
     if (await env.SQUAWK.get(roomKey(code))) continue;
@@ -99,7 +116,7 @@ export async function handle(req: Request, env: Env): Promise<Response> {
       if (req.method === 'POST') return await submit(req, env, parts[1]);
     }
     if (parts[0] === 'room') {
-      if (parts.length === 1 && req.method === 'POST') return await newRoom(env);
+      if (parts.length === 1 && req.method === 'POST') return await newRoom(req, env);
       if (parts.length >= 3 && /^[A-Z]{6}$/.test(parts[1])) return await room(req, env, parts[1], parts.slice(2));
     }
     return fail(404, 'Not found');
