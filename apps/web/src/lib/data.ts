@@ -29,7 +29,8 @@ export const AIRPORTS: { icao: string; name: string }[] = Object.keys(airportUrl
 
 const cache = new Map<string, Promise<unknown>>();
 function load<T>(url: string): Promise<T> {
-  if (!cache.has(url)) cache.set(url, fetch(url).then(r => { if (!r.ok) throw new Error(`${url}: ${r.status}`); return r.json(); }));
+  // A failed load isn't kept: trying again from the menu fetches it again.
+  if (!cache.has(url)) cache.set(url, fetch(url).then(r => { if (!r.ok) throw new Error(`${url}: ${r.status}`); return r.json(); }).catch(e => { cache.delete(url); throw e; }));
   return cache.get(url) as Promise<T>;
 }
 
