@@ -87,3 +87,19 @@ Free shift and co-op offer a "Made-up day" per airport alongside the real record
 
 ## Fast day and night
 On by default (Settings > Gameplay, or the pause menu): the clock, sun and sky run 30x (an hour every two minutes of play) so a session sees dusk and dawn. Only presentation changes: traffic, weather, separation and timers stay on the real sim clock. The radio log uses the same fast clock so times match the top bar.
+
+## Separation alerts (packages/sim/src/rules.ts, predict.ts)
+- **Prediction follows the real path.** `project()` flies each aircraft's current instructions forward (turn rates and the instructed turn direction, routes, the holding racetrack, ILS capture and the glidepath, climb/descent to the cleared level) in 10 s steps. STCA warns (amber) only if that path comes inside the minimum within 2 minutes; the scope's projection line for the selected aircraft is the same function, so what you see is what STCA predicts.
+- **Red means closing.** Inside the minimum (3 nm in the TMA, 5 nm outside, under 900 ft vertically) is a red loss, counted once, only while the pair is converging. Moving apart, or both in the same hold, is an amber caution at most and never a new penalty; a loss already counted stays counted until the pair is clear.
+- **The final approach is always watched,** even low and close in where the rest of the Tower's domain is left to the tower (below 2,600 ft within 7 nm). Two arrivals on the same final (established, or lined up within 0.5 nm of the centreline inside 15 nm): inside wake spacing (or predicted to be) is an amber caution on the follower; under 1 nm and 500 ft is red. Final-approach cautions draw no line on the scope (the follower's tag turns amber), so the airport view stays clean.
+- **Stack levels:** an aircraft is never given a stack level someone in that hold is still at or cleared to, even when it is still far out; it takes the next one up.
+- **AI vectoring:** an arrival levelled off for traffic is cleared on down once nothing is in conflict with it, and the AI Director releases whoever best fills the slot behind the last release (not someone at the far end of a holding pattern, and not one too high to get down on the track).
+
+## Holding (packages/sim/src/physics.ts, geo.ts)
+- Rate-one turns, limited to 25° of bank (about 2°/s at holding speeds), in holds only; vectoring keeps the 3°/s (2.5°/s heavies) the AI approach is tuned for.
+- Proper entries by sector: direct, parallel (outbound on the non-holding side, turn back the other way), teardrop (30° into the holding side until a turn will roll out on the inbound leg).
+- Inbound leg 1 minute (1½ above FL140) in still air. Turn radius is sized for the wind at that level (TAS + wind over the turn rate), so the turn stays flyable with the wind behind it; both legs and both turns are tracked with wind correction, settling within about 0.15 nm.
+- The scope draws each stack at the size flown at its bottom level in the current wind; a selected aircraft's projection uses its exact pattern.
+
+## Incidents
+- Fire vehicles drive the taxi graph: A* from the taxiway nearest the station to the one nearest the incident (crossing runways where they must, along the incident's own runway if quicker), off the graph only for the station's own access and the last metres onto the scene, and back the same way. They leave four seconds apart.
